@@ -106,47 +106,47 @@ if (isset($_POST["privatemode"]) && $_POST["privatemode"] == "user_admin") {
             sqlStatement("update `groups` set user=? where user= ?", array(trim($_POST["username"]), $user_data["username"]));
         }
 
-        if ($_POST["taxid"]) {
+        if (isset($_POST["taxid"])) {
             sqlStatement("update users set federaltaxid=? where id= ? ", array($_POST["taxid"], $_POST["id"]));
         }
 
-        if ($_POST["state_license_number"]) {
+        if (isset($_POST["state_license_number"])) {
             sqlStatement("update users set state_license_number=? where id= ? ", array($_POST["state_license_number"], $_POST["id"]));
         }
 
-        if ($_POST["drugid"]) {
+        if (isset($_POST["drugid"])) {
             sqlStatement("update users set federaldrugid=? where id= ? ", array($_POST["drugid"], $_POST["id"]));
         }
 
-        if ($_POST["upin"]) {
+        if (isset($_POST["upin"])) {
             sqlStatement("update users set upin=? where id= ? ", array($_POST["upin"], $_POST["id"]));
         }
 
-        if ($_POST["npi"]) {
+        if (isset($_POST["npi"])) {
             sqlStatement("update users set npi=? where id= ? ", array($_POST["npi"], $_POST["id"]));
         }
 
-        if ($_POST["taxonomy"]) {
+        if (isset($_POST["taxonomy"])) {
             sqlStatement("update users set taxonomy = ? where id= ? ", array($_POST["taxonomy"], $_POST["id"]));
         }
 
-        if ($_POST["lname"]) {
+        if (isset($_POST["lname"])) {
             sqlStatement("update users set lname=? where id= ? ", array($_POST["lname"], $_POST["id"]));
         }
 
-        if ($_POST["suffix"]) {
+        if (isset($_POST["suffix"])) {
             sqlStatement("update users set suffix=? where id= ? ", array($_POST["suffix"], $_POST["id"]));
         }
 
-        if ($_POST["valedictory"]) {
+        if (isset($_POST["valedictory"])) {
             sqlStatement("update users set valedictory=? where id= ? ", array($_POST["valedictory"], $_POST["id"]));
         }
 
-        if ($_POST["job"]) {
+        if (isset($_POST["job"])) {
             sqlStatement("update users set specialty=? where id= ? ", array($_POST["job"], $_POST["id"]));
         }
 
-        if ($_POST["mname"]) {
+        if (isset($_POST["mname"])) {
             sqlStatement("update users set mname=? where id= ? ", array($_POST["mname"], $_POST["id"]));
         }
 
@@ -251,8 +251,13 @@ if (isset($_POST["privatemode"]) && $_POST["privatemode"] == "user_admin") {
         $calvar = (!empty($_POST["calendar"]))   ? 1 : 0;
         $portalvar = (!empty($_POST["portal_user"])) ? 1 : 0;
 
+        // @VH: Auto Confirm Appt
+        $auto_confirm_apptvar = $_POST["auto_confirm_appt"]   ? 1 : 0;
+        $allow_create_blockvar = $_POST["allow_create_block"]   ? 1 : 0;
+
+        // @VH: Update query to save 'auto_confirm_appt', 'allow_create_block' values
         sqlStatement("UPDATE users SET authorized = ?, active = ?, " .
-        "calendar = ?, portal_user = ?, see_auth = ? WHERE " .
+        "calendar = ?, auto_confirm_appt = $auto_confirm_apptvar, allow_create_block = $allow_create_blockvar, portal_user = ?, see_auth = ? WHERE " .
         "id = ? ", array($tqvar, $actvar, $calvar, $portalvar, $_POST['see_auth'], $_POST["id"]));
         //Display message when Emergency Login user was activated
         if (is_countable($_POST['access_group'])) {
@@ -309,6 +314,13 @@ if (isset($_POST["privatemode"]) && $_POST["privatemode"] == "user_admin") {
             sqlStatement("update users set google_signin_email = ? where id = ? ", array($googleSigninEmail, $_POST["id"]));
         }
 
+        // @VH: Code added by Sandeep 
+        // @VH: To unblock user if login_failed_attemps exceed. login_failed_attemps will set to 0.
+        if(isset($_POST['chk_reset_failed_count']))// && $_POST['reset_failed_count']== 1
+        {
+            sqlStatement("update users_secure set login_fail_counter = 0 where username = ? ", array($user_data["username"]));
+        }
+
         // Set the access control group of user
         $user_data = sqlFetchArray(sqlStatement("select username from users where id= ?", array($_POST["id"])));
         AclExtended::setUserAro(
@@ -336,6 +348,10 @@ if (isset($_POST["mode"])) {
         $calvar = (!empty($_POST["calendar"])) ? 1 : 0;
         $portalvar = (!empty($_POST["portal_user"])) ? 1 : 0;
 
+        // @VH: Auto Confirm Appt
+        $auto_confirm_apptvar = $_POST["auto_confirm_appt"]   ? 1 : 0;
+        $allow_create_blockvar = $_POST["allow_create_block"]   ? 1 : 0;
+
         $res = sqlQuery("select username from users where username = ?", [trim($_POST['rumple'])]);
         $doit = true;
         if (!empty($res['username'])) {
@@ -352,6 +368,7 @@ if (isset($_POST["mode"])) {
                     $googleSigninEmail = "'" . add_escape_custom(trim($_POST["google_signin_email"])) . "'";
                 }
             }
+            // @VH: Added auto_confirm_appt, allow_create_block
             $insertUserSQL =
             "insert into users set " .
             "username = '"         . add_escape_custom(trim((isset($_POST['rumple']) ? $_POST['rumple'] : ''))) .
@@ -366,6 +383,8 @@ if (isset($_POST["mode"])) {
             "', state_license_number = '"  . add_escape_custom(trim((isset($_POST['state_license_number']) ? $_POST['state_license_number'] : ''))) .
             "', newcrop_user_role = '"  . add_escape_custom(trim((isset($_POST['erxrole']) ? $_POST['erxrole'] : ''))) .
             "', physician_type = '"  . add_escape_custom(trim((isset($_POST['physician_type']) ? $_POST['physician_type'] : ''))) .
+            "', auto_confirm_appt = '"  . $auto_confirm_apptvar .
+            "', allow_create_block = '"  . $allow_create_blockvar .
             "', main_menu_role = '"  . add_escape_custom(trim((isset($_POST['main_menu_role']) ? $_POST['main_menu_role'] : ''))) .
             "', patient_menu_role = '"  . add_escape_custom(trim((isset($_POST['patient_menu_role']) ? $_POST['patient_menu_role'] : ''))) .
             "', weno_prov_id = '"  . add_escape_custom(trim((isset($_POST['erxprid']) ? $_POST['erxprid'] : ''))) .

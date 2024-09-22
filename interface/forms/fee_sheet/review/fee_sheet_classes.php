@@ -99,15 +99,26 @@ class procedure extends code_info
  * This is a class which pairs an encounter's ID with the date of the encounter
  */
 class encounter_info
-{
-    function __construct($id, $date)
+{   
+    // @VH: Added new arguments To show provider and categories info into select encounter list item of feesheet review (cat_name, provider_name) [2023090101]
+    function __construct($id, $date, $cat_name, $provider_name)
     {
         $this->id = $id;
         $this->date = $date;
+
+        // @VH: [2023090101]
+        $this->cat_name = $cat_name;
+        $this->provider_name = $provider_name;
+        $this->option_title = oeFormatShortDate(date("Y-m-d", strtotime($date))) . " " . $cat_name . " / " . $provider_name;
     }
 
     public $id;
     public $date;
+
+    // @VH: [2023090101]
+    public $cat_name;
+    public $provider_name;
+    public $option_title;
 
     function getID()
     {

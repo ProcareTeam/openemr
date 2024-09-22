@@ -1,4 +1,5 @@
 <div class="w-100">
+{# @VH: Commented Original report
 {% for e in encounters %}
     {% set _reason = (e.reason) ? " - " ~ e.reason|text|nl2br : "" %}
     <h3>{{ e.category|text }}{{ _reason }}</h3>
@@ -10,4 +11,41 @@
         <br>{{ "Referring Provider"|xlt }} - {{ e.referringProvider|text }}
     {% endif %}
 {% endfor %}
+#}
+
+<table><tr><td>
+{% for e in encounters %}
+    {% if e.facility %}
+        <span class=bold>{{ "Facility"|xlt }}: </span><span class=text> {{ e.facility|text }}</span><br />
+    {% endif %}
+
+    {% if e.category %}
+        <span class=bold>{{ "Category"|xlt }}: </span><span class=text> {{ e.category|text }}</span><br />
+    {% endif %}
+
+    {% if e.provider %}
+        <span class=bold>{{ "Provider"|xlt }}: </span><span class=text> {{ e.provider|text }} ({{ e.taxomony|text }})</span><br />
+    {% endif %}
+
+    {% if e.referringProvider %}
+        <span class=bold>{{ "Referring Provider"|xlt }}: </span><span class=text> {{ e.referringProvider|text }}</span><br />
+    {% endif %}
+
+    {% if e.supervisor_provider %}
+        <span class=bold>{{ "Supervisor"|xlt }}: </span><span class=text> {{ e.supervisor_provider|text }}</span><br />
+    {% endif %}
+
+    {% if e.case_description %}
+        <span class=bold>{{ "Case"|xlt }}: </span><span class=text> {{ e.case_description|text }}</span><br/>
+    {% endif %}
+
+    {% if e.reason %}
+        <span class=bold>{{ "Reason"|xlt }}: </span><span class=text> {{ e.reason|text }}</span><br/>
+    {% endif %}
+
+    {% if e.billing_code %}
+        <span class=bold>{{ "Billing"|xlt }}: </span><span class=text> {{ e.billing_code|text }}</span>
+    {% endif %}
+{% endfor %}
+</td></tr></table>
 </div>

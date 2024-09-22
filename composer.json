@@ -77,7 +77,9 @@
         "vlucas/phpdotenv": "5.5.0",
         "waryway/php-traits-library": "1.0.4",
         "yubico/u2flib-server": "1.0.2",
-        "twilio/sdk": "7.12.0"
+        "twilio/sdk": "7.12.0",
+        "dantsu/php-image-editor": "^1.4",
+        "aws/aws-sdk-php": "^3.0"
     },
     "config": {
         "platform": {

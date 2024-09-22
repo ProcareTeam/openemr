@@ -124,6 +124,14 @@
                             $provinfo = sqlFetchArray($res);
 
                             $eData = $event['eid']."~".$eventdate;
+                            // @VH: Check is event is block or not [V100036]
+                            $eventtype = sqlQuery("SELECT pc_cattype FROM openemr_postcalendar_categories as oc LEFT OUTER JOIN openemr_postcalendar_events as oe ON oe.pc_catid=oc.pc_catid WHERE oe.pc_eid=?", [$event['eid']]);
+                            $pccattype = '';
+                            if($eventtype['pc_cattype']==1) $pccattype = 'true';
+
+
+                            $eData = $event['eid']."~".$eventdate."~".$pccattype;
+                            // END
                             $trTitle = xl('Click to edit this event');
                             echo "<tr class='calsearch_event' id='" . attr($eData) . "' title='" . attr($trTitle) . "'>";
 

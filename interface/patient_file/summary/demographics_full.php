@@ -25,6 +25,7 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 use OpenEMR\Events\PatientDemographics\UpdateEvent;
 
+
 // Session pid must be right or bad things can happen when demographics are saved!
 //
 $set_pid = $_GET["set_pid"] ?? ($_GET["pid"] ?? null);
@@ -62,7 +63,8 @@ $CPR = 4; // cells per row
 <!DOCTYPE html>
 <html>
 <head>
-<?php Header::setupHeader(['datetime-picker','common','select2', 'erx']);
+<!-- @VH: Changes -->
+<?php Header::setupHeader(['datetime-picker','common','select2', 'erx', 'oemr_ad']);
 ?>
 <title><?php echo xlt('Edit Current Patient'); ?></title>
 
@@ -409,8 +411,9 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
 
 <body class="body_top">
 
+<!-- @VH: Changed onsubmit function [V100050] -->
 <form action='demographics_save.php' name='demographics_form' id="DEM" method='post' class='form-inline'
- onsubmit="submitme(<?php echo $GLOBALS['new_validate'] ? 1 : 0;?>,event,'DEM',constraints)">
+ onsubmit="handleOnSubmit_DemographicsFull(submitme(<?php echo $GLOBALS['new_validate'] ? 1 : 0;?>,event,'DEM',constraints), this, event, 'DEM')">
 <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
 <input type='hidden' name='mode' value='save' />
 <input type='hidden' name='db_id' value="<?php echo attr($result['id']); ?>" />

@@ -55,6 +55,22 @@ class LBF_Validation
                 $required = array(self::VJS_KEY_REQUIRED => true);
             }
 
+            // @VH: validate zip
+            if (!empty($frow['edit_options'])) {
+                foreach (json_decode($frow['edit_options'], true) as $edit_option_value) {
+                    // Added validation for zip
+                    if ($edit_option_value == "VAZ") {
+                        $required = array_merge($required, array(
+                            'format' => array(
+                                'pattern' => "^\d{5}$",
+                                'message' => "can only contain 5 digit"
+                            )
+                        ));
+                    }
+                }
+            }
+            // END
+
             if ($frow['validation_json']) {
                 if (json_decode($frow['validation_json'])) {
                     $validation_arr = json_decode($frow['validation_json'], true);

@@ -317,14 +317,17 @@ if ($what == 'fields' && $source == 'V') {
             if (stripos($codetype, 'VALUESET') !== false) {
                 $dynCodeType = $row['valueset_code_type'] ?? 'VALUESET';
             }
+            // @VH: Modified "description" field and added "modifer" field. [V100053]
             $arow = array('DT_RowId' => genFieldIdString(array(
                 'code' => $row['code'],
-                'description' => $row['code_text'],
+                'description' => $row['code_text'] . ($row['modifier'] ? ' - [Modifier: ' . $row['modifier'] . ']' : ''),
+                'modifier' => $row['modifier'],
                 'codetype' => $dynCodeType,
                 'modifier' => $row['modifier'],
             )));
             $arow[] = str_replace('|', ':', rtrim($row['code'], '|'));
-            $arow[] = $row['code_text'];
+            // @VH: added "modifer" value to code text. [V100053]
+            $arow[] = $row['code_text']. ($row['modifier'] ? ' - [Modifier: ' . $row['modifier'] . ']' : '');
             $arow[] = $row['modifier'];
             $out['aaData'][] = $arow;
         }

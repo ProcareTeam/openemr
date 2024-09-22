@@ -122,6 +122,8 @@ class InsuranceCompanyService extends BaseService
 
     public function search($search, $isAndCondition = true)
     {
+        // @VH: added "parent_company" into query for display [2024081401]
+        // TODO: @VH move into module
         $sql = " SELECT i.id,";
         $sql .= "        i.uuid,";
         $sql .= "        i.name,";
@@ -151,6 +153,7 @@ class InsuranceCompanyService extends BaseService
         $sql .= "        a.state,";
         $sql .= "        a.zip,";
         $sql .= "        a.plus_four,";
+        $sql .= "        i.parent_company,";
         $sql .= "        a.country";
         $sql .= " FROM insurance_companies i ";
         $sql .= " LEFT JOIN (SELECT line1,line2,city,state,zip,plus_four,country,foreign_id FROM addresses) a ON i.id = a.foreign_id";

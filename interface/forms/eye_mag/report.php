@@ -252,8 +252,9 @@ function narrative($pid, $encounter, $cols, $form_id, $choice = 'full')
     $dated = $dated->format('Y/m/d');
     $visit_date = oeFormatShortDate($dated);
     ?>
-
-    <?php Header::setupHeader(['no_dialog', 'no_jquery', 'fontawesome']); ?>
+    
+    <!-- @VH: Fix - When print report as pdf it create blank pdf pages. [2023021501] -->
+    <?php if (!$PDF_OUTPUT) Header::setupHeader(['no_dialog', 'no_jquery', 'fontawesome']); ?>
     <link rel="stylesheet" href="../../forms/eye_mag/css/report.css">
     <style>
         <?php if ($PDF_OUTPUT) { ?>

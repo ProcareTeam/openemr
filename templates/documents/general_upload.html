@@ -11,7 +11,7 @@
 *}
 
 <div class="col-sm-12">
-    <form class="form" method="post" enctype="multipart/form-data" action="{$FORM_ACTION}" onsubmit="return top.restoreSession()">
+    <form class="form" method="post" enctype="multipart/form-data" action="{$FORM_ACTION}redirect_to_document&" onsubmit="return top.restoreSession()">
         <input type="hidden" name="MAX_FILE_SIZE" value="64000000" />
         <h3>{if !empty($error)}{$error|text|nl2br}{/if}</h3>
         {if (!($patient_id > 0))}

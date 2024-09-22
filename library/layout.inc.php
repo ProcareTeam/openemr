@@ -24,6 +24,7 @@
  * @link      http://www.open-emr.org
  */
 
+// @VH: Added data type ("Multiple Text Field") [V100083]
 // array of the data_types of the fields
 // TODO: Move these all to a statically typed class with constants that can be referenced throughout the codebase!
 $datatypes = array(
@@ -64,7 +65,8 @@ $datatypes = array(
     "51" => xl("Patient"),
     "52" => xl("Previous Names"),
     "53" => xl("Patient Encounters List"),
-    "54" => xl("Address List")
+    "54" => xl("Address List"),
+    "101" => xl("Multiple Text Field")
 );
 
 // These are the data types that can reference a list.
@@ -78,8 +80,11 @@ $sources = array(
     'V' => xl('VisForm'),
 );
 
+// @VH: added 'Required (Section)', 'Unused (Readonly)' option [2024073101]
 $UOR = array(
     0 => xl('Unused'),
     1 => xl('Optional'),
     2 => xl('Required'),
+    3 => xl('Required (Section)'),
+    4 => xl('Unused (Readonly)'),
 );

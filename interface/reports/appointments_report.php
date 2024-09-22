@@ -173,6 +173,13 @@ if (empty($_POST['form_csvexport'])) {
             dlgopen('../main/calendar/add_edit_event.php?eid=' + encodeURIComponent(eventid), 'blank', 775, 500);
         }
 
+        // @VH: gopid [V100073]
+        function goPid(pid) {
+            top.restoreSession();
+            top.RTop.location = '<?php echo $GLOBALS['webroot']; ?>' + '/interface/patient_file/summary/demographics.php?set_pid='+pid;
+        }
+        // End 
+
         </script>
 
         <style>
@@ -198,6 +205,12 @@ if (empty($_POST['form_csvexport'])) {
                 display: none;
             }
         }
+
+        /* @VH: Changes [V100073] */
+        .detailsLink {
+            cursor: pointer;
+        }
+        /* End */
         </style>
 </head>
 
@@ -514,10 +527,12 @@ if (!empty($_POST['form_refresh']) || !empty($_POST['form_orderby'])) {
                 ?>
             </td>
 
-            <td class="detail"><?php echo text(oeFormatTime($appointment['pc_startTime'])) ?>
+            <!-- @VH: Added link [V100073] -->
+            <td class="detail"><a class="detailsLink" onclick="oldEvt('<?php echo $appointment['pc_eid']; ?>')"><?php echo text(oeFormatTime($appointment['pc_startTime'])) ?></a>
             </td>
 
-            <td class="detail">&nbsp;<?php echo text($appointment['fname'] . " " . $appointment['lname']) ?>
+            <!-- OEMR - Added go to patient link -->
+            <td class="detail">&nbsp;<a class="detailsLink" onclick="goPid('<?php echo $appointment['pid']; ?>')"><?php echo text($appointment['fname'] . " " . $appointment['lname']) ?></a>
             </td>
 
             <td class="detail">&nbsp;<?php echo text($appointment['pubpid']) ?></td>

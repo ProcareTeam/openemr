@@ -53,6 +53,7 @@ require_once("user.inc.php");
 require_once("patient.inc.php");
 require_once("lists.inc.php");
 require_once(dirname(dirname(__FILE__)) . "/custom/code_types.inc.php");
+require_once("OemrAD/oemrad.globals.php");
 
 use OpenEMR\Common\Acl\AclExtended;
 use OpenEMR\Common\Acl\AclMain;
@@ -63,6 +64,8 @@ use OpenEMR\Services\EncounterService;
 use OpenEMR\Services\FacilityService;
 use OpenEMR\Services\PatientService;
 use OpenEMR\Events\PatientDemographics\RenderPharmacySectionEvent;
+use OpenEMR\OemrAd\EmailVerificationLib;
+use OpenEMR\OemrAd\Demographicslib;
 
 $facilityService = new FacilityService();
 
@@ -684,10 +687,31 @@ function generate_form_field($frow, $currvalue)
             $string_maxlength = "maxlength='" . attr($maxlength) . "'";
         }
 
+        // @VH: Email Verification changes. [V100075] 
+        if (isOption($edit_options, 'EMV') !== false) {
+            global $pid;
+            $pid = ($frow['blank_form'] ?? null) ? 0 : $pid;
+            $emvStatus = EmailVerificationLib::getEmailVerificationData($currescaped);
+            $smallform .= " emv-form-control";
+
+            echo "<div class='emv-input-group-container' data-initemail='{$currescaped}' data-initstatus='{$emvStatus}' data-id='form_{$field_id_esc}'><div class='input-group'>";
+        }
+        // End
+
+        // @VH: Mask phone number value. [V100076]
+        $fieldPostfix = '';
+        if (isOption($frow['edit_options'], 'MP') !== false) {
+            $smallform .= " phonemask";
+            $fieldPostfix = '_mfield';
+            echo "<input type='hidden' class='form-control' title='{$description}' name='form_{$field_id_esc}'
+            id='form_{$field_id_esc}' size='{$fldlength}' value='{$currescaped}' readonly />";
+        }
+        // END
+
         echo "<input type='text'
             class='form-control{$smallform}'
-            name='form_{$field_id_esc}'
-            id='form_{$field_id_esc}'
+            name='form_{$field_id_esc}{$fieldPostfix}'
+            id='form_{$field_id_esc}{$fieldPostfix}'
             size='{$fldlength}'
             {$string_maxlength}
             {$placeholder}
@@ -714,6 +738,14 @@ function generate_form_field($frow, $currvalue)
             echo " onblur='maskblur(this,\"$tmp\")'";
         }
 
+        // @VH: Phonekeyup [V100076]
+        if (isOption($frow['edit_options'], 'MP') !== false) {
+            echo " phonemask-field='form_{$field_id_esc}'";
+            echo " onkeyup='fieldPhonekeyup(this)'";
+            echo " onfocusout='fieldPhonekeyup(this, true)'";
+        }
+        // END
+
         if (isOption($edit_options, '1') !== false && strlen($currescaped) > 0) {
             echo " readonly";
         }
@@ -722,7 +754,20 @@ function generate_form_field($frow, $currvalue)
             echo ' disabled';
         }
 
+        // @VH: Validate phone number. [V100076]
+        if (isOption($frow['edit_options'], 'MPV') !== false) {
+            echo " data-title='".$frow['title']."' data-id='$field_id_esc' data-validate='validatePhoneNumber;'";
+        }
+        // END
+
         echo " />";
+
+        // @VH: Email Verification changes [V100075]
+        if (isOption($edit_options, 'EMV') !== false) {
+            echo "<div class='input-group-append'><input type='hidden' name='form_{$field_id_esc}_hidden_verification_status' value='{$vStatusFlag}' id='form_{$field_id_esc}_hidden_verification_status' class='hidden_verification_status' /><button type='button' id='form_{$field_id_esc}_btn_verify_email' class='btn btn-primary btn-sm btn_verify_email mb-1'>Verify</button></div>";
+            echo "</div><div class='status-icon-container'></div></div>";
+        }
+        // END
     } elseif ($data_type == 3) { // long or multi-line text field
         $textCols = htmlspecialchars($frow['fld_length'], ENT_QUOTES);
         $textRows = htmlspecialchars($frow['fld_rows'], ENT_QUOTES);
@@ -1660,8 +1705,90 @@ function generate_form_field($frow, $currvalue)
         echo "</select>";
     } elseif ($data_type == 54) {
         include "templates/address_list_form.php";
+    } elseif ($data_type == 101) {
+        // @VH: Added multi text field type for add input field dynamically. [V100083]
+        $explodeVal = explode(",", $currescaped);
+        $miContainerId = 'mti-container-' . $field_id_esc;
+        $btnSize = ($smallform) ? "btn-sm" : "";
+
+        echo "<div id='$miContainerId' data-id='$field_id_esc' class='mti-container'>";
+        echo "<div class='mti-inputcontainer'>";
+        
+        $i = 0;
+        foreach ($explodeVal as $ei => $eItem) {
+            echo getMultiTextInputElement($frow, $eItem, true);
+            $i++;
+        }
+
+        $cloneElement = getMultiTextInputElement($frow, '', true);
+
+        echo "</div>";
+        echo "<div><button type='button' class='btn btn-primary $btnSize mb-1' data-id='$field_id_esc' onclick='addMoreInput(this)'><i class='fa fa-plus' aria-hidden='true'></i> Add more</button></div>";
+
+            // Hidden form field exists to send updated data to the server at submit time.
+        echo "<div style='display:none;'><div id='clone-container_$field_id_esc'>" . $cloneElement . "</div><textarea class='mti-form-$field_id_esc' id='form_$field_id_esc' name='form_$field_id_esc' style='display:none;'>$currescaped</textarea></div></div>";
+        // END
     }
 }
+
+// @VH: Dynamically add input field if field type is multi text [V100083]
+function getMultiTextInputElement($frow, $field_value = '', $rmBtn = false) {
+    global $edit_options, $lbfchange;
+
+    $field_id = $frow['field_id'];
+    $list_id  = $frow['list_id'];
+    $field_id_esc = text($field_id);
+    $smallform = isset($frow['smallform']) ? $frow['smallform'] : "";
+    $description = (isset($frow['description']) ? htmlspecialchars(xl_layout_label($frow['description']), ENT_QUOTES) : '');
+    // Support using the description as a placeholder
+    $placeholder = (isOption($edit_options, 'DAP') === true) ? " placeholder='{$description}' " : '';
+    $btnSize = ($smallform) ? "btn-sm" : "";
+
+    $tmp = $lbfchange;
+    if (isOption($edit_options, 'C') !== false) {
+        $tmp .= "capitalizeMe(this);";
+    } elseif (isOption($edit_options, 'U') !== false) {
+        $tmp .= "this.value = this.value.toUpperCase();";
+    }
+
+    $onkeyupfun = "";
+    if (isOption($frow['edit_options'], 'MP') !== false) {
+        $smallform .= " phonemask";
+        $onkeyupfun = " onkeyup='fieldPhonekeyup(this)'";
+    }
+
+    if (isOption($frow['edit_options'], 'MPV') !== false) {
+        $mpValidation = " data-validate='validatePhoneNumber;'";
+    }
+
+    $tmpOnChange = !empty($tmp) ? " onchange='$tmp'" : "";
+
+    $mIRemoveBtn = "<button type='button' data-id='$field_Id' class='btn btn-secondary $btnSize mb-1 ' onclick='removeMoreInput(this)'><i class='fa fa-times' aria-hidden='true'></i></button>";
+
+
+
+    $mIInputEle = "<input type='text'" . 
+                " class='form-control mti-form-control {$smallform}' " .
+                " data-id='$field_id_esc'" . 
+                " data-title='".$frow['title']."'" .  
+                " size='{$fldlength}'" . 
+                " {$string_maxlength}" . 
+                " {$placeholder}" .
+                " title='{$description}'" .
+                " " . $mpValidation . 
+                " " . $tmpOnChange . 
+                " " . $onkeyupfun . 
+                " value='" . trim($field_value) . "'" .
+                "/>";
+
+    $mICloneEle = "<div class='input-group'>" . $mIInputEle . "<div class='input-group-append'>" . $mIRemoveBtn . "</div></div>";
+    $mIElement = "<div class='mti-itemcontainer'>" . $mIInputEle . "</div>";
+
+    if($rmBtn === true) { $mIElement = $mICloneEle; }
+
+    return $mIElement;
+}
+// END
 
 function generate_print_field($frow, $currvalue, $value_allowed = true)
 {
@@ -2529,6 +2656,8 @@ function generate_display_field($frow, $currvalue)
         } else {
             // In this special case, fld_length is the number of columns generated.
             $cols = max(1, $frow['fld_length']);
+            // @VH: Fixed col size to 1 for display [V100084]
+            $cols = 1;
             $avalue = explode('|', $currvalue);
             $lres = sqlStatement("SELECT * FROM list_options " .
                 "WHERE list_id = ? AND activity = 1 ORDER BY seq, title", array($list_id));
@@ -2536,6 +2665,14 @@ function generate_display_field($frow, $currvalue)
             for ($count = 0; $lrow = sqlFetchArray($lres); ++$count) {
                 $option_id = $lrow['option_id'];
                 $option_id_esc = text($option_id);
+
+                // @VH: Change [V100084]
+                if(!in_array($option_id, $avalue)) {
+                    --$count;
+                    continue;
+                }
+                // END
+
                 if ($count % $cols == 0) {
                     if ($count) {
                         $s .= "</tr>";
@@ -2654,9 +2791,11 @@ function generate_display_field($frow, $currvalue)
             }
 
             // Added 5-09 by BM - Translate label if applicable
-            $s .= "<tr><td class='font-weight-bold align-top'>" . htmlspecialchars(xl_list_label($lrow['title']), ENT_NOQUOTES) . "&nbsp;</td>";
+            // @VH: Removed font bold class [V100084]
+            $s .= "<tr><td class='align-top'>" . htmlspecialchars(xl_list_label($lrow['title']), ENT_NOQUOTES) . "&nbsp;</td>";
 
-            $restype = $restype ? xl('Yes') : xl('No');
+            // @VH: Type label changed [V100084]
+            $restype = $restype ? xl('True') : xl('False');
             $s .= "<td class='text align-top'>" . htmlspecialchars($restype, ENT_NOQUOTES) . "&nbsp;</td>";
             $s .= "<td class='text align-top'>" . htmlspecialchars($resnote, ENT_NOQUOTES) . "</td>";
             $s .= "</tr>";
@@ -2666,6 +2805,8 @@ function generate_display_field($frow, $currvalue)
     } elseif ($data_type == 27) { // a set of labeled radio buttons
         // In this special case, fld_length is the number of columns generated.
         $cols = max(1, $frow['fld_length']);
+        // @VH: Fixed col size for display [V100084]
+        $cols = 1;
         $lres = sqlStatement("SELECT * FROM list_options " .
           "WHERE list_id = ? ORDER BY seq, title", array($list_id));
         $s .= "<table cellspacing='0' cellpadding='0'>";
@@ -2678,6 +2819,16 @@ function generate_display_field($frow, $currvalue)
                 }
                 $s .= "<tr>";
             }
+
+            // @VH: Change
+            $checked = ((strlen($currvalue) == 0 && $lrow['is_default']) ||
+                (strlen($currvalue)  > 0 && $option_id == $currvalue));
+            if(!$checked) {
+                --$count;
+                continue;
+            }
+            // END
+
             $checked = ((strlen($currvalue) == 0 && $lrow['is_default']) ||
                 (strlen($currvalue)  > 0 && $option_id == $currvalue));
             if (!$show_unchecked && $checked) {
@@ -2879,6 +3030,10 @@ function generate_display_field($frow, $currvalue)
         }
     } elseif ($data_type == 54) {
         include "templates/address_list_display.php";
+    } else if ($data_type == 101) {
+        // @VH: Multiple Text Field display [V100083]
+        $ts = nl2br($currvalue);
+        $s = str_replace(",",",<br/>",$ts);
     }
 
     return $s;
@@ -3572,6 +3727,9 @@ function display_layout_rows($formtype, $result1, $result2 = '')
 
             // Handle a data category (group) change.
             if (strcmp($this_group, $last_group) != 0) {
+                // @VH: Change
+                $bdClass = $last_group != '' && $cell_count > 0 ? "border-top" : "";
+
                 $group_name = $grparr[$this_group]['grp_title'];
                 // totally skip generating the employer category, if it's disabled.
                 if ($group_name === 'Employer' && $GLOBALS['omit_employers']) {
@@ -3588,11 +3746,13 @@ function display_layout_rows($formtype, $result1, $result2 = '')
                 if (($titlecols > 0 && $cell_count >= $CPR) || $cell_count == 0 || $prepend_blank_row || $jump_new_row) {
                     disp_end_row();
                     if ($prepend_blank_row) {
-                        echo "<tr><td class='label' colspan='" . ($CPR + 1) . "'>&nbsp;</td></tr>\n";
+                        // @VH: Added border class and padding
+                        echo "<tr><td class='label border-bottom p-1' colspan='" . ($CPR + 1) . "'>&nbsp;</td></tr>\n";
                     }
                     echo "<tr>";
                     if ($group_name) {
-                        echo "<td class='groupname'>";
+                        // @VH: Added align class
+                        echo "<td class='groupname align-top'>";
                         echo text(xl_layout_label($group_name));
                         $group_name = '';
                     } else {
@@ -3612,7 +3772,8 @@ function display_layout_rows($formtype, $result1, $result2 = '')
                     $titlecols = $span_col_row ? 0 : $titlecols;
                     $titlecols_esc = htmlspecialchars($titlecols, ENT_QUOTES);
                     if (!$span_col_row) {
-                        echo "<td class='label_custom' colspan='$titlecols_esc' ";
+                        // @VH: Added border align other class
+                        echo "<td class='label_custom border-bottom align-top p-1' colspan='$titlecols_esc' ";
                         echo ">";
                     }
                     $cell_count += $titlecols;
@@ -3639,8 +3800,18 @@ function display_layout_rows($formtype, $result1, $result2 = '')
                     disp_end_cell();
                     $datacols = $span_col_row ? $CPR : $datacols;
                     $datacols_esc = htmlspecialchars($datacols, ENT_QUOTES);
-                    echo "<td class='text data' colspan='$datacols_esc'";
+                    // @VH: Added class
+                    echo "<td class='text data border-bottom p-1 ctextdata' colspan='$datacols_esc'";
                     echo ">";
+
+                    // @VH: Add Style
+                    global $t_style;
+                    if(empty($t_style)) {
+                        $t_style = '<style type="text/css">.ctextdata .table tr:first-child > td {  border-top: 0px !important; }</style>';
+                        echo $t_style;
+                    }
+                    // END
+
                     $cell_count += $datacols;
                 }
 
@@ -3879,6 +4050,35 @@ function display_layout_tabs_data($formtype, $result1, $result2 = '')
                     echo "</span>";
                 }
 
+                // @VH: Asterisk change for adding links for calling on mobile numbers
+                $currvaluePrefix = "";
+                $currvaluePostfix = "";
+                
+                if($group_fields['field_id'] == 'phone_cell' || $group_fields['field_id'] == 'contact_relationship' || $group_fields['field_id'] == 'phone_home' || $group_fields['field_id'] == 'phone_biz' || $group_fields['field_id'] == 'phone_contact' || $group_fields['field_id'] == 'secondary_phone_cell') {
+                    $tphonenums = !empty($currvalue) ? array_filter(explode(",",$currvalue)) : array();
+                    if(count($tphonenums) > 1) {
+                        $tpnumsList = array();
+                        $group_fields['renderHTML'] = true;
+                        foreach ($tphonenums as $tphonenum) {
+                            if(empty($tphonenum)) continue;
+                            
+                            // @VH: Asterisk Change
+                            $tpnumsList[] = "<a href=\"#\" onclick= dlgopen('".$GLOBALS['webroot']."/interface/asterisk/makeCallThroughExtension.php?phone_number=') >$tphonenum</a>";
+                            // End
+                        }
+                        $currvalue = !empty($tpnumsList) ? implode(",",$tpnumsList) : "";
+                    } else {
+                        
+                        // @VH: Asterisk Change
+                        $currvaluePrefix = "<a href=\"#\" onclick= dlgopen('".$GLOBALS['webroot']."/interface/asterisk/makeCallThroughExtension.php?phone_number=".$currvalue."')>";
+                        // End
+                        
+                        $currvaluePostfix = "</a>";
+                       
+                    }
+                }
+                // END
+
                 // Handle starting of a new data cell.
                 if ($datacols > 0) {
                     disp_end_cell();
@@ -3902,7 +4102,14 @@ function display_layout_tabs_data($formtype, $result1, $result2 = '')
                     if ($item_count > 1) {
                         echo "&nbsp;";
                     }
+
+                    // @VH: Added prefix;
+                    echo isset($currvaluePrefix) && !empty($currvaluePrefix) ? $currvaluePrefix : "";
+
                     echo generate_display_field($group_fields, $currvalue);
+
+                    // @VH: Added postfix;
+                    echo isset($currvaluePostfix) && !empty($currvaluePostfix) ? $currvaluePostfix : "";
                 }
                 if ($datacols == 0) {
                     // End nowrap
@@ -4196,6 +4403,9 @@ function display_layout_tabs_data_editable($formtype, $result1, $result2 = '')
                     // End nowrap
                     echo "</span> "; // space to allow wrap between spans
                 }
+
+                // @VH: Alert log.
+                Demographicslib::dem_layout_tabs($group_name_esc, $group_fields);
             } // End of fields for this group.
 
             bs_disp_end_row(); // TBD: Does this belong here?
@@ -4416,9 +4626,22 @@ function generate_layout_validation($form_id)
                 echo " lbfSetSignature(" . js_escape($fldid) . ");\n";
                 continue;
             }
-            if ($frow['uor'] < 2) {
-                continue;
+            // @VH - Wrap code into condition for section field required validation [V10008]
+            if($frow['uor'] != 3) {
+                // @VH: If field option type is Unused (Readonly) hide the field if value is not empty [2024073101]
+                if ($frow['uor'] < 2 || $frow['uor'] == 4) {
+                    continue;
+                }
             }
+
+            // @VH: Added section field required validation [V10008]
+            if ($frow['uor'] == 3) {
+                echo "var secId = $('#" . $fldname . "').parents('div.section').attr('id');\n";
+                echo "var secParent = $('#" . $fldname . "').parents('div.section').parent();\n";
+                echo "var secInputIsChecked = $(secParent).find('input[type=\'checkbox\'][onclick=\'return divclick(this,\"'+secId+'\");\']').is(':checked');\n";
+                echo " if (secInputIsChecked === true) {\n";
+            }
+            // END
 
             echo " if (f.$fldname && !f.$fldname.disabled) {\n";
             switch ($data_type) {
@@ -4481,6 +4704,9 @@ function generate_layout_validation($form_id)
                     break;
             }
             echo " }\n";
+
+            // @VH: Added code for section field required validation [V10008]
+            if ($frow['uor'] == 3) echo " }\n";
         }
     } // End this layout, there may be more in the case of history.
 }

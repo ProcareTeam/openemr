@@ -20,9 +20,148 @@ require_once("../../globals.php");
 require_once("$srcdir/calendar.inc.php");
 require_once("$srcdir/patient.inc.php");
 require_once 'includes/pnAPI.php';
+require_once 'php/calendar_fun.php';
+require_once("$srcdir/OemrAD/oemrad.globals.php");
 
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Session\SessionUtil;
+use OpenEMR\OemrAd\CoverageCheck;
+use OpenEMR\OemrAd\Utility;
+
+// @VH: Code Block
+// @VH: Get saved values for set back. [V100034]
+$flItems = array();
+if(isset($_SESSION['authUserID']) && !empty($_SESSION['authUserID'])) {
+    //Selection Values
+    $flItems = Utility::getSectionValues($_SESSION['authUserID']);
+}
+
+// @VH: Set provider value. [V100034]
+setPreservedValuesForCalendar();
+
+// @VH: Set provider value. [V100034]
+function setPreservedValuesForCalendar() {
+    global $flItems;
+    
+    if(isset($flItems['calendar_pc_username']) && !empty($flItems['calendar_pc_username'])) {
+        if (!isset($_POST['pc_username']) && !isset($_REQUEST['dvalue'])) {
+            $_REQUEST['pc_username'] = $flItems['calendar_pc_username'];
+        }
+    }
+}
+
+// @VH: Set facility value. [V100034]
+function setPreservedPcFacilityValue() {
+    global $flItems, $sessionSetArray;
+
+    if(isset($flItems['calendar_pc_facility']) && !empty($flItems['calendar_pc_facility'])) {
+        if (!isset($_POST['pc_facility'])) {
+            $sessionSetArray['pc_facility'] = $flItems['calendar_pc_facility'];
+        }
+    }
+}
+
+// @VH: Get default provider value [V100034]
+// function getDefaultProviderFacility($date, $provider = '') {
+//     $sec_key = 'cal_pro_facility_' . $date . '_' . $provider;
+//     $flItem = Utility::getSectionValues(0, $sec_key);
+//     return isset($flItem[$sec_key]) ? $flItem[$sec_key] : '';
+// }
+
+// @VH: Get alert info. [V100035]
+function getAlertInfo($patient_alert_info = '') {
+    //$result  = getPatientData($pid, "*, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
+    if(isset($patient_alert_info) && !empty(trim($patient_alert_info))) {
+        return '<span> - <a href="#" class="infoText" title="'.$patient_alert_info.'">'.Utility::getAlertSVG().'</a></span>';
+    }
+
+    return "";
+}
+
+// @VH: Get alert info title. [V100035]
+function getAlertInfoTitle($patient_alert_info = '') {
+    // $result  = getPatientData($pid, "*, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
+    if(isset($patient_alert_info) && !empty(trim($patient_alert_info))) {
+        return "\n\s\n-- Alert Info -- \n".$patient_alert_info;
+    }
+
+    return "";
+}
+
+// @VH: Replace space value. [V100035]
+function replaceSpace($text) {
+    $breaks = array("\s");  
+    return str_ireplace($breaks, "&nbsp;", $text);
+}
+
+// @VH: Coverage element css. [V100035]
+function coverageEleCSS() {
+    ?>
+    <style type="text/css">
+        .elg_container {
+            margin-bottom: 5px;
+            vertical-align: text-top;
+            line-height: 21px;
+        }
+
+        .elg_container .svg-correct,
+        .elg_container .svg-incorrect {
+            display: inline-block;
+            height: 14px;
+            vertical-align: top;
+            margin-top: 1px;
+        }
+
+        .elg_container .svg-correct > svg,
+        .elg_container .svg-incorrect > svg {
+            height: 11pt!important;
+            vertical-align: top;
+        }
+        .infoText svg {
+            vertical-align: middle;
+        }
+    </style>
+    <?php
+}
+
+// @VH: Get coverage data. [V100035]
+function getCoverageData($events) {
+    $ids = array();
+
+    foreach ($events as $ei => $eItem) {
+        foreach ($eItem as $inx => $event) {
+            if(isset($event['eid']) && !empty($event['eid'])) {
+                $ids[] = $event['eid'];
+            }
+        }
+    }
+
+    $ids_str = implode(",",$ids);
+    return CoverageCheck::getEligibilityDataForPostCalender($ids_str);
+}
+
+// @VH: Get coverage content. [V100035]
+function getCoverageContent($event, $data) {
+    $data = CoverageCheck::getEleContentForPostCalender($event, $data);
+    return CoverageCheck::avabilityHTMLContent($data);
+}
+
+// @VH: Get nickname. [V100035]  
+function getNickName($event) {
+    $result  = getPatientData($event['pid'], "*");
+    return $result['nickname33'] ? " \"" . $result['nickname33'] . "\" " : "";
+}
+
+// @VH: Save Selected Provider [V100034] 
+if (isset($_POST['pc_username']) && $_POST['pc_username']) {
+    Utility::saveSectionValues($_SESSION['authUserID'], 'calendar_pc_username', $_POST['pc_username']);
+}
+
+// @VH: Save Selected Facility [V100034]
+if (isset($_POST['pc_facility'])) {
+    Utility::saveSectionValues($_SESSION['authUserID'], 'calendar_pc_facility', $_POST['pc_facility']);
+}
+// END
 
 // these will be used in below SessionUtil::setSession to set applicable session variables
 $sessionSetArray = [];
@@ -55,6 +194,14 @@ if ($GLOBALS['login_into_facility']) {
     if (isset($_COOKIE['pc_facility']) && $GLOBALS['set_facility_cookie']) {
         $sessionSetArray['pc_facility'] = $_COOKIE['pc_facility'];
     }
+}
+
+// @VH: Set pc facility value [V100034]
+setPreservedPcFacilityValue();
+
+// @VH: ADDED SESSION FOR USER PROVIDER GROUP
+if (isset($_POST['provider_groups'])) {
+    $sessionSetArray['provider_group'] = $_POST['provider_groups'];
 }
 
 // override the cookie if the user doesn't have access to that facility any more

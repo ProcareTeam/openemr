@@ -748,6 +748,8 @@ function lookup_code_descriptions($codes, $desc_detail = "code_text")
             foreach ($table_info[EXT_JOINS] as $join_info) {
                 $join_table = $join_info[JOIN_TABLE];
                 $check_table = sqlQuery("SHOW TABLES LIKE '" . $join_table . "'");
+                var_dump($check_table);
+                exit();
                 if ((empty($check_table))) {
                     HelpfulDie("Missing join table in code set search:" . $join_table);
                 }
@@ -780,7 +782,8 @@ function lookup_code_descriptions($codes, $desc_detail = "code_text")
             $sqlArray[] = $code;
 
             // Add the modifier if necessary for CPT and HCPCS which differentiates code
-            if ($modifier) {
+            // TODO: @VH In old migration below code query was commented to handle excetion when there is no "modifier" column in table this issue occur due to "incorrect ICD code" from extended exam form. So remove added condition and handle it properly from extended exam if possible.
+            if ($modifier && $table_id == 0) {
                 $sql .= " AND modifier = ? ";
                 $sqlArray[] = $modifier;
             }

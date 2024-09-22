@@ -1588,6 +1588,7 @@ class FeeSheet
     //
     public function pricesAuthorized()
     {
-        return AclMain::aclCheckCore('acct', 'disc') || acl_check('acct', 'bill');
+        // @VH: core issue fix
+        return AclMain::aclCheckCore('acct', 'disc') || AclMain::aclCheckCore('acct', 'bill');
     }
 }

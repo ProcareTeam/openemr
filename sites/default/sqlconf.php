@@ -5,11 +5,11 @@
 global $disable_utf8_flag;
 $disable_utf8_flag = false;
 
-$host   = 'localhost';
+$host   = '127.0.0.1';
 $port   = '3306';
-$login  = 'openemr';
-$pass   = 'openemr';
-$dbase  = 'openemr';
+$login  = 'root';
+$pass   = 'root';
+$dbase  = 'openemr_master';
 $db_encoding = 'utf8mb4';
 
 $sqlconf = array();
@@ -25,7 +25,7 @@ $sqlconf["db_encoding"] = $db_encoding;
 //////////////////////////
 //////////////////////////
 //////DO NOT TOUCH THIS///
-$config = 0; /////////////
+$config = 1; /////////////
 //////////////////////////
 //////////////////////////
 //////////////////////////

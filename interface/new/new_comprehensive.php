@@ -25,6 +25,9 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Twig\TwigContainer;
 use OpenEMR\Core\Header;
 
+// @VH: Change [V100047]
+$updateallpayer = true;
+
 // Check authorization.
 if (!AclMain::aclCheckCore('patients', 'demo', '', array('write','addonly'))) {
     echo (new TwigContainer(null, $GLOBALS['kernel']))->getTwig()->render('core/unauthorized.html.twig', ['pageTitle' => xl("Search or Add Patient")]);
@@ -80,11 +83,23 @@ function getSearchClass($data_type)
 }
 
 $fres = getLayoutRes();
+
+// @VH: Inscode list [V100046]
+$insurancei2 = array();
+$res = sqlStatement("SELECT ic.id, ic.name, ic.ins_type_code from insurance_companies ic where ic.inactive != 1", array());
+while ($insrow = sqlFetchArray($res)) {
+    //$inscobj = new InsuranceCompany();
+    $insrow['inc_type_code_name'] = isset($insrow['inc_type_code_name']) ? $insrow['inc_type_code_name'] : "";
+    $insurancei2['i'.$insrow['id']] = $insrow;
+}
+// END
+
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-<?php Header::setupHeader(['common','datetime-picker','select2', 'erx']); ?>
+<!-- @VH: added 'oemr_ad' -->
+<?php Header::setupHeader(['common','datetime-picker','select2', 'erx', 'oemr_ad']); ?>
 <title><?php echo xlt("Search or Add Patient"); ?></title>
 <style>
 .form-group {
@@ -125,7 +140,8 @@ function replace(string,text,by) {
  return newstr;
 }
 
-<?php for ($i = 1; $i <= 3; $i++) { ?>
+// @VH: Max size change [V100047]
+<?php for ($i = 1; $i <= 10; $i++) { ?>
 function auto_populate_employer_address<?php echo $i ?>(){
  var f = document.demographics_form;
  if (f.form_i<?php echo $i?>subscriber_relationship.options[f.form_i<?php echo $i?>subscriber_relationship.selectedIndex].value == "self") {
@@ -376,6 +392,45 @@ function srchDone(pid){
 }
 //-->
 
+// @VH: Script Changes [V100046]
+var insjson = <?php echo !empty($insurancei2) ? json_encode($insurancei2) : json_encode(array()); ?>;
+
+// @VH: Changes [V100046]
+function insChange(e, i) {
+    var fvalue = e.value;
+    //var insTypeList = ["Automobile Medical", "Workers Compensation Health Plan"]
+    var insTypeList = ["16", "25"];
+
+    var ins_container_label_ele = document.querySelector('.i'+i+'claim_number_label');
+    var ins_container_input_ele = document.querySelector('.i'+i+'claim_number_input');
+    var ins_claim_number = document.querySelector("input[name='i"+i+"claim_number']");
+
+    if(fvalue != '' && insjson['i'+fvalue]) {
+        var insItem = insjson['i'+fvalue];
+        var ins_type_code = insItem['ins_type_code'];
+
+        if(ins_type_code != "" && insTypeList.includes(ins_type_code)) {
+            ins_container_label_ele.style.display = "inline";
+            ins_container_input_ele.style.display = "block";
+        } else {
+            ins_container_label_ele.style.display = "none";
+            ins_container_input_ele.style.display = "none";
+            ins_claim_number.value = "";
+        }
+    } else {
+        ins_container_label_ele.style.display = "none";
+        ins_container_input_ele.style.display = "none";
+        ins_claim_number.value = "";
+    }
+}
+
+$(document).ready(function() {
+    document.querySelectorAll('.ins-provider').forEach((insp) => {
+        insp.onchange();
+    });
+});
+// END
+
 </script>
 </head>
 
@@ -395,9 +450,10 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
         <div class="row">
             <div class="<?php echo $BS_COL_CLASS; ?>-12">
                 <div class="accordion" id="dem_according">
+                <!-- @VH: OnSubmit function change. -->    
                 <form action='new_comprehensive_save.php' name='demographics_form' id='DEM'
                       method='post'
-                      onsubmit='return submitme(<?php echo $GLOBALS['new_validate'] ? 1 : 0;?>,event,"DEM",constraints)'>
+                      onsubmit='handleOnSubmit_NewComprehensive(submitme(<?php echo $GLOBALS['new_validate'] ? 1 : 0;?>,event,"DEM",constraints), this, event, "DEM")'>
                     <!--  Was: class='form-inline' -->
                     <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
 
@@ -454,6 +510,13 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
                     $display_style = 'block';
                     $group_seq     = 0; // this gives the DIV blocks unique IDs
                     $condition_str = '';
+
+                    // @VH: Default field value [V100049] 
+                    $result['undeliverable_addres'] = 'NO';
+                    $result['hipaa_allowemail'] = 'YES';
+                    $result['hipaa_allowsms'] = 'YES';
+                    $result['allow_patient_portal'] = 'YES';
+                    // End 
 
                     while ($frow = sqlFetchArray($fres)) {
                         $this_group = $frow['group_id'];
@@ -592,17 +655,25 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
                     if (!$GLOBALS['simplified_demographics']) {
                         $insurancei = getInsuranceProviders();
                         $pid = 0;
-                        if ($GLOBALS['insurance_only_one']) {
+                        // @VH: Changes [V100047]
+                        if($updateallpayer === true) {
                             $insurance_headings = array(xl("Primary Insurance Provider"));
                             $insurance_info = array();
-                            $insurance_info[1] = getInsuranceData($pid, "primary");
+                            $insurance_info = getInsuranceDataItems($pid);
                         } else {
-                            $insurance_headings = array(xl("Primary Insurance Provider"), xl("Secondary Insurance Provider"), xl("Tertiary Insurance provider"));
-                            $insurance_info = array();
-                            $insurance_info[1] = getInsuranceData($pid, "primary");
-                            $insurance_info[2] = getInsuranceData($pid, "secondary");
-                            $insurance_info[3] = getInsuranceData($pid, "tertiary");
+                            if ($GLOBALS['insurance_only_one']) {
+                                $insurance_headings = array(xl("Primary Insurance Provider"));
+                                $insurance_info = array();
+                                $insurance_info[1] = getInsuranceData($pid, "primary");
+                            } else {
+                                $insurance_headings = array(xl("Primary Insurance Provider"), xl("Secondary Insurance Provider"), xl("Tertiary Insurance provider"));
+                                $insurance_info = array();
+                                $insurance_info[1] = getInsuranceData($pid, "primary");
+                                $insurance_info[2] = getInsuranceData($pid, "secondary");
+                                $insurance_info[3] = getInsuranceData($pid, "tertiary");
+                            }
                         }
+                        // END
                         $insuranceTitle = xlt("Insurance");
                         echo <<<HTML
                         <div class="card">
@@ -615,14 +686,33 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
                                 <div class="container-xl card-body">
                         HTML;
 
+                        // @VH: Add address blank [V100047]
+                        if(!empty($insurance_info)) {
+                            array_unshift($insurance_info , array());
+                            unset($insurance_info[0]);
+                        }
+                        $insurance_info[] = array('id' => '');
+
+                        // @VH: Change [V100047]
                         for ($i = 1; $i <= sizeof($insurance_info); $i++) {
                             $result3 = $insurance_info[$i];
                             ?>
-                        <div class="row p-3">
+                        <div class="row p-3 <?php echo ($i) == count($insurance_info) ? 'add_payer_container add_payer' : '' ?>">
                           <div class="col-md-12 mb-2">
                             <div class="input-group">
+                              <!-- @VH: Change [V100047] -->
+                              <input type="hidden" id="i<?php echo attr($i); ?>payerid" name="i<?php echo attr($i); ?>payerid" class="form-control" value="<?php echo attr($result3["id"] ?? ''); ?>" />
+
+                              <!-- @VH: Wrap in if condition [V100047] -->
+                              <?php if($updateallpayer === true) { ?>
+                              <label class='col-form-label mr-2 required'><?php echo xl("Insurance Provider"); ?></label>
+                              <?php } else { ?>
                               <label class='col-form-label mr-2 required'><?php echo text($insurance_headings[$i - 1]) . ":"?></label>
-                              <select name="i<?php echo attr($i); ?>provider" class="form-control">
+                              <?php } ?>
+                              <!-- End -->
+                              
+                              <!-- @VH: Change class and onchange [V100046] -->
+                              <select name="i<?php echo attr($i); ?>provider" class="form-control ins-provider" onchange="insChange(this,'<?php echo $i; ?>')">
                                   <option value=""><?php echo xlt('Unassigned'); ?></option>
                                   <?php
                                     foreach ($insurancei as $iid => $iname) {
@@ -639,61 +729,78 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
                               </div>
                             </div>
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Plan Name'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Plan Name'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='20' name='i<?php echo attr($i); ?>plan_name' value="<?php echo attr($result3["plan_name"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Subscriber'); ?>:</label>
-                          <div class="col-md-5 mb-2 form-inline">
-                            <input type='entry' class='form-control' size='10' name='i<?php echo attr($i); ?>subscriber_fname' value="<?php echo attr($result3["subscriber_fname"] ?? ''); ?>" onchange="capitalizeMe(this);" />
+                          <!-- @VH: [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Subscriber'); ?>:</label>
+                          <div class="col-md-4 mb-2 form-inline">
+                            <input type='entry' class='form-control' size='8' name='i<?php echo attr($i); ?>subscriber_fname' value="<?php echo attr($result3["subscriber_fname"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                             <input type='entry' class='form-control' size='3' name='i<?php echo attr($i); ?>subscriber_mname' value="<?php echo attr($result3["subscriber_mname"] ?? ''); ?>" onchange="capitalizeMe(this);" />
-                            <input type='entry' class='form-control' size='10' name='i<?php echo attr($i); ?>subscriber_lname' value="<?php echo attr($result3["subscriber_lname"] ?? ''); ?>" onchange="capitalizeMe(this);" />
+                            <!-- @VH: -->
+                            <input type='entry' class='form-control' size='8' name='i<?php echo attr($i); ?>subscriber_lname' value="<?php echo attr($result3["subscriber_lname"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Effective Date'); ?>: </label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: Hide Effective date field [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2 required' <?php echo $updateallpayer === true ? 'style="display:none;"' : ''; ?>><?php echo xlt('Effective Date'); ?>: </label>
+                          <div class="col-md-4 mb-2" <?php echo $updateallpayer === true ? 'style="display:none;"' : ''; ?>>
                             <input type='entry' size='11' class='datepicker form-control' name='i<?php echo attr($i); ?>effective_date' id='i<?php echo attr($i); ?>effective_date' value='<?php echo attr($result3['date'] ?? ''); ?>' />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Relationship'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Relationship'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <?php
                             generate_form_field(array('data_type' => 1,'field_id' => ('i' . $i . 'subscriber_relationship'),'list_id' => 'sub_relation','empty_title' => ' ', 'smallform' => 'true'), ($result3['subscriber_relationship'] ?? ''));
                             ?>
                             <a href="javascript:popUp('../../interface/patient_file/summary/browse.php?browsenum=<?php echo attr_url($i); ?>')" class='text'>(<?php echo xlt('Browse'); ?>)</a>
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Policy Number'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Policy Number'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='16' name='i<?php echo attr($i); ?>policy_number' value="<?php echo attr($result3["policy_number"] ?? ''); ?>" onkeyup='policykeyup(this)' />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2'><?php echo xlt('D.O.B.'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2'><?php echo xlt('D.O.B.'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' size='11' class='datepicker-past form-control' name='i<?php echo attr($i); ?>subscriber_DOB' id='i<?php echo attr($i); ?>subscriber_DOB' value='<?php echo attr($result3['subscriber_DOB'] ?? ''); ?>' />
                           </div>
-                          <label class='col-form-label col-md-1 required'><?php echo xlt('Group Number'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: [V100048] -->
+                          <label class='col-form-label col-md-2 required'><?php echo xlt('Group Number'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='16' name='i<?php echo attr($i); ?>group_number' value="<?php echo attr($result3["group_number"] ?? ''); ?>" onkeyup='policykeyup(this)' />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2'><?php echo xlt('S.S.'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: Change [V100048] -->
+                          <label class='col-form-label col-md-2 cnumber_container i<?php echo $i?>claim_number_label'><?php echo xlt('Claim Number'); ?>:</label>
+                          <div class="col-md-4 mb-2 i<?php echo $i?>claim_number_input cnumber_container">
+                            <input type='entry' class='form-control' name='i<?php echo attr($i); ?>claim_number' value="<?php echo attr($result3["claim_number"] ?? ''); ?>" />
+                          </div>
+                          <!-- End -->
+                          <!-- @VH: Change [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2'><?php echo xlt('S.S.'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='11' name='i<?php echo attr($i); ?>subscriber_ss' value="<?php echo attr($result3["subscriber_ss"] ?? ''); ?>" />
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "<div class='d-none'>" : ""; ?>
-                            <label class="col-form-label col-md-1 mb-2 required"><?php echo xlt('Subscriber Employer (SE)'); ?>:</label>
-                            <div class="col-md-5 mb-2">
+                            <!-- @VH: Change [V100048] -->
+                            <label class="col-form-label col-md-2 mb-2 required"><?php echo xlt('Subscriber Employer (SE)'); ?>:</label>
+                            <div class="col-md-4 mb-2">
                               <input type='entry' class='form-control' aria-describedby="seHelpBlock" size='25' name='i<?php echo attr($i); ?>subscriber_employer' value="<?php echo attr($result3["subscriber_employer"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                               <small id="seHelpBlock" class="form-text text-muted">
                                 <?php echo xlt('if unemployed enter Student'); ?>, <?php echo xlt('PT Student, or leave blank'); ?>.
                               </small>
                             </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "</div>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2'><?php echo xlt('Sex'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <!-- @VH: Change [V100048] -->
+                          <label class='col-form-label col-md-2 mb-2'><?php echo xlt('Sex'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <?php
                             generate_form_field(array('data_type' => 1,'field_id' => ('i' . $i . 'subscriber_sex'),'list_id' => 'sex', 'smallform' => 'true'), $result3['subscriber_sex'] ?? '');
                             ?>
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "<div class='d-none'>" : ""; ?>
-                            <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('SE Address'); ?>:</label>
-                            <div class="col-md-5 mb-2">
+                            <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Subscriber Address Line 1'); ?>:</label>
+                            <div class="col-md-4 mb-2">
                               <input type='entry' class='form-control' size='25' name='i<?php echo attr($i); ?>subscriber_employer_street' value="<?php echo attr($result3["subscriber_employer_street"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                             </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "</div>" : ""; ?>
@@ -701,68 +808,68 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
                           <div class="col-md-5 mb-2">
                             <input type='entry' class='form-control' size='25' name='i<?php echo attr($i); ?>subscriber_street' value="<?php echo attr($result3["subscriber_street"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Subscriber Address Line 2'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Subscriber Address Line 2'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='25' name='i<?php echo attr($i); ?>subscriber_street_line_2' value="<?php echo attr($result3["subscriber_street_line_2"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "<div class='d-none'>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('SE City'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('SE City'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='15' name='i<?php echo attr($i); ?>subscriber_employer_city' value="<?php echo attr($result3["subscriber_employer_city"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "</div>" : ""; ?>
                           <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('City'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='15' name='i<?php echo attr($i); ?>subscriber_city' value="<?php echo attr($result3["subscriber_city"] ?? ''); ?>" onchange="capitalizeMe(this);" />
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "<div class='d-none'>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('SE State') : xlt('SE Locality') ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('SE State') : xlt('SE Locality') ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <?php
                             generate_form_field(array('data_type' => $GLOBALS['state_data_type'],'field_id' => ('i' . $i . 'subscriber_employer_state'),'list_id' => $GLOBALS['state_list'],'fld_length' => '15','max_length' => '63','edit_options' => 'C', 'smallform' => 'true'), ($result3['subscriber_employer_state'] ?? ''));
                             ?>
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "</div>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('State') : xlt('Locality') ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('State') : xlt('Locality') ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <?php
                             generate_form_field(array('data_type' => $GLOBALS['state_data_type'], 'field_id' => ('i' . $i . 'subscriber_state'),'list_id' => $GLOBALS['state_list'],'fld_length' => '15','max_length' => '63','edit_options' => 'C', 'smallform' => 'true'), ($result3['subscriber_state'] ?? ''));
                             ?>
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "<div class='d-none'>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('SE Zip Code') : xlt('SE Postal Code') ?>: </label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('SE Zip Code') : xlt('SE Postal Code') ?>: </label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='10' name='i<?php echo $i?>subscriber_employer_postal_code' value="<?php echo attr($result3["subscriber_employer_postal_code"] ?? ''); ?>" />
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "</div>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('Zip Code') : xlt('Postal Code') ?>: </label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo ($GLOBALS['phone_country_code'] == '1') ? xlt('Zip Code') : xlt('Postal Code') ?>: </label>
+                          <div class="col-md-4 mb-2">
                             <input type='entry' class='form-control' size='10' name='i<?php echo attr($i); ?>subscriber_postal_code' value="<?php echo attr($result3["subscriber_postal_code"] ?? ''); ?>" />
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "<div class='d-none'>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('SE Country'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('SE Country'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <?php
                             generate_form_field(array('data_type' => $GLOBALS['country_data_type'],'field_id' => ('i' . $i . 'subscriber_employer_country'),'list_id' => $GLOBALS['country_list'],'fld_length' => '10','max_length' => '63','edit_options' => 'C', 'smallform' => 'true'), ($result3['subscriber_employer_country'] ?? ''));
                             ?>
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Country'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Country'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <?php
                             generate_form_field(array('data_type' => $GLOBALS['country_data_type'],'field_id' => ('i' . $i . 'subscriber_country'),'list_id' => $GLOBALS['country_list'],'fld_length' => '10','max_length' => '63','edit_options' => 'C', 'smallform' => 'true'), ($result3['subscriber_country'] ?? ''));
                             ?>
                           </div>
                             <?php echo ($GLOBALS['omit_employers']) ? "</div>" : ""; ?>
-                          <label class='col-form-label col-md-1 mb-2'><?php echo xlt('Subscriber Phone'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2'><?php echo xlt('Subscriber Phone'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='text' class='form-control' size='20' name='i<?php echo attr($i); ?>subscriber_phone' value='<?php echo attr($result3["subscriber_phone"] ?? ''); ?>' onkeyup='phonekeyup(this,mypcc)' />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2'><?php echo xlt('Co-Pay'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2'><?php echo xlt('Co-Pay'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <input type='text' class='form-control' size="6" name='i<?php echo attr($i); ?>copay' value="<?php echo attr($result3["copay"] ?? ''); ?>" />
                           </div>
-                          <label class='col-form-label col-md-1 mb-2 required'><?php echo xlt('Accept Assignment'); ?>:</label>
-                          <div class="col-md-5 mb-2">
+                          <label class='col-form-label col-md-2 mb-2 required'><?php echo xlt('Accept Assignment'); ?>:</label>
+                          <div class="col-md-4 mb-2">
                             <select class='form-control' name='i<?php echo attr($i); ?>accept_assignment'>
                                 <option value="TRUE" <?php echo (strtoupper($result3["accept_assignment"] ?? '') == "TRUE") ? "selected" : ""; ?>><?php echo xlt('YES'); ?></option>
                                 <option value="FALSE" <?php echo (strtoupper($result3["accept_assignment"] ?? '') == "FALSE") ? "selected" : ""; ?>><?php echo xlt('NO'); ?></option>
@@ -776,6 +883,11 @@ $constraints = LBF_Validation::generate_validate_constraints("DEM");
                         echo "</div>\n";
                     } // end of "if not simplified_demographics"
                     ?>
+
+                    <!-- @VH: added field [V100047] -->
+                    <input type="hidden" id="ipayercount" name="ipayercount" class="form-control" value="<?php echo attr(($i - 1)); ?>" />
+                    <input type="hidden" id="updateallpayer" name="updateallpayer" class="form-control" value="<?php echo $updateallpayer; ?>" />
+                    <!-- END -->
 
                     <?php
                     if ($SHORT_FORM) {
@@ -845,14 +957,17 @@ $(function () {
         });
     });
     // added to integrate insurance stuff
-    <?php for ($i = 1; $i <= 3; $i++) { ?>
-    $("#form_i<?php echo $i?>subscriber_relationship").change(function() { auto_populate_employer_address<?php echo $i?>(); });
+    // @VH: Max size change [V100047]
+    <?php for ($i = 1; $i <= 10; $i++) { ?>
+    // @VH: Change added document on [V100047]
+    $(document).on("change", "#form_i<?php echo attr($i); ?>subscriber_relationship", function() { auto_populate_employer_address<?php echo $i?>(); });
     <?php } ?>
 
     $('#search').click(function() { searchme(); });
     $('#create').click(function() { check()});
 
-    var check = function(e) {
+    // @VH: Code change added "async" to check function
+    var check = async function(e) {
         var f = document.forms[0];
         <?php if ($GLOBALS['new_validate']) {?>
             var valid = submitme(<?php echo $GLOBALS['new_validate'] ? 1 : 0;?>, e, "DEM", constraints);
@@ -860,10 +975,24 @@ $(function () {
             top.restoreSession();
             var valid = validate(f);
         <?php }?>
+
+        // @VH: Added Changes [V100050] 
+        if(valid) {
+          var response = await handleBeforeSubmit_NewComprehensive("DEM");
+          if(response == false) {
+            return false;
+          }
+        }
+        // End
+
         if (valid) {
             if (force_submit) {
                 // In this case dups were shown already and Save should just save.
                 top.restoreSession();
+
+                // @VH: Change
+                let f = document.forms[0];
+
                 f.submit();
                 return;
             }
@@ -1035,5 +1164,95 @@ include_once("$srcdir/validation/validation_script.js.php");?>
         checkSkipConditions();
     });
 </script>
+
+<!-- @VH: Scripts [V100047] -->
+<script type="text/javascript">
+var addpayerContainer = null;
+$(document).ready(function() {
+    addpayerContainer = $('.add_payer_container').eq(0).clone();
+});
+
+// @VH: add new payer section on ins provider change. [V100047]
+$('#div_ins').on('change', '.add_payer .ins-provider', function() {
+    let insVal = $(this).val();
+    let payerCountElement = $('#ipayercount').val();
+    let addinsval = $('[name="i'+payerCountElement+'provider"]').val();
+
+    if(insVal != "" && addinsval != "") {
+        let naddpayerContainer = prepareCloneElement(addpayerContainer);
+        console.log(naddpayerContainer.html());
+
+        $('#div_ins .card-body').append(naddpayerContainer);
+        $('#div_ins .card-body').append("<hr/>"); 
+    }
+});
+
+function prepareCloneElement(eleClone = null) {
+    var eClone = null;
+
+    if(eleClone.length > 0) {
+        eClone = eleClone.eq(0).clone();
+    }
+
+    if(eClone && eClone.length > 0) {
+        eClone.removeClass('add_payer_container current');
+        eClone.find('.select2').remove();
+    }
+
+    let payerCountElement = document.getElementById('ipayercount');
+    let newPayerCount = parseInt(payerCountElement.value) + 1;
+    let updatestatus = false;
+
+    if(eClone) {
+        $(eClone).find('[name]').each(function(ii, iele) {
+            let eName = $(iele).attr("name");
+            if(eName) {
+                let eNewName = eName.replace(/(.*i)([\d]+)([a-zA-Z]{1}.*)$/, "$1"+newPayerCount+"$3");
+                $(iele).attr("name", eNewName);
+                updatestatus = true;
+            }
+
+            let eId = $(iele).attr("id");
+            if(eId) {
+                let eNewId = eId.replace(/(.*i)([\d]+)([a-zA-Z]{1}.*)$/, "$1"+newPayerCount+"$3");
+                $(iele).attr("id", eNewId);
+            }
+        });
+
+        $(eClone).find('.ins-provider').each(function(ii, iele) {
+            let eonchange = $(iele).attr("onchange");
+            if(eonchange) {
+                let eNewOnChange = eonchange.replace(/(^insChange\(this,')([\d]+)('\))$/, "$1"+newPayerCount+"$3");
+                $(iele).attr("onchange", eNewOnChange);
+            }
+
+            let edataselect2id = $(iele).attr("data-select2-id");
+            if(edataselect2id) {
+                let eNewDataselect2id = edataselect2id.replace(/(i)([\d]+)([a-zA-Z]{1}.*)$/, "$1"+newPayerCount+"$3");
+                $(iele).attr("data-select2-id", eNewDataselect2id);
+            }
+        });
+
+        $(eClone).find('.cnumber_container').each(function(ii, iele) {
+            let eclass = $(this).attr('class');
+            let eNewClass = eclass.replace(/^(.*i)([\d]+)(.*)$/, "$1"+newPayerCount+"$3");
+            $(iele).attr("class", eNewClass);
+        });
+
+        $(eClone).find('[onclick^="ins_search("]').each(function(ii, iele) {
+            let eonclick = $(this).attr('onclick');
+            let eNewOnclick = eonclick.replace(/(^ins_search\()([\d]+)(\))$/, "$1"+newPayerCount+"$3");
+            $(iele).attr("onclick", eNewOnclick);
+        })
+        
+    }
+
+    if(updatestatus === true) payerCountElement.value = newPayerCount.toString();
+
+    return eClone;
+}
+</script>
+<!-- END -->
+
 </body>
 </html>

@@ -27,7 +27,8 @@ $formname = strtr(
     $_GET['formname'],
     array('.' => '', '\\' => '', '/' => '', '\'' => '', '"' => '', "\r" => '', "\n" => '')
 );
-$formid   = $_GET['formid'] + 0;
+// @VH: formid to form_id
+$form_id   = $_GET['formid'] + 0;
 
 if (!hasFormPermission($formname)) {
     exit;
@@ -35,7 +36,8 @@ if (!hasFormPermission($formname)) {
 
 if (substr($formname, 0, 3) == 'LBF') {
     include_once("{$GLOBALS['incdir']}/forms/LBF/report.php");
-    lbf_report($ptid, $encid, 2, $formid, $formname);
+    // @VH: formid to form_id
+    lbf_report($ptid, $encid, 2, $form_id, $formname);
 } else {
     include_once("{$GLOBALS['incdir']}/forms/$formname/report.php");
     $report_function = $formname . '_report';
@@ -43,5 +45,6 @@ if (substr($formname, 0, 3) == 'LBF') {
         exit;
     }
 
-    call_user_func($report_function, $ptid, $encid, 2, $formid);
+    // @VH: formid to form_id
+    call_user_func($report_function, $ptid, $encid, 2, $form_id);
 }

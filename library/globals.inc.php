@@ -4320,6 +4320,41 @@ $GLOBALS_METADATA = array(
             xl('Display the Ordering Provider option on Encounters'),
         ],
     ],
+
+    // @VH: Asterisk Change for configuration
+    'Asterisk' => [
+        'asterisk_manager_host' => array(
+            xl('Asterisk Manager Host'),
+            'text',                           // data type
+            '',
+            xl('Asterisk Manager Host')
+        ),
+        'asterisk_manager_user' => array(
+            xl('Asterisk Manager User'),
+            'text',                           // data type
+            '',
+            xl('Asterisk Manager User')
+        ),
+        'asterisk_manager_password' => array(
+            xl('Asterisk Manager Password'),
+            'encrypted',                           // data type
+            '',
+            xl('Asterisk Manager Password')
+        ),
+        'asterisk_manager_call_timeout' => array(
+            xl('Asterisk Manager Call Timeout(milliseconds)'),
+            'text',                           // data type
+            '',
+            xl('Asterisk Manager Call Timeout(milliseconds)')
+        ),
+        'asterisk_manager_cdr_csv_downloaded_path' => array(
+            xl('Asterisk Manager CDR CSV Downloaded Path'),
+            'text',                           // data type
+            '',
+            xl('Asterisk Manager CDR CSV Downloaded Path')
+        )
+    ],
+    // End
 );
 
 if (!empty($GLOBALS['ippf_specific'])) {

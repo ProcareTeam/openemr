@@ -25,14 +25,291 @@ require_once "$srcdir/patient_tracker.inc.php";
 require_once "$srcdir/user.inc.php";
 require_once "$srcdir/MedEx/API.php";
 
+// @VH: Change
+require_once($GLOBALS['srcdir'].'/wmt-v2/case_functions.inc.php');
+require_once($GLOBALS['srcdir'].'/OemrAD/oemrad.globals.php');
+
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
+use OpenEMR\OemrAd\Utility;
 
 if (!empty($_POST)) {
     if (!CsrfUtils::verifyCsrfToken($_POST["csrf_token_form"])) {
         CsrfUtils::csrfNotVerified();
     }
 }
+
+// @VH: Code Changes [V100070]
+// @VH: Save Filter Value [V100070]
+Utility::saveFilterValueOfPatientTracker($_SESSION['authUserID'], $_POST);
+setPreservedValuesForFlowBoard();
+
+$pageno = (isset($_REQUEST['page_no']) && !empty($_REQUEST['page_no'])) ? $_REQUEST['page_no'] : 1;
+$limit = 50;
+
+function setPreservedValuesForFlowBoard() {
+    $fieldList = array('form_apptcat', 'form_apptstatus', 'form_facility', 'form_provider');
+    $flItems = Utility::getSectionValues($_SESSION['authUserID']);
+
+    foreach ($fieldList as $key => $item) {
+        if(isset($flItems['flow_board_'.$item]) && !empty($flItems['flow_board_'.$item])) {
+            if(!$_POST[$item]) {
+                $_POST[$item] = $flItems['flow_board_'.$item];
+            }
+        }
+    }
+}
+
+function fetch_appt_signatures_data_byId($eid) {
+    if(!empty($eid)) {
+        $eSql = "SELECT E.is_lock FROM `esign_signatures` E where E.tid = ? and E.`table`='form_encounter' ORDER BY E.datetime ASC";
+        $result = sqlQuery($eSql, array($eid));
+        return $result;
+    }
+    return false;
+}
+
+// Fetch total events
+function fetchTotalEvents($from_date, $to_date, $where_param = null, $orderby_param = null, $tracker_board = false, $nextX = 0, $bind_param = null, $query_param = null, $fetch_status = false)
+{
+
+    $sqlBindArray = array();
+
+    if ($query_param) {
+        $query = $query_param;
+
+        if ($bind_param) {
+            $sqlBindArray = $bind_param;
+        }
+    } else {
+        //////
+        if ($nextX) {
+            $where =
+            "((e.pc_endDate >= ? AND e.pc_recurrtype > '0') OR " .
+            "(e.pc_eventDate >= ?))";
+
+            array_push($sqlBindArray, $from_date, $from_date);
+        } else {
+          //////
+            $where =
+            "((e.pc_endDate >= ? AND e.pc_eventDate <= ? AND e.pc_recurrtype > '0') OR " .
+            "(e.pc_eventDate >= ? AND e.pc_eventDate <= ?))";
+
+            array_push($sqlBindArray, $from_date, $to_date, $from_date, $to_date);
+        }
+
+        if ($where_param) {
+            $where .= $where_param;
+        }
+
+        $query = "SELECT COUNT(e.pc_eid) as count ";
+        if($fetch_status === true) {
+            $query = "SELECT COUNT(e.pc_eid) as count, e.pc_apptstatus ";
+        }
+
+        $query .= "FROM openemr_postcalendar_events AS e " .
+        "LEFT OUTER JOIN facility AS f ON e.pc_facility = f.id " .
+        "LEFT OUTER JOIN patient_data AS p ON p.pid = e.pc_pid " .
+        "LEFT OUTER JOIN users AS u ON u.id = e.pc_aid " .
+        "LEFT OUTER JOIN openemr_postcalendar_categories AS c ON c.pc_catid = e.pc_catid " .
+        "WHERE $where " ;
+
+        if ($bind_param) {
+            $sqlBindArray = array_merge($sqlBindArray, $bind_param);
+        }
+    }
+
+    if($fetch_status === true) {
+        $res_data =array();
+        $res = sqlStatement($query, $sqlBindArray);
+        while ($event = sqlFetchArray($res)) {
+            $res_data[] = $event;
+        }
+        return $res_data;
+    } else {
+        $res = sqlQuery($query, $sqlBindArray);
+        return $res;
+    }
+}
+
+// Support for therapy group appointments added by shachar z.
+function ext_fetchAppointments($from_date, $to_date, $patient_id = null, $provider_id = null, $facility_id = null, $pc_appstatus = null, $with_out_provider = null, $with_out_facility = null, $pc_catid = null, $tracker_board = false, $nextX = 0, $group_id = null, $patient_name = null, $limit = null, $page = null, $data = 'appointments')
+{
+    $sqlBindArray = array();
+
+    $where = "";
+
+    if ($provider_id) {
+        $where .= " AND e.pc_aid = ?";
+        array_push($sqlBindArray, $provider_id);
+    }
+
+    if ($patient_id) {
+        $where .= " AND e.pc_pid = ?";
+        array_push($sqlBindArray, $patient_id);
+    } elseif ($group_id) {
+        //if $group_id this means we want only the group events
+        $where .= " AND e.pc_gid = ? AND e.pc_pid = ''";
+        array_push($sqlBindArray, $group_id);
+    } else {
+        $where .= " AND e.pc_pid != ''";
+    }
+
+    if ($facility_id) {
+        $where .= " AND e.pc_facility = ?";
+        array_push($sqlBindArray, $facility_id);
+    }
+
+    //Appointment Status Checking
+    if ($pc_appstatus != '') {
+        $where .= " AND e.pc_apptstatus = ?";
+        array_push($sqlBindArray, $pc_appstatus);
+    }
+
+    if ($pc_catid != null) {
+        $where .= " AND e.pc_catid = ?";
+        array_push($sqlBindArray, $pc_catid);
+    }
+
+    if ($patient_name != null) {
+        $where .= " AND (p.fname LIKE CONCAT('%',?,'%') OR p.lname LIKE CONCAT('%',?,'%'))";
+        array_push($sqlBindArray, $patient_name, $patient_name);
+    }
+
+    //Without Provider checking
+    if ($with_out_provider != '') {
+        $where .= " AND e.pc_aid = ''";
+    }
+
+    //Without Facility checking
+    if ($with_out_facility != '') {
+        $where .= " AND e.pc_facility = 0";
+    }
+
+    $order_by = "e.pc_eventDate, e.pc_startTime ";
+    if($limit != null && isset($page)) {
+        $page_offset = ($page-1) * $limit;
+        $order_by .=" LIMIT ". $limit . " OFFSET ". $page_offset;
+    }
+
+    if($data == "appointments") {
+        $appointments = fetchEvents($from_date, $to_date, $where, $order_by, $tracker_board, $nextX, $sqlBindArray);
+        return $appointments;
+    } else if($data == "page_details") {
+        $totalEvents  = fetchTotalEvents($from_date, $to_date, $where, '', $tracker_board, $nextX, $sqlBindArray);
+        $pageDetails = pageDetails($totalEvents, $limit);
+        return $pageDetails;
+    } else if($data == "app_status") {
+        $where .= " group by e.pc_apptstatus ";
+        $appStatus  = fetchTotalEvents($from_date, $to_date, $where, '', $tracker_board, $nextX, $sqlBindArray, '', true);
+        return $appStatus;
+    }
+}
+
+function ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider_id = null, $facility_id = null, $form_apptstatus = null, $form_apptcat = null, $form_patient_name = null, $form_patient_id = null, $limit = null, $page = null, $data = "appointments")
+{
+    # used to determine which providers to display in the Patient Tracker
+    if ($provider_id == 'ALL') {
+      //set null to $provider id if it's 'all'
+        $provider_id = null;
+    }
+
+    $events = ext_fetchAppointments($from_date, $to_date, $form_patient_id, $provider_id, $facility_id, $form_apptstatus, null, null, $form_apptcat, true, 0, null, $form_patient_name, $limit, $page, $data);
+    return $events;
+}
+
+function pageDetails($results, $limit) {
+    $total_records = $results['count'];
+    $total_pages = ceil($total_records / $limit);
+
+    return array(
+        'total_records' => $total_records,
+        'limit' => $limit,
+        'total_pages' => $total_pages,
+    );
+}
+
+// get information the statuses of the appointments*/
+function ext_getApptStatus($page_details, $app_status)
+{
+
+    $astat = array();
+    $astat['count_all'] = $page_details['total_records'];
+    //group the appointment by status
+    foreach ($app_status as $app_status_item) {
+        $astat[$app_status_item['pc_apptstatus']] = $app_status_item['count'];
+    }
+
+    return $astat;
+}
+
+function generatePagination($page_details, $pageno) {
+    $pageList = array();
+    $max = 5;
+    if($pageno < $max)
+        $sp = 1;
+    elseif($pageno >= ($page_details['total_pages'] - floor($max / 2)) )
+        $sp = $page_details['total_pages'] - $max + 1;
+    elseif($pageno >= $max)
+        $sp = $pageno  - floor($max/2);
+
+    for($i = $sp; $i <= ($sp + $max -1);$i++) {
+        if($i > $page_details['total_pages']) {
+            continue;
+        } else {
+            $pageList[] = $i;
+        }
+    }
+
+    if($page_details['total_pages'] > 1) {
+    ?>
+    <div class="paginationContainer">
+    <ul class="pagination">
+        <li class="page-item <?php if($pageno <= 1){ echo 'disabled'; } ?>">
+            <a class="page-link" onclick="changePage('1')" /><?php echo xlt('First'); ?></a>
+        <li class="page-item <?php if($pageno <= 1){ echo 'disabled'; } ?>">
+            <a class="page-link" onclick="changePage('<?php echo ($pageno <= 1) ? '' : ($pageno - 1); ?>')" ><?php echo xlt('Prev'); ?></a>
+        </li>
+        <?php 
+            foreach ($pageList as $page) {
+                ?>
+                <li class="page-item <?php if($page == $pageno){ echo 'active'; } ?>">
+                    <a class="page-link" onclick="changePage('<?php echo $page; ?>')"><?php echo xlt($page); ?></a>
+                </li>
+                <?php
+            }
+        ?>
+        <li class="page-item <?php if($pageno >= $page_details['total_pages']){ echo 'disabled'; } ?>">
+            <a class="page-link" onclick="changePage('<?php echo ($pageno >= $page_details['total_pages']) ? '' : ($pageno + 1); ?>')" ><?php echo xlt('Next'); ?></a>
+        </li>
+        <li class="page-item <?php if($pageno >= $page_details['total_pages']){ echo 'disabled'; } ?>">
+            <a class="page-link" onclick="changePage('<?php echo $page_details['total_pages'] ?>')" ><?php echo xlt('Last'); ?></a>
+        </li>
+    </ul>
+    </div>
+    <?php
+    }
+}
+
+//Get Esign Class
+function getESignClass($eid = null) {
+    //global $appointments_signatures_data;
+    $esign_class = 'not_locked';
+
+    if(!empty($eid)) {
+        $eData = fetch_appt_signatures_data_byId($eid);
+
+        if($eData !== false && isset($eData['is_lock']) && $eData['is_lock'] == '1') {
+            $esign_class = 'locked';
+        }
+        // if(isset($appointments_signatures_data['TID_'.$eid]) && $appointments_signatures_data['TID_'.$eid]['is_lock'] == '1') {
+        //     $esign_class = 'locked';
+        // }
+    }    
+
+    return $esign_class;
+}
+// End
 
 // These settings are sticky user preferences linked to a given page.
 // mdsupport - user_settings prefix
@@ -142,7 +419,8 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 <html>
 <head>
     <meta name="author" content="OpenEMR: MedExBank" />
-    <?php Header::setupHeader(['datetime-picker', 'opener']); ?>
+    <!-- @VH: added ('jquery', 'oemr_ad') -->
+    <?php Header::setupHeader(['datetime-picker', 'opener', 'jquery', 'oemr_ad']); ?>
     <title><?php echo xlt('Flow Board'); ?></title>
     <script>
         <?php require_once "$srcdir/restoreSession.php"; ?>
@@ -155,6 +433,33 @@ if (!($_REQUEST['flb_table'] ?? null)) {
     <?php } ?>
 
     <script src="<?php echo $GLOBALS['web_root']; ?>/interface/main/messages/js/reminder_appts.js?v=<?php echo $v_js_includes; ?>"></script>
+
+    <!-- @VH: Scripts -->
+    <script type="text/javascript">
+        // @VH: Go to encounter link [V100071]
+        function goToEncounter(pid, pubpid, pname, enc, dobstr) {
+            top.restoreSession();
+            loadpatient(pid,enc);
+        }
+
+        // @VH: used to display the patient demographic and encounter screens [V100071]
+        function loadpatient(newpid, enc) {
+            if ($('#setting_new_window').val() === 'checked') {
+                document.fnew.patientID.value = newpid;
+                document.fnew.encounterID.value = enc;
+                document.fnew.submit();
+            }
+            else {
+                if (enc > 0) {
+                    top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/patient_file/summary/demographics.php?set_pid=" + newpid + "&set_encounterid=" + enc;
+                }
+                else {
+                    top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/patient_file/summary/demographics.php?set_pid=" + newpid;
+                }
+            }
+        }
+    </script>
+    <!-- End -->
 </head>
 
 <body>
@@ -171,6 +476,8 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                 <div class="showRFlow text-center" id="show_flows" name="kiosk_hide">
                     <div name="div_response" id="div_response" class="nodisplay"></div>
                         <form name="flb" id="flb" method="post">
+                        <!-- @VH: added hidden page_no field [V100072] -->
+                        <input type='hidden' name='page_no' id='page_no' value='<?php echo $pageno; ?>' />
                         <div class="row">
                           <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
                             <div class="text-center col-4 align-items-center">
@@ -281,7 +588,8 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                               </div>
 
                               <div class="col-sm-12 mt-3 mx-auto">
-                                  <button id="filter_submit" class="btn btn-primary btn-sm btn-filter"><?php echo xlt('Filter'); ?></button>
+                                  <!-- @VH: Filter button changes for change page_no [V100072] -->
+                                  <button id="filter_submit" type="button" class="btn btn-primary btn-sm btn-filter" onclick="changePage('1')"><?php echo xlt('Filter'); ?></button>
                                   <input type="hidden" id="kiosk" name="kiosk" value="<?php echo attr($_REQUEST['kiosk'] ?? ''); ?>" />
                               </div>
                             </div>
@@ -329,10 +637,22 @@ if (!($_REQUEST['flb_table'] ?? null)) {
     // get all appts for date range and refine view client side.  very fast...
     $appointments = array();
     $datetime = date("Y-m-d H:i:s");
-    $appointments = fetch_Patient_Tracker_Events($from_date, $to_date, '', '', '', '', $form_patient_name, $form_patient_id);
+    // @VH: Replaced function and added some new param [V100072]
+    $appointments = ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider, $facility, $form_apptstatus, $form_apptcat, $form_patient_name, $form_patient_id, $limit, $pageno);
     $appointments = sortAppointments($appointments, 'date', 'time');
     //grouping of the count of every status
-    $appointments_status = getApptStatus($appointments);
+    // @VH: Commeted code 
+    //$appointments_status = getApptStatus($appointments);
+
+    // @VH: Changes [V100072]
+    // Get page details
+    $page_details = ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider, $facility, $form_apptstatus, $form_apptcat, $form_patient_name, $form_patient_id, $limit, $pageno, "page_details");
+
+    // get app status
+    $app_status_details = ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider, $facility, $form_apptstatus, $form_apptcat, $form_patient_name, $form_patient_id, $limit, $pageno, "app_status");
+    $appointments_status = ext_getApptStatus($page_details, $app_status_details);
+    //$appointments_signatures_data = fetch_appt_signatures_data($appointments);
+    // End
 
     $chk_prov = array();  // list of providers with appointments
     // Scan appointments for additional info
@@ -376,11 +696,16 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     <table class="table table-bordered">
                     <thead class="table-primary">
                     <tr class="small font-weight-bold text-center">
-                        <?php if ($GLOBALS['ptkr_show_pid']) { ?>
-                            <td class="dehead text-center text-ovr-dark" name="kiosk_hide">
-                                <?php echo xlt('PID'); ?>
-                            </td>
-                        <?php } ?>
+                        <!-- @VH: Commeted -->
+                        <?php //if ($GLOBALS['ptkr_show_pid']) { ?>
+                            <!-- <td class="dehead text-center text-ovr-dark" name="kiosk_hide"> -->
+                                <?php //echo xlt('PID'); ?>
+                            <!-- </td> -->
+                        <?php //} ?>
+                        <td class="dehead text-center" style="max-width:150px;">
+                            <?php echo xlt('PID'); ?>
+                        </td>
+                        <!-- End -->
                         <td class="dehead text-center text-ovr-dark" style="max-width: 150px;">
                             <?php echo xlt('Patient'); ?>
                         </td>
@@ -561,10 +886,19 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                             continue;
                         }
                         $ptname = $appointment['lname'] . ', ' . $appointment['fname'] . ' ' . $appointment['mname'];
+                        // @VH: Patient name [V100071]
+                        $patientName = $appointment['fname'] . ' ' . $appointment['lname'];
                         $ptname_short = $appointment['fname'][0] . " " . $appointment['lname'][0];
                         $appt_enc = $appointment['encounter'];
                         $appt_eid = (!empty($appointment['eid'])) ? $appointment['eid'] : $appointment['pc_eid'];
                         $appt_pid = (!empty($appointment['pid'])) ? $appointment['pid'] : $appointment['pc_pid'];
+
+                        // @VH: Changes [V100071]
+                        if ($appt_enc != 0 && $appt_pid != 0) {
+                            $patientData = getPatientData($appt_pid, "fname, mname, lname, pubpid, billing_note, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
+                        }
+                        // End
+
                         if ($appt_pid == 0) {
                             continue; // skip when $appt_pid = 0, since this means it is not a patient specific appt slot
                         }
@@ -602,13 +936,20 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
                         if ($GLOBALS['ptkr_show_pid']) {
                             ?>
-                            <td class="detail text-center" name="kiosk_hide">
-                                <?php echo text($appt_pid); ?>
-                            </td>
+                            <!-- @VH: Commented -->
+                            <!-- <td class="detail text-center" name="kiosk_hide"> -->
+                                <?php //echo text($appt_pid); ?>
+                            <!-- </td> -->
+                            <!-- End -->
                             <?php
                         }
 
                         ?>
+                        <!-- @VH: Added to show pubpid -->
+                        <td class="detail hidden-xs" align="center" name="kiosk_hide">
+                            <?php echo text($appointment['pubpid']); ?>
+                        </td>
+                        <!-- End -->
                         <td class="detail text-center" name="kiosk_hide">
                             <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)">
                                 <?php echo text($ptname); ?></a>
@@ -627,17 +968,25 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <?php } ?>
                         <?php if ($GLOBALS['ptkr_show_encounter']) { ?>
                             <td class="detail text-center" name="kiosk_hide">
-                                <?php
-                                if ($appt_enc != 0) {
-                                    echo text($appt_enc);
-                                }
+                                <!-- @VH: To Show encounter signed or not and gotoencounter -->
+                                <?php 
+                                    if ($appt_enc != 0) {
+                                        $eSignClass = getESignClass(text($appt_enc));
                                 ?>
+                                    <a href="#" class="<?php echo $eSignClass; ?>" onclick='handleGoToEncounter("<?php echo $appt_pid; ?>", "<?php echo text($appointment['pubpid']); ?>", "<?php echo htmlspecialchars($patientName, ENT_QUOTES); ?>", "<?php echo text($appt_enc); ?>", "<?php echo xl('DOB') . ': ' . addslashes(oeFormatShortDate($patientData['DOB_YMD'])) . ' ' . xl('Age') . ': ' . getPatientAge($patientData['DOB_YMD']) ?>")'><?php echo text($appt_enc); ?>  <?php echo $eSignClass == "locked" ? " / Signed" : ""; ?></a>
+                                <?php } ?>
+                                <!-- End -->
                             </td>
                         <?php } ?>
                         <?php if ($GLOBALS['ptkr_date_range'] == '1') { ?>
                             <td class="detail text-center" name="kiosk_hide">
                                 <?php echo text(oeFormatShortDate($appointment['pc_eventDate']));
                                 ?>
+                                <!-- @VH: To Show appt note -->
+                                <?php if(isset($appointment['pc_hometext']) && !empty($appointment['pc_hometext'])): ?>
+                                <span style="white-space: pre-line;" title="<?php echo text($appointment['pc_hometext']); ?>"><i class="fa fas fa-exclamation-circle ml-1"></i></span> 
+                                <?php endif;?>
+                                <!-- END -->
                             </td>
                         <?php } ?>
                         <td class="detail text-center">
@@ -726,7 +1075,9 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <td class="detail text-center">
                             <?php
                             if (strtotime($newend) != '') {
-                                echo text(oeFormatTime(substr($newend, 11))) ;
+                                // @VH: Commented original code
+                                //echo text(oeFormatTime(substr($newend, 11))) ;
+                                echo oeFormatTime($newend);
                             }
                             ?>
                         </td>
@@ -781,6 +1132,10 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
     <?php
 }
+
+// @VH: Pagination
+generatePagination($page_details, $pageno);
+
 if (!($_REQUEST['flb_table'] ?? null)) { ?>
                 </div>
             </div>
@@ -811,6 +1166,15 @@ function myLocalJS()
         window.parent.$("[name='flb']").attr('allowFullscreen', 'true');
         $("[name='kiosk_hide']").show();
         $("[name='kiosk_show']").hide();
+
+        // @VH: change page
+        function changePage(page_no) {
+            if(page_no && page_no != '') {
+                $('#page_no').val(page_no);
+                $('#flb').submit();
+            }
+        }
+        // End
 
         function print_FLB() {
             window.print();
@@ -862,6 +1226,7 @@ function myLocalJS()
 
             var startRequestTime = Date.now();
             top.restoreSession();
+            // @VH: added page_no param
             var posting = $.post('../patient_tracker/patient_tracker.php', {
                 flb_table: '1',
                 form_from_date: $("#form_from_date").val(),
@@ -874,7 +1239,8 @@ function myLocalJS()
                 form_apptcat: $("#form_apptcat").val(),
                 kiosk: $("#kiosk").val(),
                 skip_timeout_reset: skip_timeout_reset,
-                csrf_token_form: <?php echo js_escape(CsrfUtils::collectCsrfToken()); ?>
+                csrf_token_form: <?php echo js_escape(CsrfUtils::collectCsrfToken()); ?>,
+                page_no: $("#page_no").val()
             }).done(
                 function (data) {
                     //minimum 400 ms of loader (In the first loading or manual loading not by timer)
@@ -914,6 +1280,9 @@ function myLocalJS()
          * It is called on initial load, on refresh and 'onchange/onkeyup' of a flow board parameter.
          */
         function refineMe() {
+            // @VH: Return true
+            return true;
+
             var apptcatV = $("#form_apptcat").val();
             var apptstatV = $("#form_apptstatus").val();
             var facV = $("#form_facility").val();
@@ -1051,7 +1420,10 @@ function myLocalJS()
                 parsetime = (parsetime[0] * 60) + (parsetime[1] * 1) * 1000;
                 if (auto_refresh) clearInteral(auto_refresh);
                 auto_refresh = setInterval(function () {
-                    refreshMe(true) // this will run after every parsetime seconds
+                    // @VH: Wrap with in if condition
+                    if(getActiveTab() == "flb") {
+                        refreshMe(true) // this will run after every parsetime seconds
+                    }
                 }, parsetime);
             <?php } ?>
 
@@ -1118,6 +1490,20 @@ function myLocalJS()
         }
 
         initTableButtons();
+
+        // @VH: get active tab information
+        function getActiveTab() {
+            var tabName = "";
+            for(var tabIdx=0;tabIdx<top.app_view_model.application_data.tabs.tabsList().length;tabIdx++){
+                var curTab=top.app_view_model.application_data.tabs.tabsList()[tabIdx];
+                
+                if(curTab.visible()) {
+                    tabName = curTab.name();
+                }
+            }
+            return tabName;
+        }
+        // End
 
     </script>
 <?php }

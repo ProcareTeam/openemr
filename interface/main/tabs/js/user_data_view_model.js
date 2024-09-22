@@ -82,6 +82,23 @@ function viewMessages()
     });
 }
 
+// @VH: Added Changes
+function msgSettings()
+{
+    navigateTab(webroot_url+"/custom/msg_status_popup.php","msc")
+    activateTabByName("msc",true);
+}
+
+// @VH: Asterisk Change
+function viewCalls()
+{
+    navigateTab(webroot_url+"/interface/asterisk/viewCalls.php","pbxdata", function () {
+        activateTabByName("pbxdata",true);
+    });
+}
+
+/* End */
+
 function viewPortalAudits()
 {
     navigateTab(webroot_url+"/portal/patient/onsiteactivityviews","msc", function () {

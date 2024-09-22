@@ -158,12 +158,13 @@ function fetchEvents($from_date, $to_date, $where_param = null, $orderby_param =
             "LEFT OUTER JOIN list_options AS s ON s.list_id = 'apptstat' AND s.option_id = q.status AND s.activity = 1 " ;
         }
 
+        // @VH: Query change added username column into select
         $query = "SELECT " .
         "e.pc_eventDate, e.pc_endDate, e.pc_startTime, e.pc_endTime, e.pc_duration, e.pc_recurrtype, e.pc_recurrspec, e.pc_recurrfreq, e.pc_catid, e.pc_eid, e.pc_gid, " .
         "e.pc_title, e.pc_hometext, e.pc_apptstatus, " .
         "p.fname, p.mname, p.lname, p.DOB, p.pid, p.pubpid, p.phone_home, p.phone_cell, " .
         "p.hipaa_allowsms, p.phone_home, p.phone_cell, p.hipaa_voice, p.hipaa_allowemail, p.email, " .
-        "u.fname AS ufname, u.mname AS umname, u.lname AS ulname, u.id AS uprovider_id, " .
+        "u.fname AS ufname, u.mname AS umname, u.lname AS ulname, u.id AS uprovider_id, u.username as uusername, " .
         "f.name, " .
         "$tracker_fields" .
         "c.pc_catname, c.pc_catid, e.pc_facility " .
@@ -351,13 +352,25 @@ function fetchAllEvents($from_date, $to_date, $provider_id = null, $facility_id 
     $where = "";
 
     if ($provider_id) {
-        $where .= " AND e.pc_aid = ?";
-        array_push($sqlBindArray, $provider_id);
+        // @VH: Wrap into if and added code
+        if(is_array($provider_id) && !empty($provider_id) && !in_array("ALL", $provider_id)) {
+            $tmp_provider_id = "'".implode("','", $provider_id)."'";
+            $where .= " AND e.pc_aid IN (".$tmp_provider_id.")";
+        } else if(!is_array($provider_id)) {
+            $where .= " AND e.pc_aid = ?";
+            array_push($sqlBindArray, $provider_id);
+        }
     }
 
     if ($facility_id) {
-        $where .= " AND e.pc_facility = ? AND u.facility_id = ?";
-        array_push($sqlBindArray, $facility_id, $facility_id);
+        // @VH: Wrap into if and added code
+        if(is_array($facility_id) && !empty($facility_id) && !in_array("ALL", $facility_id)) {
+            $tmp_facility_id = "'".implode("','", $facility_id)."'";
+            $where .= " AND e.pc_facility IN (".$tmp_facility_id.") AND u.facility_id IN (".$tmp_facility_id.") ";
+        } else if(!is_array($facility_id)) {
+            $where .= " AND e.pc_facility = ? AND u.facility_id = ?";
+            array_push($sqlBindArray, $facility_id, $facility_id);
+        }
     }
 
     $appointments = fetchEvents($from_date, $to_date, $where, null, false, 0, $sqlBindArray);

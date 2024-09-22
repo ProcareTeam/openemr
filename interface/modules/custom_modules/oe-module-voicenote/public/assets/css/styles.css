@@ -1,0 +1,385 @@
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+p {
+  /* Client */
+  color: #444;
+  /* Admin  */
+  /* color: white; */
+}
+
+button:focus {
+  outline: 0;
+}
+
+.container {
+  max-width: 700px;
+  margin: 0 auto;
+  /*    padding: 100px 50px;*/
+  text-align: center;
+}
+
+.container h1 {
+  margin-bottom: 20px;
+}
+
+.page-description {
+  font-size: 1.1rem;
+  margin: 0 auto;
+}
+
+/* Admin */
+/* #recording-instructions {
+  color: #fff;
+} */
+/* Admin */
+
+.tz-link {
+  font-size: 1em;
+  color: #1da7da;
+  text-decoration: none;
+}
+
+.no-browser-support {
+  display: none;
+  font-size: 1.2rem;
+  color: #e64427;
+  margin-top: 35px;
+}
+
+.app {
+  margin: 40px auto;
+}
+
+#note-textarea {
+  margin: 20px 0;
+}
+
+#notes {
+  padding-top: 20px;
+}
+
+.note .header {
+  font-size: 0.9em;
+  /* Admin */
+  /* color: #fff; */
+  /* Admin */
+  margin-bottom: 10px;
+}
+
+.note .delete-note,
+.note .listen-note {
+  text-decoration: none;
+  margin-left: 15px;
+}
+
+.note .content {
+  margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 50px 25px;
+  }
+
+  button {
+    margin-bottom: 10px;
+  }
+}
+
+/* -- Demo ads -- */
+
+@media (max-width: 1200px) {
+  #bsaHolder {
+    display: none;
+  }
+}
+
+button#recordWBtn {
+  position: fixed;
+  bottom: 65px;
+  right: 15px;
+  z-index: 2050;
+}
+#recBtn,
+#recBtn2,
+#recBtn3 {
+  position: relative;
+}
+.startRec,
+.stopRec {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+
+  margin: auto;
+}
+.startRec {
+  border: 1px solid #09ff09;
+  background: #09ff09;
+  left: 4px;
+  display: block;
+}
+.stopRec {
+  border: 1px solid #edeaea;
+  background: #edeaea;
+  right: 4px;
+  display: none;
+}
+
+.form-control {
+  margin-bottom: 5px !important;
+}
+.btn-block-record {
+  background: linear-gradient(to right, #c04848 0%, #480048 51%, #c04848 100%);
+  border-color: transparent;
+}
+.btn-block-record:hover,
+.btn-block-record:hover i {
+  /*background-color: #bd2130;*/
+  background-color: #bd2130;
+  border-color: #bd2130;
+  box-shadow: 0 0.125rem 0.25rem rgb(0 0 0 / 8%);
+}
+.btn-block-record:hover i {
+  box-shadow: none;
+  border-color: transparent;
+  background-color: transparent;
+}
+.btn-block-record i,
+.btn-block-record1 i,
+.btn-block-record2 i,
+.btn-block-record3 i {
+  font-size: 40px;
+  color: #fff;
+  box-shadow: none;
+  /*        border-color: #00cfd1;*/
+  /*        background-color: #00cfd1;*/
+  border-radius: 50%;
+  padding: 5px;
+  cursor: pointer;
+}
+.btn-block-record i:hover {
+  font-size: 40px;
+  color: #fff;
+  box-shadow: none;
+  /*        border-color: #00cfd1;*/
+  /*        background-color: #00cfd1;*/
+  border-radius: 50%;
+  padding: 5px;
+}
+.editBtnSection {
+  position: absolute;
+  right: 20px;
+  top: 7px;
+}
+
+.box {
+  position: relative;
+  /*  min-height: 100px;*/
+}
+.circle_ripple {
+  height: 100px;
+  width: 100px;
+  /* Client */
+  background: #ffc107 !important;
+  /* Admin */
+  /* background: #00cfd1b8; */
+  border-radius: 50%;
+  position: absolute;
+  left: 0;
+  top: -25px;
+  right: 0;
+  z-index: 0;
+  bottom: 0;
+  margin: 0 auto;
+}
+.circle_ripple.active,
+.circle_ripple-pat.active {
+  height: 55px;
+  width: 55px;
+  background: #00cfd1;
+  border-radius: 50%;
+  /* Admin */
+  /* -webkit-animation-name: ripple 2s infinite; */
+  animation: ripple 2s infinite;
+  position: absolute;
+  left: 0;
+  top: 00px;
+  right: 0;
+  z-index: 0;
+  bottom: 0;
+  margin: 0 auto;
+}
+/* .circle_ripple-2{
+     height:75px;
+    width:75px;
+    background:#00cfd163;
+    border-radius:50%;
+    position:absolute;
+    left: 0;
+    top: -13px;
+    right: 0;
+    bottom: 0;
+    margin:0 auto;
+} */
+.circle_ripple-2.active,
+.circle_ripple-2-pat.active {
+  height: 55px;
+  width: 55px;
+  /* Client  */
+  background: #ffc107 !important;
+  /* Admin  */
+  /* background: #00cfd1; */
+  border-radius: 50%;
+  /* -webkit-animation-name: ripple 2s infinite; */
+  animation: ripple-2 2s infinite;
+  position: absolute;
+  left: 0;
+  top: 0px;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(2);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ripple-2 {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(2.5);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ripple-2-pat {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(2.5);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.circles,
+.circles-pat {
+  position: absolute;
+  top: 0px;
+  bottom: 0;
+  left: 0px;
+  right: 0;
+  margin: 0 auto;
+  z-index: 99;
+  width: 50px;
+}
+
+body {
+  overflow-y: auto;
+}
+
+.circles-2 .fa,
+.circles-2-pat .fa {
+  /*  font-size:16px;*/
+  /* Client  */
+  color: #000 !important;
+  /* Admin  */
+  /* color: #fff; */
+  z-index: 99;
+}
+/*#note-textarea{
+  height:100%; background: transparent; border: transparent;    width: 100%; padding: 5px 10px;
+}*/
+
+#notes {
+  padding: 0;
+  max-height: 150px;
+  overflow: auto;
+}
+#notes .note {
+  list-style: none;
+}
+#notes table {
+  width: 100%;
+}
+
+button#recordWBtn {
+  position: fixed;
+  bottom: 65px;
+  right: 15px;
+  z-index: 999;
+}
+
+.recordSection {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: none;
+  left: 0;
+  margin: auto 0;
+  /* Client  */
+  background: white;
+  /* Admin  */
+  /* background: #000000c4; */
+
+  z-index: 9999;
+}
+.rec-section {
+  padding: 20px;
+  border-radius: 13px;
+  position: relative;
+  width: 100%;
+  /* height: 100%; */
+  /* Client  */
+  top: 0 !important;
+  /* Admin  */
+  /* top: 20%; */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+}
+
+.menu-itm-lst {
+  display: inline-flex;
+}
+.menu-itm-lst li {
+  margin: 5px 15px;
+}
+
+/* Admin */
+/* .result-box,
+.result-box:focus {
+  background: #3e3f40;
+  color: #fff !important;
+}
+#dialog {
+  color: white;
+} */
+/* Admin */
+

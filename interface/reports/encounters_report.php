@@ -95,13 +95,15 @@ if ($form_not_esigned) {
 
 $sqlBindArray = array();
 
+// @VH: Query change added some columns into select list
 $query = "SELECT " .
   "fe.encounter, fe.date, fe.reason, " .
   "f.formdir, f.form_name, " .
   "p.fname, p.mname, p.lname, p.pid, p.pubpid, p.dob, " .
-  "u.lname AS ulname, u.fname AS ufname, u.mname AS umname " .
+  "u.lname AS ulname, u.fname AS ufname, u.mname AS umname, c.pc_catname as encounter_category_name " .
   "$esign_fields" .
   "FROM ( form_encounter AS fe, forms AS f ) " .
+  "LEFT JOIN openemr_postcalendar_categories c on c.pc_catid = fe.pc_catid " .
   "LEFT OUTER JOIN patient_data AS p ON p.pid = fe.pid " .
   "LEFT JOIN users AS u ON u.id = fe.provider_id " .
   "$esign_joins" .
@@ -208,6 +210,48 @@ $res = sqlStatement($query, $sqlBindArray);
         }
 
     </script>
+
+    <!-- @VH: Added script code -->
+    <script type="text/javascript">
+        function goToEncounter(pid, pubpid, pname, enc, dobstr) {
+            top.restoreSession();
+            loadpatient(pid,enc);
+        }
+
+        // used to display the patient demographic and encounter screens
+        function loadpatient(newpid, enc) {
+            if ($('#setting_new_window').val() === 'checked') {
+                document.fnew.patientID.value = newpid;
+                document.fnew.encounterID.value = enc;
+                document.fnew.submit();
+            }
+            else {
+                if (enc > 0) {
+                    top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/patient_file/summary/demographics.php?set_pid=" + newpid + "&set_encounterid=" + enc;
+                }
+                else {
+                    top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/patient_file/summary/demographics.php?set_pid=" + newpid;
+                }
+            }
+        }
+
+        // used to display the patient demographic and encounter screens
+        function topatient(newpid, enc) {
+            if ($('#setting_new_window').val() === 'checked') {
+                openNewTopWindow(newpid, enc);
+            }
+            else {
+                top.restoreSession();
+                if (enc > 0) {
+                    top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/patient_file/summary/demographics.php?set_pid=" + newpid;
+                }
+                else {
+                    top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/patient_file/summary/demographics.php?set_pid=" + newpid;
+                }
+            }
+        }
+    </script>
+    <!-- End -->
 </head>
 <body class="body_top">
 <!-- Required for the popup date selectors -->
@@ -392,6 +436,13 @@ if (!empty($_POST['form_refresh']) || !empty($_POST['form_orderby'])) {
         while ($row = sqlFetchArray($res)) {
             $patient_id = $row['pid'];
 
+            // @VH: Change
+            if ($row['encounter'] != 0 && $$patient_id != 0) {
+                $patientData = getPatientData($patient_id, "fname, mname, lname, pubpid, billing_note, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
+            }
+            $patientName = $row['fname'] . ' ' . $row['lname'];
+            // END
+
             $docname = '';
             if (!empty($row['ulname']) || !empty($row['ufname'])) {
                 $docname = $row['ulname'];
@@ -427,17 +478,20 @@ if (!empty($_POST['form_refresh']) || !empty($_POST['form_orderby'])) {
                 $coded = "";
                 $billed_count = 0;
                 $unbilled_count = 0;
+                // @VH: added units to list
                 if (
                     $billres = BillingUtilities::getBillingByEncounter(
                         $row['pid'],
                         $row['encounter'],
-                        "code_type, code, code_text, billed"
+                        "code_type, code, code_text, billed, units"
                     )
                 ) {
                     foreach ($billres as $billrow) {
                         // $title = addslashes($billrow['code_text']);
                         if ($billrow['code_type'] != 'COPAY' && $billrow['code_type'] != 'TAX') {
-                            $coded .= $billrow['code'] . ', ';
+                            // @VH: Added Unit
+                            $codeUnit = in_array($billrow['code_type'], array('HCPCS','CPT4')) && $billrow['units'] > 0 ? " (".$billrow['units'].")" : "";
+                            $coded .= $billrow['code'] .$codeUnit . ', ';
                             if ($billrow['billed']) {
                                 ++$billed_count;
                             } else {
@@ -479,7 +533,8 @@ if (!empty($_POST['form_refresh']) || !empty($_POST['form_orderby'])) {
                 <?php echo text(oeFormatShortDate(substr($row['date'], 0, 10))) ?>&nbsp;
   </td>
   <td>
-                <?php echo text($row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname']); ?>&nbsp;
+                <!-- @VH: Made change to make goto patient link -->
+                <a href="#" onclick="return topatient('<?php echo attr($patient_id); ?>','<?php echo attr($row['encounter']); ?>')"><?php echo text($row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname']); ?></a>&nbsp
   </td>
   <td>
                 <?php echo text($row['pubpid']); ?>&nbsp;
@@ -488,7 +543,8 @@ if (!empty($_POST['form_refresh']) || !empty($_POST['form_orderby'])) {
                 <?php echo text($status); ?>&nbsp;
   </td>
   <td>
-                <?php echo text($row['reason']); ?>&nbsp;
+                <!-- @VH: To show category name with reason -->
+                <?php echo text($row['reason']); ?>&nbsp;<?php echo !empty($row['encounter_category_name']) ? "- (" . text($row['encounter_category_name']) . ")" : ''; ?>
   </td>
    <td>
                 <?php echo "<input type='button' class='btn btn-sm btn-secondary' value='" .

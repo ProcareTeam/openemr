@@ -31,14 +31,44 @@ $timeslotHeightUnit="px";
  }
 
  function newEvt(startampm, starttimeh, starttimem, eventdate, providerid, catid) {
+  // @VH: - Set default facility value of block provider on appointment window when create new appointment. [V100027] 
+  var dfacility = '';
+  if(calendar_facility_json.hasOwnProperty("p"+providerid)) {
+    if(starttimeh > 12) {
+        var apptdate = new Date(eventdate.toString().replace( /(\d{4})(\d{2})(\d{2})/, "$2/$3/$1") + " " +starttimeh+":"+starttimem);
+    } else {
+        var merv = startampm === 2 ? 'pm' : 'am';
+        var apptdate = new Date(eventdate.toString().replace( /(\d{4})(\d{2})(\d{2})/, "$2/$3/$1") + " " +starttimeh+":"+starttimem +" "+ merv );  
+    }
+
+    calendar_facility_json_provider = "p"+providerid in calendar_facility_json ? calendar_facility_json["p"+providerid] : {};
+    if(Array.isArray(calendar_facility_json_provider)) {
+        calendar_facility_json_provider.forEach(function (pitem, pindex) {
+            let sT = new Date(Date.parse(pitem['startTime']));
+            let eT = new Date(Date.parse(pitem['endTime']));
+
+            if(sT <= apptdate && eT >= apptdate) {
+                dfacility = pitem['facility'];
+                return;
+            }
+        });
+    }
+  }
+  dfacility = dfacility != '' ? '&default_facility=' + dfacility : '';
+  // END
+
   dlgopen('add_edit_event.php?startampm=' + encodeURIComponent(startampm) +
    '&starttimeh=' + encodeURIComponent(starttimeh) + '&userid=' + encodeURIComponent(providerid) + '&starttimem=' + encodeURIComponent(starttimem) +
-   '&date=' + encodeURIComponent(eventdate) + '&catid=' + encodeURIComponent(catid)
+   '&date=' + encodeURIComponent(eventdate) + '&catid=' + encodeURIComponent(catid) + dfacility
    ,'_blank', 780, 675, '', '', {onClosed: 'refreshme'});
  }
 
  function oldEvt(eventdate, eventid, pccattype) {
   dlgopen('add_edit_event.php?date=' + encodeURIComponent(eventdate) + '&eid=' + encodeURIComponent(eventid) + '&prov=' + encodeURIComponent(pccattype), '_blank', 780, 650);
+ }
+
+ function create_provider_grp() {
+  dlgopen('create_provider_group_popup.php', '_blank', 780, 650, '', '', {onClosed: 'refreshme'});
  }
 
  function oldGroupEvt(eventdate, eventid, pccattype){
@@ -137,6 +167,10 @@ $timeslotHeightUnit="px";
 
  $MULTIDAY = count($A_EVENTS) > 1;
 
+ // @VH: Get Coverage Data [V100035]
+ coverageEleCSS();
+ $coverageData = getCoverageData($A_EVENTS);
+
 //==================================
 //FACILITY FILTERING (CHEMED)
 $facilities = getUserFacilities($_SESSION['authUserID']); // from users_facility
@@ -148,9 +182,39 @@ if ( $_SESSION['pc_facility'] ) {
 //EOS FACILITY FILTERING (CHEMED)
 //==================================
 
+// @VH: [V100037]
+//==================================
+// USER PROVIDER GROUP
+if(isset($_SESSION['provider_group']))
+{
+    $user_group_provider = sqlStatement("select * from users where id in (". $_SESSION['provider_group'] . ") order by lname asc, fname asc");
+    $prov_group_info = [];
+    for ($iter = 0; $row = sqlFetchArray($user_group_provider); $iter++) {
+       $prov_group_info[] = $row;
+    }
+    if(count($prov_group_info)> 0)
+    {
+        $provinfo = $prov_group_info;
+    }
+}
+//EOS USER PROVIDER GROUP (CHEMED)
+//==================================
+// END
+
 $chevron_icon_left = $_SESSION['language_direction'] == 'ltr' ? 'fa-chevron-circle-left' : 'fa-chevron-circle-right';
 $chevron_icon_right = $_SESSION['language_direction'] == 'ltr' ? 'fa-chevron-circle-right' : 'fa-chevron-circle-left';
 [-/php-]
+
+[-php-]
+/* @VH: Default Facility Changes [V100027] */
+$proids = array();
+$inEvents = getBlockData($A_EVENTS);
+foreach ($providers as $pItem) { $proids[] = $pItem['id']; }
+$defFacility = getDefaultFacility1($proids, $Date, $inEvents);
+echo "<script type='text/javascript'>var calendar_facility_json = JSON.parse('".json_encode($defFacility)."');</script>";
+/* End */
+[-/php-]
+
 <div id="wrapper">
     <form name='theform' id='theform' action='index.php?module=PostCalendar&func=view&tplview=default&pc_category=&pc_topic=' method='post' onsubmit='return top.restoreSession()'>
       <div class="container-fluid sticky-top">
@@ -313,6 +377,39 @@ while ($currdate <= $enddate) {
 </div>
 
 <div id="providerPicker">
+
+[-php-]    
+
+    //================= Provider Groups Created By Users ** Added By Sandeep **==================
+    $provider_groups_sql = sqlStatement("select * from user_provider_groups where user_id =". $_SESSION['authUserID'] ." OR visible_to_all =1 ");
+    $provider_groups = [];
+    for ($iter = 0; $row = sqlFetchArray($provider_groups_sql); $iter++) {
+        $provider_groups[$iter] = $row;
+    }
+    if ( !$_SESSION['provider_group'] ) $selected = "selected='selected'";
+    
+    echo xlt('Provider Groups'); 
+    echo '   <small><a onclick="create_provider_grp()" href="#" >Add/Edit group</a></small>';
+  
+    $select_html = "<select name='provider_groups' id='provider_groups' class='view2 form-control'>";
+    $select_html .="<option value='0' " . $selected . ">Select Group</option>";
+    if(count($provider_groups) > 0)
+    {
+        
+        foreach($provider_groups as $group)
+        {
+            $selected = ( $_SESSION['provider_group'] == $group['provider_ids']) ? "selected='selected'" : "" ;
+            $select_html .= "<option value='" . $group['provider_ids'] . "'" . $selected .">" . $group['title'] . "</option>";
+        }    
+    }
+    $select_html .= "</select>";
+    echo $select_html;
+    
+
+
+    //============ EOS Provider Group ================
+[-/php-]
+
 [-xlt t='Providers'-]
 <div>
 [-php-]
@@ -690,6 +787,12 @@ foreach ($providers as $provider) {
             $catname = $event['catname'];
             $title = "Age $patient_age ($patient_dob)";
 
+            // @VH: Display alert info and coverage info. [V100035]
+            $patient_alert_info = $event['alert_info'];
+            $patient_nickname = getNickName($event);
+            $coverage_info = getCoverageContent($event, $coverageData);
+            // END
+
             //Variables for therapy groups
             $groupid = $event['gid'];
             $groupname = $event['group_name'];
@@ -745,12 +848,19 @@ foreach ($providers as $provider) {
                     $link_title = $fname . " " . $lname . " \n";
                     $link_title .= xl('Age') . ": " . $patient_age . "\n" . xl('DOB') . ": " . $patient_dob . " $comment" . "\n";
                     $link_title .= "(" . xl('Click to view') . ")";
-                    $content .= "<a class='link_title' data-pid='". attr($patientid) . "' href='javascript:goPid(" . attr_js($patientid) . ")' title='" . attr($link_title) . "'>";
-                    $content .= "<i class='fas fa-user text-success' onmouseover=\"javascript:ShowImage(" . attr_js($GLOBALS['webroot']."/controller.php?document&retrieve&patient_id=".attr($patientid)."&document_id=-1&as_file=false&original_file=true&disable_exit=false&show_original=true&context=patient_picture") . ");\" onmouseout=\"javascript:HideImage();\" title='" . attr($link_title) . "'></i>";
+                    // @VH: Made change to display alert info and coverage info. [V100035]
+                    $link_title .= getAlertInfoTitle($patient_alert_info);
+                    $link_title .= $coverage_info['title'];
+                    // @VH: Made change to display alert info and coverage info. [V100035]
+                    $content .= "<a class='link_title' data-pid='". attr($patientid) . "' href='javascript:goPid(" . attr_js($patientid) . ")' title='" . replaceSpace(attr($link_title)) . "'>";
+                    $content .= "<i class='fas fa-user text-success' onmouseover=\"javascript:ShowImage(" . attr_js($GLOBALS['webroot']."/controller.php?document&retrieve&patient_id=".attr($patientid)."&document_id=-1&as_file=false&original_file=true&disable_exit=false&show_original=true&context=patient_picture") . ");\" onmouseout=\"javascript:HideImage();\" title='" . replaceSpace(attr($link_title)) . "'></i>";
+                    // END
                     if ($catid == 1) $content .= "<s>";
                     $content .= text($lname);
                     if ($GLOBALS['calendar_appt_style'] != 1) {
                         $content .= "," . text($fname);
+                        // @VH: Made change to add patient nickname. [V100035]
+                        $content .= "," . text($fname) . text($patient_nickname);
                         if ($event['title'] && $GLOBALS['calendar_appt_style'] >= 3) {
                             $content .= "(" . text($event['title']);
                             if ($event['hometext'] && $GLOBALS['calendar_appt_style'] >= 4)
@@ -760,6 +870,9 @@ foreach ($providers as $provider) {
                     }
                     if ($catid == 1) $content .= "</s>";
                     $content .= "</a>";
+                    // @VH: Display alert info and coverage info. [V100035]
+                    $content .= getAlertInfo($patient_alert_info);
+                    $content .= $coverage_info['content'];
                 }
                 elseif($groupid){
                     $divTitle .= "\n" . getTypeName($grouptype) . "\n";
@@ -923,6 +1036,21 @@ echo "</div>\n";
 </div>
 
 <script>
+    
+    function getSelected()
+    {
+
+        var options = $('#pc_username option:selected');
+
+        var values = $.map(options ,function(option) {
+            return  option.value;
+        });
+        var form = $('<form action="'+href+'" method="post" style="display: none;"></form>');
+            form.append($('<input type="hidden" name="featured-image" value="'+image_id+'">'));
+            $('body').append(form);
+            form.submit();
+    }
+
     var tsHeight=[-php-] echo js_escape($timeslotHeightVal.$timeslotHeightUnit); [-/php-];
     var tsHeightNum=[-php-] echo js_escape($timeslotHeightVal); [-/php-];
 
@@ -940,7 +1068,26 @@ echo "</div>\n";
     $(function () {
         setupDirectTime();
         $("#pc_username").change(function() { ChangeProviders(this); });
-        $("#pc_facility").change(function() { ChangeProviders(this); });
+        // @VH: Script Change [V100034]
+        //$("#pc_facility").change(function() { ChangeProviders(this); });
+        $("#pc_facility").change(function() { 
+            // @VH: Default value set on facility change. [V100034]
+            $("#pc_username").val('__PC_ALL__');
+            $("#provider_groups").val('0');
+
+
+            ChangeProviders(this); 
+        });
+        // @VH: Provider group change. [V100034]
+        $("#provider_groups").change(function() {
+            $("#pc_username").val('__PC_ALL__');
+            $("#pc_facility").val('0');
+
+            // Change providers
+            ChangeProviders(this); 
+        });
+        // END
+
         //$("#dayview").click(function() { ChangeView(this); });
         $("#weekview").click(function() { ChangeView(this); });
         $("#monthview").click(function() { ChangeView(this); });

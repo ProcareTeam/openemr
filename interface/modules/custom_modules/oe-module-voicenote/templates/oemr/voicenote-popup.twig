@@ -1,0 +1,99 @@
+<html>
+<head>
+	<title>{{ 'Voice Record'|xlt }}</title>
+
+	{{ setupHeader(['opener', 'dialog', 'jquery', 'jquery-ui', 'jquery-ui-base', 'fontawesome', 'main-theme', 'oemr_ad']) }}
+
+    <script type="text/javascript">
+        var oemr_authUser = '{{authUser}}';
+    </script>
+
+	<script src="{{ assetPath }}js/vnp_script.js" id="vnp_scripttag" userName="{{authUser}}" accountNumber="{{accountNumber}}"></script>
+  	<link rel="stylesheet" href="{{ assetPath }}css/styles.css">
+
+  	<script type="text/javascript">
+        function selnotevalue() {
+            if (opener.closed || ! opener.setnotevalue)
+                alert('{{ "The destination form was closed; I cannot act on your selection."|xlt }}');
+            else
+                var notevalue = document.getElementById('note_active');
+                //opener.setnotevalue(notevalue.value);
+                dlgclose();
+            return false;
+        }
+
+        $(document).ready(function() {
+            if(opener.getnoteelement) {
+                //Assign selected element
+                selectedbox = opener.getnoteelement();
+            }
+
+            var targetNode = document.querySelector('.recordSection');
+            var observer = new MutationObserver(function(){
+                if(targetNode.style.display == 'none'){
+                   selnotevalue();
+                }
+            });
+            observer.observe(targetNode, { attributes: true, childList: true });
+
+            setTimeout(function() {
+                //$('#note_active').trigger('click');
+                $('#recordWBtn').trigger('click');
+            }, 10);
+        });
+    </script>
+
+    <style type="text/css">
+        .recordSection {
+            display: block !important;
+            position: relative;
+            background-color: transparent !important;
+            height: auto !important;
+            width: auto !important;
+        }
+
+        #note_active {
+            display: none;
+        }
+
+        #recordWBtnClose {
+            display: none !important;
+        }
+
+        #recordWBtn {
+            width: 0px;
+            height: 0px;
+            display: none;
+        }
+
+        /*
+        #recording-instructions {
+            color: #444 !important;
+        }
+
+        .circle_ripple {
+            background:#ffc107 !important;
+        }
+
+        .circle_ripple-2.active,.circle_ripple-2-pat.active {
+            background:#ffc107 !important;
+        } 
+
+        .circles-2 .fa,.circles-2-pat .fa{
+            color:#000 !important;
+            z-index: 99;
+        }*/
+
+        #note-textarea {
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+ 	
+    <!-- <textarea id="note_active" class="form-control note-active"></textarea> -->
+    <button type="button" id="recordWBtn">Record Button</button>
+ </body>
+</html>
+

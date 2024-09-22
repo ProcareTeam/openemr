@@ -118,6 +118,24 @@ function tabRefreshByName(name) {
 
 function tabClose(data,evt)
 {
+    // @VH: Added Changes [V100042]
+    // Create the event
+    var event = new CustomEvent("tabCloseEvent", { detail: { data : data, evt : evt }, cancelable: true  });
+    var responce = true;
+
+    // Dispatch/Trigger/Fire the event
+    var frameEle = document.querySelectorAll(".frameDisplay iframe").forEach(function(el) {
+        var dispatchEventResponce = el.contentWindow.dispatchEvent(event);
+        if(dispatchEventResponce === false) {
+            responce = false;
+        }
+    });
+
+    if(responce === false) {
+        return false;
+    }
+    // End
+
     //remove the tab
     app_view_model.application_data.tabs.tabsList.remove(data);
     //activate the next tab
@@ -380,6 +398,10 @@ function clearPatient()
     tabCloseByName('rev');
     tabCloseByName('pop');
     tabCloseByName('pat');
+
+    // @VH: Added Change. [V100040]
+    tabCloseByName('case');
+
     navigateTab(webroot_url+'/interface/main/finder/dynamic_finder.php','fin', function () {
         activateTabByName('fin',true);
     });

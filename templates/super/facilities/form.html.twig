@@ -152,9 +152,20 @@ function displayAlert() {
             <div class="form-row">
                 <div class="form-group w-100">
                     <label for='facility' class="sr-only">{{ 'Name'|xlt }}</label>
-                    <input type='text' class='form-control form-control-lg' placeholder="{{ 'Facility Name'|xla }}" name='facility' value='{{ facility.name|default('')|attr }}'>
+                    <!-- @VH: Rename field name from 'facility' to 'facility1' and used name1 field -->
+                    <input type='text' class='form-control form-control-lg' placeholder="{{ 'Facility Name'|xla }}" name='facility1' value='{{ facility.name1|default('')|attr }}'>
                 </div>
             </div>
+
+            <!-- @VH: Added field with same name 'facility' for Facility Description and used value for name column -->
+            <div class="form-row">
+                <div class="form-group w-100">
+                    <label for='facility1' class="sr-only">{{ 'Facility Description'|xlt }}</label>
+                    <input type="text" class='form-control form-control-lg' placeholder="{{ 'Facility Description'|xla }}" name="facility" value='{{ facility.name|default('')|attr }}' />
+                </div>
+            </div>
+            <!-- End -->
+
             <div class="form-row mb-2">
                 <div class="col-sm-12 col-md-7">
                     <div class="bg-light border">
@@ -396,6 +407,9 @@ function displayAlert() {
                 </div>
             </div>
         </div>
+
+        <!-- @VH: added dispatch -->
+        {{ fireEvent(eventNames.facilityBasicEditRenderBefore.name, eventNames.facilityBasicEditRenderBefore.data) }}
     </form>
     </div>
 </body>

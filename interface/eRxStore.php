@@ -164,11 +164,13 @@ class eRxStore
 
     public function getPatientDiagnosisByPatientId($patientId)
     {
+        // @VH: Query changes
+        // TODO: @VH Changed date type to fix date format issue
         return sqlStatement(
-            'SELECT diagnosis, begdate, enddate, title, date
+            'SELECT distinct diagnosis, begdate, enddate, title, date(date) as date 
             FROM lists
             WHERE `type` = \'medical_problem\'
-                AND pid = ?
+                AND pid = ? AND length(diagnosis)>6 
                 ;',
             array($patientId)
         );

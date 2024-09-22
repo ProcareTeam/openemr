@@ -90,7 +90,8 @@ var collectvalidation = <?php echo $collectthis; ?>;
 {
   alert(<?php echo xlj('If you change e-RX Role for ePrescription, it may affect the ePrescription workflow. If you face any difficulty, contact your ePrescription vendor.'); ?>);
 }
-function submitform() {
+// @VH: made it async
+async function submitform() {
 
     var valid = submitme(1, undefined, 'user_form', collectvalidation);
     if (!valid) return;
@@ -186,6 +187,33 @@ function submitform() {
       return false;
     }
     <?php } ?>
+
+    // @VH: Check npi id used by another user or not
+    let alertMsg1 = '';
+
+    ff=document.forms[0];
+
+    if(ff.npi && ff.npi.value != "") {
+        let checknpi =  await $.ajax({
+            url: 'user_validate_ajax.php?action=validate_npi',
+            type: 'post',
+            data: $("#user_form").serialize()
+        });
+
+        checknpi = JSON.parse(checknpi);
+        if (checknpi.hasOwnProperty('status') && checknpi['status'] === true) {
+            alertMsg1 += checknpi['msg'];
+        }
+
+    }
+
+    if(alertMsg1)
+    {
+      alert(alertMsg1);
+      return false;
+    }
+
+    // End
 
     if (flag === 0) {
         let post_url = $("#user_form").attr("action");
@@ -347,6 +375,8 @@ if ($iter["portal_user"]) {
 } ?> /></span>
 <span class='text'><?php echo xlt('Active'); ?>:
     <input type="checkbox" name="active"<?php echo ($iter["active"]) ? " checked" : ""; ?>/></span>
+    <span class='text'><?php echo xlt('Create Calendar Block'); ?>:
+    <input type="checkbox" name="allow_create_block"<?php echo ($iter["allow_create_block"]) ? " checked" : ""; ?>/></span>
 </TD>
 </TR>
 
@@ -481,6 +511,13 @@ foreach (array(1 => xl('None{{Authorization}}'), 2 => xl('Only Mine'), 3 => xl('
 <tr>
   <td><span class="text"><?php echo xlt('Provider Type'); ?>: </span></td>
   <td><?php echo generate_select_list("physician_type", "physician_type", $iter['physician_type'], '', xl('Select Type'), 'physician_type_class', '', '', ''); ?></td>
+
+  <!-- @VH: Added 'Auto Confirm Appointment input field' -->
+  <td colspan="2">
+    <span class='text'><?php echo xlt('Auto Confirm Appointment'); ?>:
+    <input type="checkbox" name="auto_confirm_appt"<?php echo ($iter["auto_confirm_appt"]) ? " checked" : ""; ?>/>
+  </td>
+  <!-- End -->
 </tr>
 <tr>
   <td>
@@ -609,7 +646,9 @@ foreach ($list_acl_groups as $value) {
     <tr>
         <td><span class=text><?php echo xlt('Default Billing Facility'); ?>: </span></td><td><select name="billing_facility_id" style="width:150px;" class="form-control">
             <?php
-            $fres = $facilityService->getAllBillingLocations();
+            // @VH: Change
+            //$fres = $facilityService->getAllBillingLocations();
+            $fres = $facilityService->getAllServiceLocations();
             if ($fres) {
                 $billResults = [];
                 for ($iter2 = 0; $iter2 < sizeof($fres); $iter2++) {
@@ -626,10 +665,27 @@ foreach ($list_acl_groups as $value) {
             }
             ?>
         </select></td>
+        <!-- @VH: Login failed attemps field -->
         <td>
-
+            <span class=text><?php echo xlt('Login Failed Attemps'); ?>: </span>
+        </td>
+        <td>
+            <?php 
+                $user_secure_details = sqlQuery("select login_fail_counter from users_secure where username = ? ", array($iter["username"]));
+            ?>
+            <input type="text" class="form-control" id="login_failed_attemps_readonly" name="login_failed_attemps_readonly" value="<?php echo $user_secure_details['login_fail_counter']; ?>" readonly />
+        </td>
+        <!-- END -->
+    </tr>
+    <!-- @VH: Reset login failed count -->
+    <tr>
+        <td colspan="2"></td>
+        <td colspan="2">
+            <span class='text'><?php echo xlt('Reset login failed count'); ?>:
+            <input type="checkbox" id="chk_reset_failed_count" name="chk_reset_failed_count">
         </td>
     </tr>
+    <!-- END -->
     <tr>
         <td colspan="4">
             <?php

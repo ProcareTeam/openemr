@@ -308,10 +308,29 @@ function jsLineItemValidation(f) {
  var max_contra_cyp = 0;
  var max_contra_code = '';
  var required_code_count = 0;
+
+ // @VH: Added variable for check [2023012801]
+ var has_fees = false;
+ var needs_justified = false;
+
  // Loop thru the services.
  for (var lino = 0; f['{$bill}['+lino+'][code_type]']; ++lino) {
   var pfx = '{$bill}[' + lino + ']';
   if (f[pfx + '[del]'] && f[pfx + '[del]'].checked) continue;
+
+  // @VH: iterate over CPT4 and HCPCS code and check is code need to justify or it is billable code or not [2023012801]
+  if(f[pfx+'[code_type]'] != undefined) {
+    var fee = f[pfx+'[code_type]'].value;
+    if (fee == 'CPT4' || fee == 'HCPCS') {
+            has_fees = true;
+      if (f[pfx+'[justify]'] != undefined) {
+        if (f[pfx+'[justify]'].value == '') {
+                    needs_justified = true;
+        }
+      }
+    }
+  }
+
   if (f[pfx + '[ndcnum]'] && f[pfx + '[ndcnum]'].value) {
    // Check NDC number format.
    var ndcok = true;
@@ -439,6 +458,85 @@ function jsLineItemValidation(f) {
  }
 ";
         }
+
+        // @VH: Validation checks and alerts
+        $s .= "
+ var has_fees = false;
+ var needs_justified = false;
+
+  // @VH: Check for valid ICD10 Code [2023042801]
+  var icd10cs = [];
+  var seldelicd = [];
+  var delitemstatus = true;
+  var emptyjscodeitem = [];
+
+  $('[name^=\'bill[\'][name$=\'][code_type]\']').each(function(i, obj) {
+    let eCodeType = $(obj).val();
+    let eAttrName= $(obj).attr('name');
+
+    if(eCodeType === 'ICD10') {
+        let mres = eAttrName.match(/^bill\[([\d]+)\]\[code_type\]$/);
+        if(typeof mres === 'object' && mres !== null) {
+            mres = (mres.hasOwnProperty('1')) ? mres[1] : '';
+            let eCode = $('[name^=\'bill['+mres+'][code]\']').val();
+            let eCodeStatus = $('[id^=\'bill['+mres+'][codestatus]\']').val();
+            let eDel = $('[name^=\'bill['+mres+'][del]\']').prop('checked');
+
+            if(eCodeStatus === '1') {
+                //icd10cs.push(eCode);
+
+                if(eDel !== true) {
+                    icd10cs.push(eCode);
+                    delitemstatus = false;
+                } else {
+                    seldelicd.push(eCode);
+                }
+            }
+
+        }
+    }
+  });
+
+  if(icd10cs.length > 0 && delitemstatus === false) {
+    alert('\"'+icd10cs.join(\", \")+'\" ICD code is not a current code.  Please select a current ICD code');
+    return false;
+  } else {
+    if(seldelicd.length > 0) {
+        $('[name^=\'bill[\'][name$=\'][justify]\']').each(function(i, obj) {
+            let eCodes = $(obj).val();
+            let justifycodes = eCodes.split(',');
+
+            let njustifycodes = justifycodes.filter(function (jcodeitem, jindex, jcodeitemobj) {
+                let jcodearray = jcodeitem.split('|');
+                let jcode = jcodearray.length == 2 && jcodearray[1] ? jcodearray[1] : '';
+                if(jcode != '' && seldelicd.includes(jcode)) {
+                    return false;
+                } else {
+                    return true;
+                }
+            });
+
+            if($(obj)[0].selectedIndex === 0) {
+                let njcodes = njustifycodes.join(',');
+                $(obj)[0].options[$(obj)[0].selectedIndex].text = njcodes;
+                $(obj)[0].options[$(obj)[0].selectedIndex].value = njcodes;
+                $(obj).change();
+            }
+        });
+    }
+  }
+  // END
+
+  // @VH: To show alert message for CPT and HCPCS code [2023012801]
+  if(!has_fees && !f.bn_save_stay.clicked) {
+   alert('There Are No Billable Codes On This Fee Sheet Yet');
+  }
+  if(needs_justified && !f.bn_save_stay.clicked) {
+   alert('Please Justify All Billable Codes');
+  }
+  // End
+
+";
 
         $s .= "
  // End contraception validation.

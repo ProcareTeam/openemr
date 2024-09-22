@@ -88,7 +88,8 @@ if (isset($_POST['form_checksum']) && $_POST['formaction'] == 'save') {
 }
 
 //Limit variables for filter
-$records_per_page = 40;
+// @VH: Changed value from 40 to 100000 to show records per page. [V100078]
+$records_per_page = 100000;
 $list_from = ( isset($_REQUEST["list_from"]) ? intval($_REQUEST["list_from"]) : 1 );
 $list_to   = ( isset($_REQUEST["list_to"])   ? intval($_REQUEST["list_to"]) : 0);
 
@@ -359,15 +360,21 @@ function getCodeDescriptions($codes)
         } else {
             $code = $arrcode[1];
         }
+
+        // @VH: Exploded code and modifier [2023062601]
+        list($code, $modifier) = explode(':', $arrcode[1]);
+
         $selector = $arrcode[2];
         if ($code_type == 'PROD') {
             $row = sqlQuery("SELECT name FROM drugs WHERE drug_id = ?", array($code));
             $desc = "$code:$selector " . $row['name'];
         } else {
-            $row = sqlQuery("SELECT code_text FROM codes WHERE " .
+            // @VH: Query change added modifier column. [2023062601]
+            $row = sqlQuery("SELECT code_text, modifier FROM codes WHERE " .
                 "code_type = ? AND " .
-                "code = ? ORDER BY modifier LIMIT 1", array($code_types[$code_type]['id'], $code ));
-            $desc = "$code_type:$code " . ucfirst(strtolower($row['code_text'] ?? ''));
+                "code = ? AND modifier = '$modifier' ORDER BY modifier LIMIT 1", array($code_types[$code_type]['id'], $code ));
+            // @VH: Added "modifier" to text desc. [2023062601]
+            $desc = "$code_type:$code " . ucfirst(strtolower($row['code_text'] ?? '')) . ($row['modifier'] ? ' - [Modifier: ' . $row['modifier'] . ']' : '');
         }
         $desc = str_replace('~', ' ', $desc);
         if (!empty($modifier ?? '')) {
@@ -583,6 +590,8 @@ function writeFSLine($category, $option, $codes)
     ++$opt_line_no;
     $bgcolor = "#" . (($opt_line_no & 1) ? "ddddff" : "ffdddd");
 
+    // @VH: Replace undefined with blank [2023062601]
+    $codes = str_replace('undefined', '', $codes);
     $descs = getCodeDescriptions($codes);
 
     echo " <tr>\n";
@@ -1028,6 +1037,13 @@ function writeITLine($it_array)
                         delem.value += '~';
                     }
                     celem.value += codetype + '|' + code + '|' + selector;
+
+                    // @VH: Changes [2023062601]
+                    if(modifier) celem.value += ':' + modifier;
+                    celem.value += '|';
+                    if(selector) celem.value += selector;
+                    // END
+
                     if (codetype == 'PROD') {
                         delem.value += code + ':' + selector + ' ' + codedesc;
                     } else {

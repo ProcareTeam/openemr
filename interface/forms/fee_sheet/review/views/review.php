@@ -17,12 +17,14 @@
     <link rel="stylesheet" href="<?php echo $web_root;?>/interface/forms/fee_sheet/review/views/review.css">
     <div data-bind="visible: $data.show">
     <div data-bind="visible: encounters().length==0"><?php echo xlt("No prior encounters."); ?></div>
-    <select data-bind="options:encounters, optionsText: 'date', value: selectedEncounter, event: {change: choose_encounter}, visible: encounters().length>0"></select>
+    <!-- @VH: Changed encounter option label from date to custom title [2023090101] -->
+    <select data-bind="options:encounters, optionsText: 'option_title', value: selectedEncounter, event: {change: choose_encounter}, visible: encounters().length>0"></select>
     <div data-bind="visible: procedures().length==0"><?php echo xlt("No procedures in this encounter."); ?></div>
     <table data-bind="visible: $data.procedures().length>0">
         <thead>
             <tr>
-                <th colspan='2' class='first_column'><?php echo xlt("Procedures");?></th>
+                <!-- @VH: Added select all procedures [2023122201] -->
+                <th colspan='2' class='first_column'><input type="checkbox" data-bind="checked: select_all_procedure_selected($data), event: {change: select_all_procedure}" /><?php echo xlt("Procedures");?></th>
                 <th class="price"><?php echo xlt("Price");?></th>
                 <th class="modifiers"><?php echo xlt("Modifiers");?></th>
                 <th class="units"><?php echo xlt("Units");?></th>
@@ -44,7 +46,8 @@
     <div data-bind="visible: issues().length==0"><?php echo xlt("No issues in this encounter."); ?></div>
     <table data-bind="visible: $data.issues().length>0">
         <thead>
-            <tr><th colspan='3' class='first_column'><?php echo xlt("Issues");?></th></tr>
+            <!-- @VH: Added select all issues [2023122201] -->
+            <tr><th colspan='3' class='first_column'><input type="checkbox" data-bind="checked: select_all_issue_selected($data), event: {change: select_all_issue}" /> <?php echo xlt("Issues");?></th></tr>
         </thead>
         <tbody data-bind="foreach: $data.issues">
             <tr>

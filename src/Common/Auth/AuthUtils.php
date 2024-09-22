@@ -1295,7 +1295,7 @@ class AuthUtils
      * @param $token
      * @return bool
      */
-    public static function verifyGoogleSignIn($token)
+    public static function verifyGoogleSignIn($token, $loginAuth = true)
     {
         $event = 'login';
         $beginLog = 'Google Failure';
@@ -1366,7 +1366,15 @@ class AuthUtils
 
         // drumroll... the user is authenticated by google
         EventAuditLogger::instance()->newEvent($event, $user['username'], $authGroup, 1, "Auth success via Google LogIn by user with Google mail '" . $payload['email'] . "' : " . $ip['ip_string']);
-        AuthUtils::setUserSessionVariables($user['username'], $userSecure['password'], $user, $authGroup);
+
+        // @VH: Wrap into if condition
+        if ($loginAuth) {
+            AuthUtils::setUserSessionVariables($user['username'], $userSecure['password'], $user, $authGroup);
+        } else {
+            return $user;
+        }
+        // END
+
         return true;
     }
 

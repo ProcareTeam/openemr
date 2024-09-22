@@ -26,7 +26,8 @@
 <div id='esign-form-container'>
     <form id='esign-signature-form' method='post' action='<?php echo attr($this->form->action); ?>'>
         
-        <div class="esign-signature-form-element">
+        <!-- @VH: Core issue fixed added class gs-hide-element -->
+        <div class="esign-signature-form-element gs-hide-element">
               <span id='esign-signature-form-prompt'><?php echo xlt("Your password is your signature"); ?></span> 
         </div>
 
@@ -35,7 +36,7 @@
               <input type='password' id='password' name='password' size='10' />
         </div>
         
-        <div class="esign-signature-form-element gs-hide-element">
+        <div class="esign-signature-form-element">
               <span id='esign-signature-form-prompt'><?php echo xlt("Checking the lock checkbox will prevent any futher edits on any forms in this encounter."); ?></span> 
         </div>
         

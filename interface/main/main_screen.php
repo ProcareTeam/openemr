@@ -430,7 +430,21 @@ if ((!AuthUtils::useActiveDirectory()) && ($GLOBALS['password_expiration_days'] 
 $listSvc = new ListService();
 $_tabs = $listSvc->getOptionsByListName('default_open_tabs', ['activity' => 1]);
 
-if ($is_expired) {
+// @VH: Force google status [V100039]
+$force_google_status = 0;
+if ($google_sing_in_enabled ){
+    $gmail_sign_in_address1 = sqlQuery("select google_signin_email from users where username ='" .$_SESSION["authUser"] . "'");
+    $valid_email_address1  = filter_var($gmail_sign_in_address1['google_signin_email'], FILTER_VALIDATE_EMAIL);
+    if ($google_sing_in_enabled ){
+        if( $valid_email_address1 ) {
+            $force_google_status = 1;
+        }
+    }
+}
+// END
+
+// @VH: If google sign-in is enable then don't force to change expired password. [V100039]
+if ($is_expired && $force_google_status === 0) {
     //display the php file containing the password expiration message.
     array_unshift($_tabs, [
         'notes' => "pwd_expires_alert.php?csrf_token_form=" . attr_url(CsrfUtils::collectCsrfToken()),

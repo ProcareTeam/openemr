@@ -34,9 +34,15 @@ use OpenEMR\Services\{
     InsuranceCompanyService,
     PhoneNumberService
 };
+use OpenEMR\Common\Acl\AclMain;
 
 // Putting a message here will cause a popup window to display it.
 $info_msg = "";
+
+// @VH: Change
+$dlg = FALSE;
+if(isset($_GET['dlg'])) $dlg = TRUE;
+// End 
 
 // Grab insurance type codes from service
 $insuranceCompany = new InsuranceCompanyService();
@@ -413,10 +419,15 @@ foreach ($cqm_sop_array as $key => $value) {
 </table>
 
 <input type='button' value='<?php echo xla('Search'); ?>' class='btn btn-primary' onclick='dosearch()' />
+
+<!-- @VH: Added acl rule for save/update [2023011607] -->
+<?php if(AclMain::aclCheckCore('lists', 'insurance')) { ?>
 <input type='submit' value='<?php echo xla('Save as New'); ?>' class='btn btn-primary' name='form_save' onmousedown='save_clicked=true' />
 <input type='submit' value='<?php echo xla('Update'); ?>' class='btn btn-primary' name='form_update' onmousedown='update_clicked=true' />
 <input type='button' value='<?php echo xla('Clear'); ?>' class='btn btn-primary' onclick='clearForm()' />
 <input type='button' value='<?php echo xla('Cancel'); ?>' class='btn btn-primary' onclick='window.close();'/>
+<?php } ?>
+<!-- End Condition -->
 
 </center>
 </form>

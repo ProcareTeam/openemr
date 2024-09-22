@@ -182,6 +182,77 @@ function fee_sheet_review_view_model() {
     this.cancel_review = cancel_review;
     this.review_event = review_event;
     this.choose_encounter = choose_encounter;
+
+    // @VH: For select all items of issues and procedure on fee sheet review [2023122201]
+    this.select_all_issue_selected = select_all_issue_selected;
+    this.select_all_issue = select_all_issue;
+
+    this.select_all_issue_selected = select_all_issue_selected;
+    this.select_all_issue = select_all_issue;
+
+    this.select_all_procedure_selected = select_all_procedure_selected;
+    this.select_all_procedure = select_all_procedure;
+    // END
+}
+
+// @VH: Default value for select all issue. [2023122201]
+function select_all_issue_selected(data) {
+    let issueCheckStatus = true;
+
+    data.issues().forEach((issueItem) => {
+        if(issueItem.selected() === false) {
+            issueCheckStatus = false;
+        }
+    });
+
+    return issueCheckStatus;
+}
+
+// @VH: Select all issue [2023122201]
+function select_all_issue(data, event) { 
+    let issueCheckInput = event.target.parentNode.parentNode.parentNode.parentNode.querySelectorAll('tbody > tr > td > input[type="checkbox"]');
+
+    
+    if(issueCheckInput) {
+        issueCheckInput.forEach((issueCheck) => {
+            if (event.target.checked === true) {
+                issueCheck.checked = true;
+            } else {
+                issueCheck.checked = false;
+            }
+            
+        });
+    }
+}
+
+// @VH: Default value for select all procedure. [2023122201]
+function select_all_procedure_selected(data) {
+    let procedureCheckStatus = true;
+
+    data.issues().forEach((procedureItem) => {
+        if(procedureItem.selected() === false) {
+            procedureCheckStatus = false;
+        }
+    });
+
+    return procedureCheckStatus;
+}
+
+// @VH: Select all procedure. [2023122201]
+function select_all_procedure(data, event) { 
+    let procedureCheckInput = event.target.parentNode.parentNode.parentNode.parentNode.querySelectorAll('tbody > tr > td > input[type="checkbox"]');
+
+    
+    if(procedureCheckInput) {
+        procedureCheckInput.forEach((procedureCheck) => {
+            if (event.target.checked === true) {
+                procedureCheck.checked = true;
+            } else {
+                procedureCheck.checked = false;
+            }
+            
+        });
+    }
 }
 
 function add_review(data, event) {

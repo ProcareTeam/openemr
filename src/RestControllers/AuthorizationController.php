@@ -630,6 +630,12 @@ class AuthorizationController
                 new RefreshTokenRepository($includeAuthGrantRefreshToken)
             );
             $grant->setRefreshTokenTTL(new DateInterval('P3M'));
+
+            // @VH: Changes
+            $authEvent = new AuthEvent($this->createServerRequest());
+            $expireInTime = $GLOBALS['kernel']->getEventDispatcher()->dispatch($authEvent, AuthEvent::EVENT_EXPIRETIME_NAME);
+            // END
+
             $authServer->enableGrantType(
                 $grant,
                 new \DateInterval('PT1H') // access token

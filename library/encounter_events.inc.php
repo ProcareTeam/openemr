@@ -15,6 +15,8 @@
 require_once(__DIR__ . '/calendar.inc.php');
 require_once(__DIR__ . '/patient_tracker.inc.php');
 
+use OpenEMR\OemrAd\Utility;
+
 //===============================================================================
 //This section handles the events of payment screen.
 //===============================================================================
@@ -59,6 +61,10 @@ function calendar_arrived($form_pid)
 function todaysEncounterCheck($patient_id, $enc_date = '', $reason = '', $fac_id = '', $billing_fac = '', $provider = '', $cat = '', $return_existing = true)
 {
     global $today;
+
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
+
     $encounter = todaysEncounterIf($patient_id);
     if ($encounter && (int)$GLOBALS['auto_create_new_encounters'] !== 2) {
         if ($return_existing) {
@@ -119,6 +125,10 @@ function todaysEncounterCheck($patient_id, $enc_date = '', $reason = '', $fac_id
 function todaysTherapyGroupEncounterCheck($group_id, $enc_date = '', $reason = '', $fac_id = '', $billing_fac = '', $provider = '', $cat = '', $return_existing = true, $eid = null)
 {
     global $today;
+
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
+
     $encounter = todaysTherapyGroupEncounterIf($group_id);
     if ($encounter) {
         if ($return_existing) {
@@ -175,6 +185,142 @@ function todaysTherapyGroupEncounterCheck($group_id, $enc_date = '', $reason = '
     );
     return $encounter;
 }
+
+// @VH: Section
+//===============================================================================
+// @VH: Checks for the patient's encounter ID for today, creating it if there is none same into.
+// @VH: Copy original function and then made changes into
+function todaysEncounterEventCheck($patient_id, $enc_date = '', $reason = '', $fac_id = '', $billing_fac = '', $provider = '', $cat = '', $return_existing = true, $bypass = false)
+{
+    global $today;
+
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
+
+    $encounter = todaysEncounterIf($patient_id);
+    // @VH: added bypass condition
+    if ($encounter && (int)$GLOBALS['auto_create_new_encounters'] !== 2 && $bypass === false) {
+        if ($return_existing) {
+            return $encounter;
+        } else {
+            return 0;
+        }
+    }
+
+    if (is_array($provider)) {
+        $visit_provider = (int)$provider[0];
+    } elseif ($provider) {
+        $visit_provider = (int)$provider;
+    } else {
+        $visit_provider = '(NULL)';
+    }
+
+    $dos = $enc_date ? $enc_date : $today;
+    $visit_reason = $reason ? $reason : xl('Please indicate visit reason');
+    $tmprow = sqlQuery("SELECT username, facility, facility_id FROM users WHERE id = ?", array($_SESSION["authUserID"]));
+    $username = $tmprow['username'];
+    $facility = $tmprow['facility'];
+    $facility_id = $fac_id ? (int)$fac_id : $tmprow['facility_id'];
+    $billing_facility = $billing_fac ? (int)$billing_fac : $tmprow['facility_id'];
+    $pos_code = sqlQuery("SELECT pos_code FROM facility WHERE id = ?", array($facility_id))['pos_code'];
+    $visit_cat = $cat ? $cat : '(NULL)';
+    $conn = $GLOBALS['adodb']['db'];
+    $encounter = $conn->GenID("sequences");
+    addForm(
+        $encounter,
+        "New Patient Encounter",
+        sqlInsert(
+            "INSERT INTO form_encounter SET " .
+            "date = ?, " .
+            "reason = ?, " .
+            "facility = ?, " .
+            "facility_id = ?, " .
+            "billing_facility = ?, " .
+            "provider_id = ?, " .
+            "pid = ?, " .
+            "encounter = ?," .
+            "pc_catid = ?," .
+            "pos_code = ?",
+            array($dos,$visit_reason,$facility,$facility_id,$billing_facility,$visit_provider,$patient_id,$encounter,$visit_cat, $pos_code)
+        ),
+        "newpatient",
+        $patient_id,
+        "1",
+        "NOW()",
+        $username
+    );
+    return $encounter;
+}
+
+//===============================================================================
+// @VH: Checks for the group's encounter ID for today, creating it if there is none.
+//
+function todaysTherapyGroupEncounterEventCheck($group_id, $enc_date = '', $reason = '', $fac_id = '', $billing_fac = '', $provider = '', $cat = '', $return_existing = true, $eid = null, $bypass = false)
+{
+    global $today;
+
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
+
+    $encounter = todaysTherapyGroupEncounterIf($group_id);
+    // @VH: Added bypass check
+    if ($encounter && $bypass === false) {
+        if ($return_existing) {
+            return $encounter;
+        } else {
+            return 0;
+        }
+    }
+
+    if (is_array($provider)) {
+        $visit_provider = (int)$provider[0];
+        $counselors = implode(',', $provider);
+    } elseif ($provider) {
+        $visit_provider = $counselors = (int)$provider;
+    } else {
+        $visit_provider = $counselors = null;
+    }
+
+    $dos = $enc_date ? $enc_date : $today;
+    $visit_reason = $reason ? $reason : xl('Please indicate visit reason');
+    $tmprow = sqlQuery("SELECT username, facility, facility_id FROM users WHERE id = ?", array($_SESSION["authUserID"]));
+    $username = $tmprow['username'];
+    $facility = $tmprow['facility'];
+    $facility_id = $fac_id ? (int)$fac_id : $tmprow['facility_id'];
+    $billing_facility = $billing_fac ? (int)$billing_fac : $tmprow['facility_id'];
+    $visit_cat = $cat ? $cat : '(NULL)';
+    $conn = $GLOBALS['adodb']['db'];
+    $encounter = $conn->GenID("sequences");
+    addForm(
+        $encounter,
+        "New Therapy Group Encounter",
+        sqlInsert(
+            "INSERT INTO form_groups_encounter SET " .
+            "date = ?, " .
+            "reason = ?, " .
+            "facility = ?, " .
+            "facility_id = ?, " .
+            "billing_facility = ?, " .
+            "provider_id = ?, " .
+            "group_id = ?, " .
+            "encounter = ?," .
+            "pc_catid = ? ," .
+            "appt_id = ? ," .
+            "counselors = ? ",
+            array($dos,$visit_reason,$facility,$facility_id,$billing_facility,$visit_provider,$group_id,$encounter,$visit_cat, $eid, $counselors)
+        ),
+        "newGroupEncounter",
+        null,
+        "1",
+        "NOW()",
+        $username,
+        "",
+        $group_id
+    );
+    return $encounter;
+}
+// END
+
 //===============================================================================
 // Get the patient's encounter ID for today, if it exists.
 // In the case of more than one encounter today, pick the last one.
@@ -182,6 +328,10 @@ function todaysTherapyGroupEncounterCheck($group_id, $enc_date = '', $reason = '
 function todaysEncounterIf($patient_id)
 {
     global $today;
+    
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
+
     $tmprow = sqlQuery("SELECT encounter FROM form_encounter WHERE " .
     "pid = ? AND date = ? " .
     "ORDER BY encounter DESC LIMIT 1", array($patient_id,"$today 00:00:00"));
@@ -194,6 +344,10 @@ function todaysEncounterIf($patient_id)
 function todaysTherapyGroupEncounterIf($group_id)
 {
     global $today;
+
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
+
     $tmprow = sqlQuery("SELECT encounter FROM form_groups_encounter WHERE " .
         "group_id = ? AND date = ? " .
         "ORDER BY encounter DESC LIMIT 1", array($group_id,"$today 00:00:00"));
@@ -206,6 +360,9 @@ function todaysTherapyGroupEncounterIf($group_id)
 function todaysEncounter($patient_id, $reason = '')
 {
     global $today, $userauthorized;
+
+    // @VH: Change
+    if(!$today) $today = date('Y-m-d');
 
     if (empty($reason)) {
         $reason = xl('Please indicate visit reason');
@@ -352,20 +509,44 @@ function InsertEvent($args, $from = 'general')
     $form_room = empty($args['form_room']) ? '' : $args['form_room'];
     $form_gid = empty($args['form_gid']) ? '' : $args['form_gid'];
     ;
+
+    // @VH: form_case field change 
+    $form_case = empty($args['form_case']) ? '' : $args['form_case'];
+
     if ($from == 'general') {
+        // @VH: Query change for save pc_case, ics_file value
         $pc_eid = sqlInsert(
             "INSERT INTO openemr_postcalendar_events ( " .
             "pc_catid, pc_multiple, pc_aid, pc_pid, pc_gid, pc_title, pc_time, pc_hometext, " .
             "pc_informant, pc_eventDate, pc_endDate, pc_duration, pc_recurrtype, " .
             "pc_recurrspec, pc_startTime, pc_endTime, pc_alldayevent, " .
-            "pc_apptstatus, pc_prefcatid, pc_location, pc_eventstatus, pc_sharing, pc_facility,pc_billing_location,pc_room " .
-            ") VALUES (?,?,?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,?,?,?)",
+            "pc_apptstatus, pc_prefcatid, pc_location, pc_eventstatus, pc_sharing, pc_facility,pc_billing_location,pc_room, pc_case, ics_file " .
+            ") VALUES (?,?,?,?,?,?,NOW(),?,?,?,?,?,?,?,?,?,?,?,?,?,1,1,?,?,?,?,?)",
             array($args['form_category'],(isset($args['new_multiple_value']) ? $args['new_multiple_value'] : ''),$args['form_provider'],$form_pid,$form_gid,
             $args['form_title'],$args['form_comments'],$_SESSION['authUserID'],$args['event_date'],
             fixDate($args['form_enddate']),$args['duration'],$pc_recurrtype,serialize($args['recurrspec']),
             $args['starttime'],$args['endtime'],$args['form_allday'],$args['form_apptstatus'],$args['form_prefcat'],
-            $args['locationspec'],(int)$args['facility'],(int)$args['billing_facility'],$form_room)
+            $args['locationspec'],(int)$args['facility'],(int)$args['billing_facility'],$form_room,$form_case, $ics_file_link)
         );
+
+        // @VH: ICS File Change
+        if(!empty($pc_eid)) {
+            $icslink = Utility::generateICSFileLink(array(
+                'event_date' => $args['event_date'], 
+                'starttime' => $args['starttime'], 
+                'endtime' => $args['endtime'], 
+                'facility' => $args['facility'], 
+                'formProvider' => $args['form_provider'], 
+                'formCategory' => $args['form_category'], 
+                'formTitle' => $args['form_title'], 
+                'pc_eid' => $pc_eid
+            ));
+            Utility::addUpdateICSLink(array(
+                'icslink' => $icslink, 
+                'pc_eid' => $pc_eid
+            ));
+        }
+        //End
 
             //Manage tracker status.
         if (!empty($form_pid)) {

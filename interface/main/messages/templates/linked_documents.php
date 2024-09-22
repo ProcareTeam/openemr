@@ -109,14 +109,16 @@ try {
         </a>
         <?php } else {
             if (!$record['hasPatient']) { ?>
+        <!-- @VH: Updated onClick function with handlegotoReport -->
         <a class='messages-document-link<?php echo $record['requiresValidation'] ? " d-none" : ""; ?>'
-           href='javascript:void(0);' onClick='previewDocument(<?php echo attr_js($record['documentId']); ?>);'>
+           href='javascript:void(0);' onClick="handlegotoReport(<?php echo attr_js($record['documentId']); ?>, <?php echo attr_js($record['pid']); ?>)">
                 <?php echo text($record['title']); ?>
         </a>
             <?php } else { ?>
+            <!-- @VH: Updated onClick function with handlegotoReport -->
             <a class='messages-document-link <?php echo $record['requiresValidation'] ? "d-none" : ""; ?>'
                href='javascript:void(0);'
-               onClick="gotoReport(<?php echo attr_js($record['documentId']); ?>, <?php echo attr_js($record['pname']); ?>, <?php echo attr_js($record['pid']); ?>,<?php echo attr_js($record['pubpid'] ?? $record['pid']); ?>,<?php echo attr_js($record['DOB']); ?>);">
+               onClick="handlegotoReport(<?php echo attr_js($record['documentId']); ?>, <?php echo attr_js($record['pid']); ?>)">
                 <?php echo text($record['title']); ?>
             </a>
         <?php } ?>
@@ -259,9 +261,19 @@ try {
         parent.left_nav.setPatientEncounter(EncounterIdArray, EncounterDateArray, CalendarCategoryArray);
         var docurl = '../controller.php?document&view' + "&patient_id=" + encodeURIComponent(pid) + "&document_id=" + encodeURIComponent(doc_id) + "&";
         var paturl = 'patient_file/summary/demographics.php?pid=' + encodeURIComponent(pid);
-        parent.left_nav.loadFrame('dem1', 'pat', paturl);
-        parent.left_nav.loadFrame('doc0', 'enc', docurl);
-        top.activateTabByName('enc', true);
+        // @VH: Commented code and added navigation tab code
+        //parent.left_nav.loadFrame('dem1', 'pat', paturl);
+        //parent.left_nav.loadFrame('doc0', 'enc', docurl);
+        //top.activateTabByName('enc', true);
+
+        top.navigateTab(top.webroot_url+"/interface/"+paturl, "pat", function () {
+            top.activateTabByName("doc0",true);
+        });
+
+        top.navigateTab(top.webroot_url+"/interface/"+docurl, "doc0", function () {
+            top.activateTabByName("doc0",true);
+        });
+        // END
     }
 
 

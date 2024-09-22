@@ -40,6 +40,20 @@ class C_InsuranceCompany extends Controller
         $this->assign("x12_partners", $x->_utility_array($x->x12_partner_factory()));
 
         $this->assign("insurancecompany", $this->icompanies[0]);
+
+
+        // @VH: Get insurance company list for display as dropdown for parent company field [2024081401]
+        // TODO: @VH move into module
+        $insurancecompanyList = array('' => '');
+        $insres = sqlStatement("SELECT * from insurance_companies ic WHERE id != ? ", array($id));
+        while ($insrow = sqlFetchArray($insres)) {
+            if (isset($insrow['id'])) {
+                $insurancecompanyList[$insrow['id']] = $insrow['name'];
+            }
+        }
+        $this->assign("insurancecompany_list", $insurancecompanyList);
+        // End
+
         return $this->fetch($GLOBALS['template_dir'] . "insurance_companies/" . $this->template_mod . "_edit.html");
     }
 
@@ -52,6 +66,14 @@ class C_InsuranceCompany extends Controller
         $iCompanies = [];
         if ($results->hasData()) {
             foreach ($results->getData() as $record) {
+                // @VH: Added attn, ins_type_code, parent_company for display [2024081401][2023011605]
+                // TODO @VH move into module and make neat and clean code for display insurance list.
+                $ins_type_code_array = $insuranceCompanyService->getInsuranceTypesCached();
+                $parent_company = "";
+                if (isset($record['parent_company']) && !empty($record['parent_company'])) {
+                    $parent_company = new InsuranceCompany($record['parent_company']);
+                }
+
                 $company = [
                     'id' => $record['id'],
                     'name' => $record['name'],
@@ -64,7 +86,10 @@ class C_InsuranceCompany extends Controller
                     'fax' => $record['fax_number'],
                     'cms_id' => $record['cms_id'],
                     'x12_default_partner_name' => $record['x12_default_partner_name'],
-                    'inactive' => $record['inactive']
+                    'inactive' => $record['inactive'],
+                    'attn' => $record['attn'],
+                    'ins_type_code' => $ins_type_code_array[$record['ins_type_code']] ?? '',
+                    'parent_company' => !empty($parent_company) ? $parent_company->get_name() : ''
                 ];
                 $iCompanies[] = $company;
             }

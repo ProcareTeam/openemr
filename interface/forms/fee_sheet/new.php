@@ -85,11 +85,37 @@ function genDiagJS($code_type, $code)
     }
 }
 
+// @VH: Get ICD10BilingCodes for check valid ICD10 code [2023042801]
+function getICD10BilingCodes($codes = array()) {
+    $results = array();
+    if(empty($codes) || !is_array($codes)) return $results;
+    $result = sqlStatement("SELECT icd10_dx_order_code.formatted_dx_code as code, icd10_dx_order_code.long_desc as code_text, icd10_dx_order_code.short_desc as code_text_short, codes.id, codes.code_type, codes.active, 'ICD10' as code_type_name FROM icd10_dx_order_code LEFT OUTER JOIN `codes` ON icd10_dx_order_code.formatted_dx_code = codes.code AND codes.code_type = (select ct.ct_id from code_types ct where ct.ct_key = 'ICD10' limit 1) WHERE icd10_dx_order_code.formatted_dx_code in ('". implode("','", $codes) ."') and icd10_dx_order_code.active='1' AND icd10_dx_order_code.valid_for_coding = '1' AND (codes.active = 1 || codes.active IS NULL) ORDER BY icd10_dx_order_code.formatted_dx_code+0,icd10_dx_order_code.formatted_dx_code",array());
+
+    while ($row = sqlFetchArray($result)) {
+        if(isset($row['code']) && !empty($row['code'])) {
+            $results[] = $row['code'];
+        }
+    }
+
+    return $results;
+}
+
 // Write all service lines to the web form.
 //
 function echoServiceLines()
 {
     global $code_types, $justinit, $usbillstyle, $liprovstyle, $justifystyle, $fs, $price_levels_are_used, $institutional;
+
+    // @VH: Check valid ICD10 code [2023042801]
+    $icd10CodeList = array_filter(array_map(function($li) {
+       if($li['hidden']['code_type'] == 'ICD10') {
+        return $li['hidden']['code'];
+       }
+    },$fs->serviceitems));
+
+    $validICD10CodeList = array();
+    if(!empty($icd10CodeList)) $validICD10CodeList = getICD10BilingCodes($icd10CodeList);
+    // END
 
     foreach ($fs->serviceitems as $lino => $li) {
         $id       = $li['hidden']['id'];
@@ -110,7 +136,14 @@ function echoServiceLines()
             $strike2 = "</del>";
         }
 
-        echo " <tr>\n";
+        // @VH: Check Valid ICD10 Status to show color [2023042801]
+        if($codetype == "ICD10") {
+            $codestatus = in_array($code, $validICD10CodeList) ? true : false;
+            $codeStatusClass = isset($codestatus) && $codestatus === false ? "style='background:red;'" : "";
+        }
+
+        // @VH: Show color coding for valid ICD10 code [2023042801]
+        echo " <tr " . $codeStatusClass ." >\n";
 
         echo "  <td class='billcell'>$strike1" . ($codetype == 'COPAY' ? xlt('COPAY') : text($codetype)) . $strike2;
         // if the line to ouput is copay, show the date here passed as $ndc_info,
@@ -134,6 +167,12 @@ function echoServiceLines()
             echo "<input type='hidden' name='bill[" . attr($lino) . "][cyp]'      value='" . attr($li['hidden']['cyp'     ]) . "' />";
             echo "<input type='hidden' name='bill[" . attr($lino) . "][methtype]' value='" . attr($li['hidden']['methtype']) . "' />";
         }
+
+        // @VH: For check valid ICD10 code [2023042801]
+        if(isset($codestatus) && $codestatus === false) {
+            echo "<input type='hidden' id='bill[" . attr($lino) . "][codestatus]' value='1' disabled />";
+        }
+        // END
 
         echo "</td>\n";
 
@@ -262,7 +301,8 @@ function echoServiceLines()
 
                     if (!empty($code_types[$codetype]['just']) || !empty($li['justify'])) {
                         echo "  <td class='billcell' align='center'$justifystyle>";
-                        echo "<select class='form-control form-control-sm' name='bill[" . attr($lino) . "][justify]' onchange='setJustify(this)'>";
+                        // @VH: Justify for all code added class (selJustify) [2023011608]
+                        echo "<select class='form-control form-control-sm selJustify' name='bill[" . attr($lino) . "][justify]' onchange='setJustify(this)'>";
                         echo "<option value='" . attr($li['justify']) . "'>" . text($li['justify']) . "</option></select>";
                         echo "</td>\n";
                         $justinit .= "setJustify(f['bill[" . attr($lino) . "][justify]']);\n";
@@ -977,6 +1017,30 @@ $arrOeUiSettings = array(
 );
 $oemr_ui = new OemrUI($arrOeUiSettings);
 ?>
+
+<!-- @VH: Justify for all code [2023011608]  -->
+<script type="text/javascript">
+    function open_justify_form(pid, encounter) {
+        var url = '<?php echo $GLOBALS['webroot']; ?>/interface/forms/fee_sheet/php/justify_form.php?pid='+pid+'&encounter='+encounter;
+        dlgopen(url, 'justify_form', 500, 200, '', 'Justify');
+    }
+
+    function setJustifyVal(value) {
+        if(value != "") {
+            var eleJustify = document.getElementsByClassName("selJustify");
+            if(eleJustify.length > 0) {
+                for (i = 0; i < eleJustify.length; i++) {
+                    eleJustify[i].selectedIndex = "0";
+                    eleJustify[i].options["0"].value = value; 
+                    eleJustify[i].options["0"].text = value; 
+                }
+            }
+
+        }
+    }
+</script>
+<!-- End -->
+
 </head>
 
 
@@ -1286,8 +1350,10 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                         }
                                         // ++$bill_lino;
                                         $bill_lino = count($fs->serviceitems);
+
                                         $bline = $_POST['bill']["$bill_lino"] ?? null;
-                                        $del = $bline['del'] ?? null; // preserve Delete if checked
+                                        // @VH: Issue was if you select code for delete and select new code for add and click on "Save Current" button then it not deleting code it making strikethrough code. So we making it delete. [2023011601]
+                                        $del = !isset($_POST['bn_save_stay']) && $bline['del'] ?? null; // preserve Delete if checked 
                                         if ($institutional) {
                                             $revenue_code   = trim($iter["revenue_code"]);
                                         }
@@ -1716,7 +1782,8 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                     if ($rapid_data_entry) {
                                         echo " style='background-color: #cc0000'; color: var(--white)'";
                                     } ?>><?php echo xla('Save');?></button>
-                                    <button type='submit' name='bn_save_stay' class='btn btn-primary btn-save' value='<?php echo xla('Save Current'); ?>'><?php echo xlt('Save Current'); ?></button>
+                                    <!-- @VH: Added onclick -->
+                                    <button type='submit' name='bn_save_stay' class='btn btn-primary btn-save' value='<?php echo xla('Save Current'); ?>' onclick='return this.clicked = true;'><?php echo xlt('Save Current'); ?></button>
                                     <?php if ($GLOBALS['ippf_specific'] && (AclMain::aclCheckForm('admin', 'super') || AclMain::aclCheckForm('acct', 'bill') || AclMain::aclCheckForm('acct', 'disc'))) { // start ippf-only stuff ?>
                                         <?php if ($fs->hasCharges) { // unbilled with charges ?>
                                                 <button type='submit' name='bn_save_close' class='btn btn-primary btn-save' value='<?php echo xla('Save and Checkout'); ?>'><?php echo xlt('Save and Checkout'); ?></button>
@@ -1751,6 +1818,11 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
                                         <?php echo xlt('Add More Items'); ?>
                                     </button>
                                 <?php } // end billed ?>
+                                    <!-- @VH: Added Justify All Button [2023011608] -->
+                                    <button type='button' name='bn_justify' class='btn btn-primary btn-justify' value='<?php echo xla('Justify All'); ?>' onClick="open_justify_form('<?php echo $fs->pid ?>', '<?php echo $fs->encounter ?>')" >
+                                        <?php echo xlt('Justify All'); ?>
+                                    </button>
+                                    <!-- END -->
                                     <button type='button' class='btn btn-secondary btn-cancel' onclick="top.restoreSession();location='<?php echo $GLOBALS['form_exit_url']; ?>'">
                                     <?php echo xlt('Cancel');?></button>
                                     <input type='hidden' name='form_has_charges' value='<?php echo $fs->hasCharges ? 1 : 0; ?>' />
@@ -1800,8 +1872,11 @@ $oemr_ui = new OemrUI($arrOeUiSettings);
             return false;
         }
     });
-    $("[name=search_term]").focus();
+    // @VH: Removed default focus on "search_term" field. Focus on field only if value is not empty [2023062701]
+    //$("[name=search_term]").focus();
     <?php if (!empty($_POST['bn_search'])) { ?>
+        // @VH: Focus on field
+        $("[name=search_term]").focus();
         document.querySelector("[name='search_term']") . scrollIntoView();
     <?php } ?>
 </script>

@@ -14,11 +14,15 @@
 
 require_once("../globals.php");
 require_once("$srcdir/options.inc.php");
+require_once("$srcdir/OemrAD/oemrad.globals.php");
 
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Twig\TwigContainer;
 use OpenEMR\Core\Header;
+use OpenEMR\OemrAd\HubspotSync;
+use OpenEMR\OemrAd\EmailVerificationLib;
+use OpenEMR\OemrAd\WordpressWebservice;
 
 if (!AclMain::aclCheckCore('admin', 'practice')) {
     echo (new TwigContainer(null, $GLOBALS['kernel']))->getTwig()->render('core/unauthorized.html.twig', ['pageTitle' => xl("Address Book")]);
@@ -30,6 +34,13 @@ if (!empty($_POST)) {
         CsrfUtils::csrfNotVerified();
     }
 }
+
+// @VH: Care team communication type [V100079]
+$care_team_communication_type = array(
+    'email' => 'Email',
+    'fax' => 'Fax',
+    'postal_letter' => 'Postal Letter'
+);
 
 // Collect user id if editing entry
 $userid = $_REQUEST['userid'] ?? '';
@@ -53,8 +64,8 @@ function invalue($name)
 <html>
 <head>
 <title><?php echo $userid ? xlt('Edit Entry') : xlt('Add New Entry') ?></title>
-
-    <?php Header::setupHeader('opener'); ?>
+    <!-- @VH: added 'oemr_ad' -->
+    <?php Header::setupHeader(['opener', 'oemr_ad']); ?>
 
 <style>
 .inputtext {
@@ -105,7 +116,163 @@ function invalue($name)
    $(".specialtyRow").show();
   }
  }
+
+ // @VH: Changes [V100079]
+ function checkCommunicationType() {
+    var ct_type = $('#form_abook_type').val();
+
+    if(ct_type == "Referral Source") {
+        $('#ct_communication_container').show();
+        $('#form_care_team_communication').prop('disabled', false);
+    } else {
+        $('#ct_communication_container').hide();
+        $('#form_care_team_communication').prop('disabled', true);
+    }
+ }
+
+ // @VH: Changes [V100079]
+ function isCommunicationDataValid() {
+    var cm_type = $('#form_care_team_communication').val();
+        var form_email = $('input[name="form_email"]').val();
+        var form_phonecell = $('input[name="form_phonecell"]').val();
+        var form_fax = $('input[name="form_fax"]').val();
+
+        var form_street = $('input[name="form_street"]').val();
+        var form_city = $('input[name="form_city"]').val();
+        var form_state = $('input[name="form_state"]').val();
+        var form_zip = $('input[name="form_zip"]').val();
+
+        var errorList = [];
+
+        if(cm_type == "email") {
+            if(form_email.trim() == "") {
+               errorList.push("Please enter email."); 
+            }
+        } else if(cm_type == "sms") {
+            if(form_phonecell.trim() == "") {
+               errorList.push("Please enter mobile no."); 
+            }
+        } else if(cm_type == "fax") {
+            if(form_fax.trim() == "") {
+               errorList.push("Please enter fax number."); 
+            }
+        } else if(cm_type == "postal_letter") {
+            if(form_street.trim() == "") {
+               errorList.push("Please enter main address."); 
+            }
+
+            if(form_city.trim() == "") {
+               errorList.push("Please enter city."); 
+            }
+
+            if(form_state.trim() == "") {
+               errorList.push("Please enter state."); 
+            }
+
+            if(form_zip.trim() == "") {
+               errorList.push("Please enter zip."); 
+            }
+        }
+
+
+        if(errorList.length > 0) {
+            var errorMsg = "Corresponding delivery information must be entered for the chosen care team delivery method\n\n";
+            errorMsg = errorMsg + errorList.join("\n");
+            return errorMsg
+        }
+
+        return true;
+ }
+
+ function validateForm() {
+    let mailformat = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,8})+$/;
+    let email_val = document.querySelector('input[name="form_email"]').value;
+    let npi_val = document.querySelector('input[name="form_npi"]').value;
+    var statusVal = $('#form_email_hidden_verification_status').val();
+
+    // @VH: [V100080]
+    if(email_val != "" && !email_val.match(mailformat)) {
+        alert("Please enter valid email.");
+        return false;
+    }
+
+    // @VH: [V100080]
+    if(email_val != "" && statusVal && statusVal == "0") {
+        if (!confirm("Do you want to continue with unverified email?")) {
+            return false;
+        }
+    }
+
+    // @VH: Changes [V100079]
+    var cData = isCommunicationDataValid();
+    if(cData !== true) {
+        alert(cData);
+        return false;
+    }
+
+    if (email_val != "" || npi_val != "") {
+
+        let ajax_action = "both";
+        let isActive = document.querySelector('input[name="form_active"]');
+        if(!isActive.checked) {
+            ajax_action = "validate_npi";
+        }
+
+        // @VH: Check email or npi id is used by other user or not. [V100081]
+        $.ajax({
+            url: 'user_validate_ajax.php?action=' + ajax_action + '&id=<?php echo attr_url($userid) ?>',
+            type: 'post',
+            data: $("#theform").serialize(),
+            success: function(response) {
+                let responseJson = JSON.parse(response);
+                if (responseJson.hasOwnProperty('status') && responseJson['status'] === true) {
+                    alert(responseJson['msg']);
+                    return false;
+                }
+
+                $('input[name="form_save"]').click();
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+              // Handle AJAX request errors
+              console.log('AJAX Error:', textStatus, errorThrown);
+              // Optionally, display an error message to the user
+            }
+        });
+        
+    } else {
+        // Submit form
+        $('input[name="form_save"]').click();
+    }
+
+    return false;
+ }
+
+ $(document).ready(function(){
+
+    // @VH: Check Communication Type [V100079]
+    checkCommunicationType();
+
+    $('#form_abook_type').change(function(){
+        checkCommunicationType();
+    });
+
+    // $('#theform').submit(function() {
+    //     var cData = isCommunicationDataValid();
+
+    //     if(cData !== true) {
+    //         alert(cData);
+    //         return false;
+    //     }
+
+    //     return true;
+    // });
+ });
+// End
 </script>
+
+<!-- @VH: Email verification [V100080] -->
+<?php include_once("$srcdir/email_verification.js.php") ?>
+<!-- END --> 
 
 </head>
 
@@ -136,6 +303,7 @@ if (!empty($_POST['form_save'])) {
     }
 
     if ($userid) {
+        // @VH: Added ct_communication, active [V100079]
         $query = "UPDATE users SET " .
         "abook_type = "   . invalue('form_abook_type')   . ", " .
         "title = "        . $form_title                  . ", " .
@@ -170,10 +338,19 @@ if (!empty($_POST['form_save'])) {
         "phonew2 = "      . invalue('form_phonew2')      . ", " .
         "phonecell = "    . invalue('form_phonecell')    . ", " .
         "fax = "          . invalue('form_fax')          . ", " .
-        "notes = "        . invalue('form_notes')        . " "  .
+        "notes = "        . invalue('form_notes')        . ", " .
+        "ct_communication = " . invalue('form_care_team_communication') . ", "  .
+        "active = "       . (isset($_REQUEST['form_active']) ? 1 : 0)       . " "  .
         "WHERE id = '" . add_escape_custom($userid) . "'";
         sqlStatement($query);
+
+        // @VH: Hubspot Handle update [V100082]
+        HubspotSync::handleInSyncPrepare($userid, "UPDATE");
+        
+        // @VH: WordPress user update [V100082]
+        WordpressWebservice::handleInSyncPrepare($userid, "UPDATE");
     } else {
+        // @VH: Added ct_communication [V100079]
         $userid = sqlInsert("INSERT INTO users ( " .
         "username, password, authorized, info, source, " .
         "title, fname, lname, mname, suffix, " .
@@ -181,7 +358,7 @@ if (!empty($_POST['form_save'])) {
         "specialty, organization, valedictory, assistant, billname, email, email_direct, url, " .
         "street, streetb, city, state, zip, " .
         "street2, streetb2, city2, state2, zip2, " .
-        "phone, phonew1, phonew2, phonecell, fax, notes, abook_type "            .
+        "phone, phonew1, phonew2, phonecell, fax, notes, abook_type, ct_communication "            .
         ") VALUES ( "                        .
         "'', "                               . // username
         "'', "                               . // password
@@ -226,9 +403,19 @@ if (!empty($_POST['form_save'])) {
         invalue('form_phonecell')     . ", " .
         invalue('form_fax')           . ", " .
         invalue('form_notes')         . ", " .
-        invalue('form_abook_type')    . " "  .
+        invalue('form_abook_type')    . ", "  .
+        invalue('form_care_team_communication')    . " " .
         ")");
+
+        // @VH: Hubspot Handle Update [V100082]
+        HubspotSync::handleInSyncPrepare($userid, "INSERT");
+
+        // @VH: WordPress user update [V100082]
+        WordpressWebservice::handleInSyncPrepare($userid, "INSERT");
     }
+
+    // @VH: Save Changes [V100080]
+    EmailVerificationLib::updateEmailVerification($_POST); 
 } elseif (!empty($_POST['form_delete'])) {
     if ($userid) {
        // Be careful not to delete internal users.
@@ -316,6 +503,15 @@ if ($type) { // note this only happens when its new
     </div>
 </div>
 
+<!-- @VH: Added Active field [V100079] -->
+<div class="form-row activeRow my-1">
+    <div class="col-12">
+        <label for="form_active" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Active'); ?>:</label>
+        <input type="checkbox" name="form_active" <?php echo ($row["active"]) ? " checked" : ""; ?>>
+    </div>
+</div>
+<!-- END -->
+
 <div class="form-row specialtyRow my-1">
     <div class="col-2">
         <label for="form_specialty" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Specialty'); ?>:</label>
@@ -381,6 +577,28 @@ if ($type) { // note this only happens when its new
     </div>
 </div>
 
+<!-- @VH: Added care team communication field [V100079] -->
+<div id="ct_communication_container" class="form-row my-1">
+    <div class="col-4">
+        <label for="form_valedictory" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Default Care team Communication'); ?>:</label>
+    </div>
+    <div class="col">
+        <select name="form_care_team_communication" id="form_care_team_communication" class="form-control form-control-sm">
+            <option value="">Unassigned</option>
+            <?php
+                foreach ($care_team_communication_type as $ct => $cType) {
+                    if($row['ct_communication'] == $ct) {
+                        echo '<option value="'.$ct.'" selected>'.$cType.'</option>';   
+                    } else {
+                        echo '<option value="'.$ct.'">'.$cType.'</option>';
+                    }
+                }
+            ?>
+        </select>
+    </div>
+</div>
+<!-- End -->
+
 <div class="form-row my-1">
     <div class="col-2">
         <label for="form_phone" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Home Phone'); ?>:</label>
@@ -430,11 +648,25 @@ if ($type) { // note this only happens when its new
         <label for="form_email" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Email'); ?>:</label>
     </div>
     <div class='col-10'>
-        <input type='text' size='40' name='form_email' maxlength='250' value='<?php echo attr($row['email'] ?? ''); ?>' class='form-control form-control-sm inputtext w-100' />
+        <!-- @VH: Email verification field changes [V100080] -->
+        <?php $emvStatus = EmailVerificationLib::getEmailVerificationData($row['email']); ?>
+        <div class="emv-input-group-container" data-initemail="<?php echo attr($row['email'] ?? ''); ?>" data-initstatus="<?php echo $emvStatus; ?>" data-id="form_email">
+            <div class="input-group">
+                <input type='text' size='40' id="form_email" name='form_email' maxlength='250' value='<?php echo attr($row['email'] ?? ''); ?>' class='form-control form-control-sm inputtext mw-100' />
+
+                <div class="input-group-append">
+                    <input type="hidden" name="form_email_hidden_verification_status" value="" id="form_email_hidden_verification_status" class="hidden_verification_status">
+                    <button type="button" id="form_email_btn_verify_email" class="btn btn-primary btn-sm btn_verify_email mb-1"><?php echo xlt('Verify'); ?></button>
+                </div>
+            </div>
+            <div class="status-icon-container"></div>
+        </div>
+        <!-- END -->
     </div>
 </div>
 
-<div class="form-row my-1">
+<!-- @VH: Hide 'Trusted Email' field -->
+<div class="form-row my-1" style="display:none;">
     <div class="col-2">
         <label for="form_email_direct" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Trusted Email'); ?>:</label>
     </div>
@@ -547,7 +779,11 @@ if ($type) { // note this only happens when its new
 
 <br />
 
-<input type='submit' class='btn btn-primary' name='form_save' value='<?php echo xla('Save'); ?>' />
+<!-- @VH: Added duplicate save button to check validation before submit form data [V100081][V100080] -->
+<input type='button' class='btn btn-primary' id='form_save_btn' onclick="validateForm()" value='<?php echo xla('Save'); ?>' />
+
+<!-- @VH: Make existing save button hidden [V100081][V100080] -->
+<input type='submit' class='btn btn-primary' name='form_save' value='<?php echo xla('Save'); ?>' style="display: none;" />
 
 <?php if ($userid && !$row['username']) { ?>
 &nbsp;

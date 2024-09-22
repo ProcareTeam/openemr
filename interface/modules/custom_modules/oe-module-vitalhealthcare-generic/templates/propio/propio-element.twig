@@ -1,0 +1,8 @@
+<div class="btn-group" role="group">
+{% if isRequestExist == true %}
+    <!-- <input type="button" data-apptid="{{apptId}}" data-mid="{{meetingId}}" data-propioid="{{propioId}}" class="btn btn-sm btn-success" name="complete_propio_call" id="complete_propio_call" value="{{ 'Complete Interpreter'|xlt }}" onclick="handlePropio(this, 'complete')" /> -->
+    <input type="button" data-apptid="{{apptId}}" data-mid="{{meetingId}}" data-propioid="{{propioId}}" class="btn btn-sm btn-danger" name="cancel_propio_call" id="cancel_propio_call" value="{{ 'Cancel Interpreter'|xlt }}" onclick="handlePropio(this, 'cancel')" />
+{% elseif isRequestExist == false %}
+    <input type="button" data-apptid="{{apptId}}" data-mid="{{meetingId}}" class="btn btn-sm btn-primary" name="request_propio_interpreter" id="request_propio_interpreter" value="{{ 'Request Interpreter'|xlt }}" onclick="handlePropio(this, 'request')" />
+{% endif %}
+</div>

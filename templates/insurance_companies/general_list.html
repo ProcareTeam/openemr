@@ -5,13 +5,19 @@
       <thead>
           <tr>
               <th>{xlt t='Name'}</th>
+              <!-- @VH: added attn column [2023011605] -->
+              <th>{xlt t='Attn'}</th>
               <th>{xlt t='Address'}</th>
               <th>{xlt t='City, State, ZIP'}</th>
               <th>{xlt t='Phone'}</th>
               <th>{xlt t='Fax'}</th>
               <th>{xlt t='Payer ID'}</th>
               <th>{xlt t='Default X12 Partner'}</th>
+              <!-- @VH: added type column [2023011605] -->
+              <th>{xlt t='Type'}</th>
               <th>{xlt t='Deactivated'}</th>
+              <!-- @VH: added parent company column [2024081401] -->
+              <th>{xlt t='Parent Company'}</th>
           </tr>
       </thead>
       <tbody>
@@ -22,19 +28,28 @@
                       {$insurancecompany->name|text}
                   </a>
               </td>
+              <!-- @VH: added attn column [2023011605] -->
+              <td>{$insurancecompany->attn|text} &nbsp;</td>
               <td>{$insurancecompany->address->line1|text} {$insurancecompany->address->line2|text}&nbsp;</td>
               <td>{$insurancecompany->address->city|text} {$insurancecompany->address->state|upper|text} {$insurancecompany->address->zip|text}&nbsp;</td>
               <td>{$insurancecompany->get_phone()|text}&nbsp;</td>
               <td>{$insurancecompany->get_fax()|text}&nbsp;</td>
               <td>{$insurancecompany->cms_id|text}&nbsp;</td>
               <td>{$insurancecompany->get_x12_default_partner_name()|text}&nbsp;</td>
+              <!-- @VH: added type column [2023011605] -->
+              <td>{$insurancecompany->get_ins_type_code_display()|text}&nbsp;</td>
               <td>{if $insurancecompany->get_inactive() eq 1}{xlt t='Yes'}{/if}&nbsp;</td>
+              <!-- @VH: added parent company column [2024081401] -->
+              <td>{$insurancecompany->get_parent_company_display()|text}&nbsp;</td>
           </tr>
           {foreachelse}
           <tr>
               <td>{xlt t='No Insurance Companies Found'}</td>
               <!-- DataTables requires the number of cols in the table header match the table body,
                   https://datatables.net/manual/tech-notes/18 -->
+              <td></td>
+              <td></td>
+              <td></td>
               <td></td>
               <td></td>
               <td></td>

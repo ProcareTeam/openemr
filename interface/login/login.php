@@ -221,6 +221,7 @@ if (session_name()) {
     $cookie = json_encode($cookie);
 }
 
+// @VH: Force google sign in
 $viewArgs = [
     'title' => $openemr_name,
     'displayLanguage' => $GLOBALS["language_menu_login"] && (count($languageList) != 1),
@@ -229,6 +230,7 @@ $viewArgs = [
     'languageList' => $languageList,
     'relogin' => $relogin,
     'loginFail' => isset($_SESSION["loginfailure"]) && $_SESSION["loginfailure"] == 1,
+    'force_google_sign_in' => (isset($_SESSION["force_google_sign_in"]) && $_SESSION["force_google_sign_in"] == 1) ? true : false,
     'displayFacilities' => (bool)$GLOBALS["login_into_facility"],
     'facilityList' => $facilities,
     'facilitySelected' => $facilitySelected,

@@ -20,6 +20,36 @@
 
 require_once("../globals.php");
 
+// @VH: Ins Type code list [2023011605]
+$ins_type_code_array = array('','Other HCFA'
+                                        ,'Medicare Part B'
+                                        ,'Medicaid'
+                                        ,'ChampUSVA'
+                                        ,'ChampUS'
+                                        ,'Blue Cross Blue Shield'
+                                        ,'FECA'
+                                        ,'Self Pay'
+                                        ,'Central Certification'
+                                        ,'Other Non-Federal Programs'
+                                        ,'Preferred Provider Organization (PPO)'
+                                        ,'Point of Service (POS)'
+                                        ,'Exclusive Provider Organization (EPO)'
+                                        ,'Indemnity Insurance'
+                                        ,'Health Maintenance Organization (HMO) Medicare Risk'
+                                        ,'Automobile Medical'
+                                        ,'Commercial Insurance Co.'
+                                        ,'Disability'
+                                        ,'Health Maintenance Organization'
+                                        ,'Liability'
+                                        ,'Liability Medical'
+                                        ,'Other Federal Program'
+                                        ,'Title V'
+                                        ,'Veterans Administration Plan'
+                                        ,'Workers Compensation Health Plan'
+                                        ,'Mutually Defined'
+                                        );
+// End
+
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 
@@ -44,7 +74,8 @@ function addwhere($where, $colname, $value)
 // The following code builds the appropriate SQL query from the
 // search parameters passed by our opener (ins_search.php).
 
-$where = '';
+// @VH: Added inactive condition to show active insurance list [2023011606]
+$where = ' AND inactive = 0';
 $where = addwhere($where, 'i.name', $_GET['form_name']);
 $where = addwhere($where, 'i.attn', $_GET['form_attn']);
 $where = addwhere($where, 'i.cms_id', $_GET['form_cms_id']);
@@ -95,15 +126,17 @@ if (
     $where = addwhere($where, 'p.number', $digits);
 }
 
+// @VH: ins_type_code into list, added field into select [2023011605]
 $query = "SELECT " .
-    "i.id, i.name, i.attn, " .
+    "i.id, i.name, i.attn, i.ins_type_code, " .
     "a.line1, a.line2, a.city, a.state, a.zip, " .
-    "p.area_code, p.prefix, p.number " .
+    "GROUP_CONCAT(p.type) as ptype, GROUP_CONCAT( CONCAT(p.area_code,'-',p.prefix,'-',p.number) ) as full_phone, p.area_code, p.prefix, p.number " .
     "FROM insurance_companies i " .
     "LEFT JOIN addresses a ON a.foreign_id = i.id " .
     "LEFT JOIN phone_numbers p ON p.foreign_id = i.id WHERE 1=1 ";
 
-$query .= $where . " ORDER BY i.name, a.zip";
+// @VH: added group by statement [2023011605]
+$query .= $where . " GROUP BY i.id, p.foreign_id  ORDER BY i.name, a.zip";
 $res = sqlStatement($query);
 ?>
 <html>
@@ -158,12 +191,15 @@ td {
  <tr>
   <td class='font-weight-bold'><?php echo xlt('Name');?>&nbsp;</td>
   <td class='font-weight-bold'><?php echo xlt('Attn');?>&nbsp;</td>
+  <!-- @VH: added Type [2023011605] -->
+  <td class='font-weight-bold'><?php echo xlt('Type');?>&nbsp;</td>
   <td class='font-weight-bold'><?php echo xlt('Address');?>&nbsp;</td>
   <td class='font-weight-bold'>&nbsp;&nbsp;</td>
   <td class='font-weight-bold'><?php echo xlt('City');?>&nbsp;</td>
   <td class='font-weight-bold'><?php echo xlt('State');?>&nbsp;</td>
   <td class='font-weight-bold'><?php echo xlt('Zip');?>&nbsp;</td>
-  <td class='font-weight-bold'><?php echo xlt('Phone');?></td>
+  <!-- @VH: Label change [2023011605] -->
+  <td class='font-weight-bold'><?php echo xlt('Phone/Fax');?></td>
  </tr>
 
 <?php
@@ -178,15 +214,33 @@ while ($row = sqlFetchArray($res)) {
         $phone = text($row['area_code']) . '-' . text($row['prefix']) . '-' . text($row['number']);
     }
 
+    // @VH: Changes [2023011605]
+    $typeList = array("2" => "Phone", "5" => "Fax");
+    $ptype = isset($row['ptype']) ? explode(",", $row['ptype']) : array();
+    $phones = isset($row['full_phone']) ? explode(",", $row['full_phone']) : array();
+
+    $pList = array();
+    foreach ($ptype as $ind => $p_type) {
+      if(array_key_exists($p_type, $typeList)) {
+        $typeText = $typeList[$p_type];
+        $pList[] = $typeText .": ".$phones[$ind];
+      }
+    }
+    $pListText = implode(", <br/>", $pList);
+    // End
+
     echo " <tr>\n";
     echo "  <td valign='top'>$anchor" . text($row['name']) . "</a>&nbsp;</td>\n";
     echo "  <td valign='top'>" . text($row['attn']) . "&nbsp;</td>\n";
+    // @VH: - Added Ins Type Code [2023011605]
+    echo "  <td valign='top'>" . $ins_type_code_array[$row['ins_type_code']] . "&nbsp;</td>\n";
     echo "  <td valign='top'>" . text($row['line1']) . "&nbsp;</td>\n";
     echo "  <td valign='top'>" . text($row['line2']) . "&nbsp;</td>\n";
     echo "  <td valign='top'>" . text($row['city']) . "&nbsp;</td>\n";
     echo "  <td valign='top'>" . text($row['state']) . "&nbsp;</td>\n";
     echo "  <td valign='top'>" . text($row['zip']) . "&nbsp;</td>\n";
-    echo "  <td valign='top'>" . $phone . "</td>\n";
+    // @VH: Show Phone/Fax [2023011605]
+    echo "  <td valign='top'>" . $pListText . "</td>\n";
 }
 echo " </tr>\n";
 ?>

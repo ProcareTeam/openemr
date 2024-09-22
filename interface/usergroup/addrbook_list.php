@@ -23,7 +23,13 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Twig\TwigContainer;
 use OpenEMR\Core\Header;
 
-if (!AclMain::aclCheckCore('admin', 'practice')) {
+// @VH: Changes
+$popup = empty($_GET['popup']) ? 0 : 1;
+$use_as_select = empty($_GET['select']) ? 0 : 1;
+// End 
+
+// @VH: Added acl rule for search addresses
+if (!AclMain::aclCheckCore('admin', 'practice') && !AclMain::aclCheckCore('lists', 'addresses') && !AclMain::aclCheckCore('admin', 'addresses')) {
     echo (new TwigContainer(null, $GLOBALS['kernel']))->getTwig()->render('core/unauthorized.html.twig', ['pageTitle' => xl("Address Book")]);
     exit;
 }
@@ -45,14 +51,19 @@ $form_lname = trim($_POST['form_lname'] ?? '');
 $form_specialty = trim($_POST['form_specialty'] ?? '');
 $form_organization = trim($_POST['form_organization'] ?? '');
 $form_npi = trim($_POST['form_npi'] ?? '');
+// @VH: email filter field
+$form_email = trim($_POST['form_email'] ?? '');
 $form_abook_type = trim($_REQUEST['form_abook_type'] ?? '');
 $form_external = !empty($_POST['form_external']) ? 1 : 0;
+// @VH: form_inactive
+$form_inactive = !empty($_POST['form_inactive']) ? 1 : 0;
 
 $sqlBindArray = array();
+// @VH: Query change removed active=1 check condition from where
 $query = "SELECT u.*, lo.option_id AS ab_name, lo.option_value as ab_option FROM users AS u " .
   "LEFT JOIN list_options AS lo ON " .
   "list_id = 'abook_type' AND option_id = u.abook_type AND activity = 1 " .
-  "WHERE u.active = 1 AND ( u.authorized = 1 OR ( u.username = '' OR u.username IS NULL )) ";
+  "WHERE ( u.authorized = 1 OR ( u.username = '' OR u.username IS NULL )) ";
 if ($form_organization) {
     $query .= "AND u.organization LIKE ? ";
     array_push($sqlBindArray, $form_organization . "%");
@@ -78,6 +89,12 @@ if ($form_npi) {
     array_push($sqlBindArray, "%" . $form_npi . "%");
 }
 
+// @VH: added email filter
+if ($form_email) {
+    $query .= "AND u.email LIKE ? ";
+    array_push($sqlBindArray, "%" . $form_email . "%");
+}
+
 if ($form_abook_type) {
     $query .= "AND u.abook_type LIKE ? ";
     array_push($sqlBindArray, $form_abook_type);
@@ -86,6 +103,14 @@ if ($form_abook_type) {
 if ($form_external) {
     $query .= "AND u.abook_type = 'external_provider' ";
 }
+
+// @VH: Active or not
+if ($form_inactive) {
+    $query .= "AND u.active = 0 ";
+} else {
+    $query .= "AND u.active = 1 ";
+}
+// END
 
 if ($form_lname) {
     $query .= "ORDER BY u.lname, u.fname, u.mname";
@@ -97,6 +122,14 @@ if ($form_lname) {
 
 $query .= " LIMIT 500";
 $res = sqlStatement($query, $sqlBindArray);
+
+// @VH: Changes
+$action = 'addrbook_list.php';
+$addl = '';
+if($popup) $addl .= 'popup=' . strip_tags($_GET['popup']) . '&';
+if($use_as_select) $addl .= 'select=' . strip_tags($_GET['select']) . '&';
+if($addl) $action .= '?' . $addl;
+// END
 ?>
 
 <!DOCTYPE html>
@@ -104,7 +137,8 @@ $res = sqlStatement($query, $sqlBindArray);
 
 <head>
 
-<?php Header::setupHeader(['common']); ?>
+<!-- @VH: Change -->
+<?php Header::setupHeader(['common', 'opener']); ?>
 
 <title><?php echo xlt('Address Book'); ?></title>
 
@@ -119,7 +153,8 @@ $res = sqlStatement($query, $sqlBindArray);
         <div class="col-md-12">
             <h3><?php echo xlt('Address Book'); ?></h3>
 
-        <form class='navbar-form' method='post' action='addrbook_list.php' onsubmit='return top.restoreSession()'>
+        <!-- @VH: From action changed -->
+        <form class='navbar-form' method='post' action='<?php echo $action; ?>' onsubmit='return top.restoreSession()'>
             <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
             <input type="hidden" name="popup" value="<?php echo attr($rtn_selection); ?>" />
 
@@ -141,10 +176,12 @@ $res = sqlStatement($query, $sqlBindArray);
                     <label for="form_specialty"><?php echo xlt('Specialty') ?>:</label>
                     <input type='text' class="form-control inputtext" name='form_specialty' size='10' value='<?php echo attr($form_specialty); ?>' title='<?php echo xla("Any part of the desired specialty") ?>'/>&nbsp;
                     </div>
+                    <!-- @VH: Added NPI filter field -->
                     <div class="col-sm-2">
-                    <label for="form_npi"><?php echo xlt('Specialty') ?>:</label>
+                    <label for="form_npi"><?php echo xlt('NPI') ?>:</label>
                     <input type='text' class="form-control inputtext" name='form_npi' size='10' value='<?php echo attr($form_npi); ?>' title='<?php echo xla("Any part of the desired NPI") ?>'/>&nbsp;
                     </div>
+                    <!-- END -->
                     <div class="col-sm-2">
                     <?php
                     echo '<label>' . xlt('Type') . ": " . '</label>';
@@ -152,10 +189,29 @@ $res = sqlStatement($query, $sqlBindArray);
                     echo generate_select_list("form_abook_type", "abook_type", $form_abook_type, '', 'All');
                     ?>
                     </div>
+                    <!-- @VH: Added Email filter field -->
+                    <div class="col-sm-2">
+                    <label for="form_email"><?php echo xlt('EMAIL') ?>:</label>
+                    <input type='text' class="form-control inputtext" name='form_email' value='<?php echo attr($form_email); ?>' title='<?php echo xla("Any part of the desired Email") ?>'/>&nbsp;
+                    </div>
+                    <!-- END -->
                     </div>
                     <input type='checkbox' id="formExternal" name='form_external' value='1'<?php echo ($form_external) ? ' checked ' : ''; ?> title='<?php echo xla("Omit internal users?") ?>' />
                     <label for="formExternal"><?php echo xlt('External Only') ?></label>
-                    <input type='button' class='btn btn-primary' value='<?php echo xla("Add New"); ?>' onclick='doedclick_add(document.forms[0].form_abook_type.value)' />&nbsp;&nbsp;
+                    
+                    <!-- @VH: Inactive only filter -->
+                    <input type='checkbox' id="formInactive" name='form_inactive' value='1'<?php echo ($form_inactive) ? ' checked ' : ''; ?> title='<?php echo xla("Omit active users?") ?>' />
+                    <label for="formInactive"><?php echo xlt('Show Inactive') ?></label>
+                    <!-- End -->
+
+                    <!-- @VH: Wrapped with if condtion -->
+                    <?php if(AclMain::aclCheckCore('admin', 'practice') || AclMain::aclCheckCore('admin', 'addresses')) { ?>
+                    <input type='button' class='btn btn-primary' value='<?php echo xla("Add New"); ?>' onclick='doedclick_add(document.forms[0].form_abook_type.value)' />
+                    <?php } ?>
+                    &nbsp;&nbsp;
+                    <!-- End -->
+
+
                     <input type='submit' title='<?php echo xla("Use % alone in a field to just sort on that column") ?>' class='btn btn-primary btn-search' name='form_search' value='<?php echo xla("Search") ?>'/>
                     </div>
         </form>
@@ -193,11 +249,19 @@ while ($row = sqlFetchArray($res)) {
         $displayName .= ", " . $row['suffix'];
     }
 
-    if (AclMain::aclCheckCore('admin', 'practice') || (empty($username) && empty($row['ab_name']))) {
+    // @VH: new acl rule check
+    if (AclMain::aclCheckCore('admin', 'practice') || (empty($username) && empty($row['ab_name'])) || AclMain::aclCheckCore('admin', 'addresses')) {
        // Allow edit, since have access or (no item type and not a local user)
         $trTitle = xl('Edit') . ' ' . $displayName;
         echo " <tr class='address_names detail' style='cursor:pointer' " .
         "onclick='doedclick_edit(" . attr_js($row['id']) . ")' title='" . attr($trTitle) . "'>\n";
+    } elseif ($use_as_select == 1) {
+        // @VH: Changes 
+        $trTitle = xl('Select'). ' ' . $displayName;
+        echo " <tr class='address_names detail' style='cursor:pointer' " .
+        "onclick='doedclick_edit(" . $row['id'] . ")' title='".attr($trTitle)."'>\n";
+        // END
+
     } else {
        // Do not allow edit, since no access and (item is a type or is a local user)
         $trTitle = $displayName . " (" . xl("Not Allowed to Edit") . ")";
@@ -251,6 +315,7 @@ function doedclick_add(type) {
 }
 
 // Process click to pop up the edit window.
+/* @VH: Commented 
 function doedclick_edit(userid) {
  let rtn_selection = <?php echo js_escape($rtn_selection); ?>;
  if(rtn_selection) {
@@ -259,6 +324,24 @@ function doedclick_edit(userid) {
  top.restoreSession();
  dlgopen('addrbook_edit.php?userid=' + encodeURIComponent(userid), '_blank', 650, (screen.availHeight * 75/100));
 }
+ END */
+
+// @VH: doedclick_edit Function
+function doedclick_edit(userid) {
+    top.restoreSession();
+    <?php if($use_as_select) { ?>
+    if(opener.closed || !opener.setaddress) {
+        alert("<?php echo htmlspecialchars( xl('The destination form was closed; I cannot act on your selection.'), ENT_QUOTES); ?>");
+    } else {
+        opener.setaddress(userid);
+    }
+    dlgclose();
+    return false;
+    <?php } else { ?>
+        dlgopen('addrbook_edit.php?userid=' + userid, '_blank', 650, (screen.availHeight * 75/100));
+    <?php } ?>
+}
+// END
 
 </script>
 </div>

@@ -328,6 +328,17 @@ $esignApi = new Api();
         endif;
         ?>
 
+        <?php
+        // @VH: Change for set default page. [V100043]
+        $isExtesionExists =  sqlQuery("SELECT count(id) as total_count from user_extension ue where userid = ? and extension != '' and extension IS NOT NULL", array($_SESSION['authUserID']));
+        if(isset($isExtesionExists) && $isExtesionExists['total_count'] == "1") {
+            ?>
+            app_view_model.application_data.tabs.tabsList.push(new tabStatus(<?php echo xlj("Loading"); ?> + "...", <?php echo json_encode("../../../interface/asterisk/viewCalls.php"); ?>, <?php echo json_encode("pbxdata"); ?>, <?php echo xlj("Loading"); ?> + " " + <?php echo json_encode("PBX Data"); ?>, true, false, false));
+            <?php
+        }
+        // End
+        ?>
+
         app_view_model.application_data.user(new user_data_view_model(<?php echo json_encode($_SESSION["authUser"])
                                                                             . ',' . json_encode($userQuery['fname'])
                                                                             . ',' . json_encode($userQuery['lname'])
@@ -381,7 +392,23 @@ if (!empty($GLOBALS['kernel']->getEventDispatcher())) {
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="mainMenu" data-bind="template: {name: 'menu-template', data: application_data}"></div>
+
+            <!-- @VH: Added appt data info template [V100044] -->
+            <?php require_once("templates/appt_data_info_template.php"); ?>
+
             <form name="frm_search_globals" class="form-inline">
+                <!-- @VH: Asterisk Change for showing messages of extension number [V100043] -->
+                <?php 
+                    $extensionData = sqlQuery("SELECT `extension`, `availability` FROM `user_extension` WHERE `userid` = ? ORDER BY id DESC LIMIT 1", array($_SESSION['authUserID']));
+
+                    $extensionNumber = (!empty($extensionData) && isset($extensionData['extension']) && !empty($extensionData['extension'])) ? $extensionData['extension'] : "";
+                    $extUserStatus = isset($extensionData['availability']) && $extensionData['availability'] == "Available" ? true : false;
+                ?>
+                <div class="exten mr-2" id="extension-using">
+                    <span class="badge <?php echo $extUserStatus === true ? 'badge-success' : 'badge-danger'; ?> py-2 px-2"><?php echo xla("Extension"); ?>: <span id="extension-number"><?php echo !empty($extensionNumber) ? $extensionNumber : "None"; ?></span></span>
+                </div>
+                <!-- End -->
+
                 <div class="input-group">
                     <input type="text" id="anySearchBox" class="form-control-sm <?php echo $any_search_class ?> form-control" name="anySearchBox" placeholder="<?php echo xla("Search by any demographics") ?>" autocomplete="off">
                     <div class="input-group-append">
@@ -426,6 +453,42 @@ if (!empty($GLOBALS['kernel']->getEventDispatcher())) {
             $(function () {
                 goRepeaterServices();
             });
+
+            // @VH: Handle use session tracker [V100045]
+            var isSessionTrackerRunning = false;
+            // Function to handle user session tracker activity
+            function handleUserActivity() {
+                // Update user status
+                if(isSessionTrackerRunning === false) {
+                    isSessionTrackerRunning = true;
+                    
+                    request = new FormData;
+                    request.append("skip_timeout_reset", "1");
+                    request.append("ajax", "1");
+                    request.append("csrf_token_form", csrf_token_js);
+                    fetch(webroot_url + "/library/ajax/execute_session_tracker.php", {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        body: request
+                    }).then((response) => {
+                        if (response.status !== 200) {
+                            console.log('Session Tracker Background Service start failed. Status Code: ' + response.status);
+                        }
+                    }).catch(function(error) {
+                        console.log('Session Tracker Background Service start Request failed: ', error);
+                    });
+
+                    // Set Timout 
+                    setTimeout(function() {
+                        isSessionTrackerRunning = false;
+                    }, 60000);
+                }
+            }
+
+            // Add event listeners for user session events
+            document.addEventListener('mousemove', handleUserActivity);
+            document.addEventListener('keypress', handleUserActivity);
+            // END
         <?php } ?>
     </script>
     <?php

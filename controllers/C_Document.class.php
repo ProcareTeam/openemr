@@ -25,6 +25,7 @@ use OpenEMR\Services\FacilityService;
 use OpenEMR\Services\PatientService;
 use OpenEMR\Events\PatientDocuments\PatientDocumentTreeViewFilterEvent;
 use OpenEMR\Events\PatientDocuments\PatientRetrieveOffsiteDocument;
+use OpenEMR\Events\Generic\PatientDocument\PatientDocumentEvent;
 
 class C_Document extends Controller
 {
@@ -320,6 +321,11 @@ class C_Document extends Controller
                         $non_HTTP_owner,
                         $_FILES['file']['tmp_name'][$key]
                     );
+
+                    // @VH: After Document Upload
+                    $eventDispatcher = $GLOBALS['kernel']->getEventDispatcher();
+                    $eventDispatcher->dispatch(new PatientDocumentEvent($d), PatientDocumentEvent::ACTIONS_DOCUMENTS_UPLOAD_AFTER);
+
                     if ($rc) {
                         $error .= $rc . "\n";
                     } else {
@@ -356,6 +362,10 @@ class C_Document extends Controller
                 *****************************************************/
             }
         }
+
+        // @VH: End of Document Upload
+        $eventDispatcher = $GLOBALS['kernel']->getEventDispatcher();
+        $eventDispatcher->dispatch(new PatientDocumentEvent($d), PatientDocumentEvent::ACTIONS_DOCUMENTS_UPLOAD_END);
 
         $this->assign("error", $error);
         //$this->_state = false;
@@ -490,6 +500,21 @@ class C_Document extends Controller
             $issues_options .= "<option value='" . attr($irow['id']) . "'$sel>$desc</option>";
         }
         $this->assign("ISSUES_LIST", $issues_options);
+
+        // @VH: For tagging to case
+        // @VH: Populate the text fild with case id
+        $caseId = $d->get_case_id();
+        $this->assign("CASEID", !empty($caseId) && $caseId != 0 ? $caseId : '');
+
+        // @VH: Case Description
+        $caseDesc = '';
+        if (!empty($caseId)) {
+            $caseData = sqlQuery("SELECT fc.`date`, fc.case_description from form_cases fc where id = ?", array($caseId));
+            if (!empty($caseData)) {
+                $caseDesc = oeFormatShortDate($caseData['date']) . ' - [ ' . $caseData['case_description'] . ' ]';
+            }
+        }
+        $this->assign("CASEDESC", !empty($caseDesc) ? $caseDesc : '');
 
         // For tagging to encounter
         // Populate the dropdown with patient's encounter list
@@ -1063,6 +1088,13 @@ class C_Document extends Controller
                 $d->persist();
                 $d->populate();
                 $messages .= xl('Document successfully renamed.') . "\n";
+            }
+
+            // @VH: This invokes after document edit
+            $eventDispatcher = $GLOBALS['kernel']->getEventDispatcher();
+            $patientdocumentEvent = $eventDispatcher->dispatch(new PatientDocumentEvent($d), PatientDocumentEvent::ACTIONS_DOCUMENTS_UPLOAD_EDIT_AFTER);
+            if($patientdocumentEvent->get_messages() != "") {
+                $messages .= $patientdocumentEvent->get_messages();
             }
 
             if (preg_match('/^\d\d\d\d-\d+-\d+$/', $docdate)) {

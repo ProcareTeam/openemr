@@ -50,7 +50,10 @@
         "url": "interface/patient_file/transaction/transactions.php",
         "pid":"false",
         "children": [],
-        "requirement": 0
+        "requirement": 0,
+        "global_req_strict": [
+            "menuenb"
+        ]
     },
     {
         "label": "Issues",
@@ -60,7 +63,10 @@
         "url": "interface/patient_file/summary/stats_full.php?active=all",
         "pid":"false",
         "children": [],
-        "requirement": 0
+        "requirement": 0,
+        "global_req_strict": [
+            "menuenb"
+        ]
     },
     {
         "label": "Ledger",
@@ -70,7 +76,10 @@
         "url": "interface/reports/pat_ledger.php?form=1&patient_id=",
         "pid":"true",
         "children": [],
-        "requirement": 0
+        "requirement": 0,
+        "global_req_strict": [
+            "menuenb"
+        ]
     },
     {
         "label": "External Data",
@@ -80,7 +89,91 @@
         "url": "interface/reports/external_data.php",
         "pid":"false",
         "children": [],
-        "requirement": 0
+        "requirement": 0,
+        "global_req_strict": [
+            "menuenb"
+        ]
+    },
+    {
+        "label": "Ext History",
+        "menu_id": "das1",
+        "target": "main",
+        "url": "interface/forms/dashboard/new.php",
+        "pid":"false",
+        "children": [],
+        "requirement": 1,
+        "acl_req": [ ]
+    },
+    {
+        "label": "Favorites",
+        "menu_id": "das1",
+        "target": "main",
+        "url": "interface/forms/diag_favorites/new.php",
+        "pid":"false",
+        "children": [],
+        "requirement": 1,
+        "acl_req": [ ],
+        "global_req_strict": [
+            "menuenb"
+        ]
+    },
+    {
+        "label": "Cases",
+        "menu_id": "cas1",
+        "target": "case",
+        "url": "interface/forms/cases/case_list.php?caller=patient&pid=",
+        "pid":"true",
+        "children": [],
+        "requirement": 1,
+        "acl_req": [ ]
+    },
+    {
+        "label": "Appts",
+        "menu_id": "appt",
+        "target": "main",
+        "url": "interface/reports/appointments_report.php?patient=",
+        "pid":"true",
+        "children": [],
+        "requirement": 1,
+        "acl_req": [ ]
+    },
+    {
+        "label": "Orders",
+        "menu_id": "ord1",
+        "target": "main",
+        "url": "interface/forms/rto1/new.php?pop=db",
+        "pid":"false",
+        "children": [],
+        "requirement": 1,
+        "acl_req": [ ]
+    },
+    {
+        "label": "Ledger",
+        "menu_id": "idempiereledger",
+        "target": "main",
+        "on_click":"top.restoreSession()",
+        "url": "interface/reports/idempiere_pat_ledger.php?form=1&patient_id=",
+        "pid":"true",
+        "children": [],
+        "requirement": 0,
+        "acl_req":[
+            "patients",
+            "msledger"
+        ]
+    },
+    {
+        "label": "Radiology",
+        "menu_id": "pacstudies",
+        "target": "main",
+        "on_click":"top.restoreSession()",
+        "url": "interface/reports/pac_studies.php?form=1&patient_id=",
+        "pid":"true",
+        "children": [],
+        "requirement": 0,
+        "acl_req":[
+            "patients",
+            "pacsledger"
+        ]
     },
     {
         "label": "PRO{{Patient Reported Outcomes}}",

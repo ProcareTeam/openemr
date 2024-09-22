@@ -14,6 +14,7 @@
 
 require_once(dirname(__FILE__) . '/../../globals.php');
 require_once($GLOBALS["srcdir"] . "/api.inc.php");
+include_once($GLOBALS["srcdir"] . "/wmt-v2/printvisit.class.php");
 
 use OpenEMR\Common\Acl\AclMain;
 
@@ -23,7 +24,8 @@ use OpenEMR\Common\Acl\AclMain;
 
 function lbf_report($pid, $encounter, $cols, $id, $formname, $no_wrap = false)
 {
-    global $CPR;
+    // @VH: added into global list [V100010][V100011]
+    global $CPR, $doNotPrintField, $addStyle;
     require_once($GLOBALS["srcdir"] . "/options.inc.php");
 
     $grparr = array();
@@ -62,6 +64,14 @@ function lbf_report($pid, $encounter, $cols, $id, $formname, $no_wrap = false)
             continue;
         }
 
+        // @VH: If Do not print field option is set then don't print field on patient report [V100010] 
+        if(isset($doNotPrintField) && $doNotPrintField === true) {
+            if(isOption($frow['edit_options'], 'X') === true) {
+                continue;
+            }
+        }
+        // END
+
         // $arr[$field_id] = $currvalue;
         // A previous change did this instead of the above, not sure if desirable? -- Rod
         // $arr[$field_id] = wordwrap($currvalue, 30, "\n", true);
@@ -71,11 +81,32 @@ function lbf_report($pid, $encounter, $cols, $id, $formname, $no_wrap = false)
         if ($no_wrap || ($frow['data_type'] == 34 || $frow['data_type'] == 25)) {
             $arr[$field_id] = $currvalue;
         } else {
-            $arr[$field_id] = wordwrap($currvalue, 30, "\n", true);
+            // @VH: RPG, WMT  changed from 30 to 150 to improve LBF display
+            $arr[$field_id] = wordwrap($currvalue, 150, "\n", true);
         }
     }
 
-    echo "<table>\n";
+    // @VH: Fixed form reporting design issue [V100011]   
+    if($addStyle !== false) {
+        $addStyle = false;
+    ?>
+    <style type="text/css">
+        .report_table {
+            border-collapse: collapse;
+        }
+        .border-bottom {
+            border-bottom: 1px solid #000;
+        }
+        .border-top {
+            border-top: 1px solid #000;
+        }
+    </style>
+    <?php
+    }
+    // END
+
+    // @VH: Added class to fix form reporting design issue [V100011]
+    echo "<table class='report_table'>\n";
     display_layout_rows($formname, $arr);
     echo "</table>\n";
 }

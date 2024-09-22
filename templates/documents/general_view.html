@@ -13,6 +13,7 @@
 <script>
 
  {dispatchPatientDocumentEvent event="javascript_ready_fax_dialog"}
+ {dispatchVhPatientDocumentEvent event="javascript_vh"}
 
  function popoutcontent(othis) {
     let popsrc = $(othis).parents('body').find('#DocContents iframe').attr("src");
@@ -108,8 +109,9 @@ function tagProcedure() {
                 <button class="btn btn-sm btn-primary active">{xlt t='Contents'}</button>
               </div>
             <span class="float-right">
-            <script>var file = {$file->get_url()|js_escape};var mime = {$file->get_mimetype()|js_escape};var docid = {$file->get_id()|js_escape};</script>
+            <script>var file = {$file->get_url()|js_escape};var mime = {$file->get_mimetype()|js_escape};var docid = {$file->get_id()|js_escape}; var patientpid = {$file->foreign_id|js_escape};</script>
             {dispatchPatientDocumentEvent event="actions_render_fax_anchor"}
+            {dispatchVhPatientDocumentEvent event="actions_render_imageeditor_anchor" mimetype={$file->mimetype}}
             <a class="btn btn-primary" href='' onclick='return popoutcontent(this)' title="{xla t='Pop Out Full Screen.'}">{xlt t='Pop Out'}</a>
             <a class="btn btn-primary" href="{$web_path|attr}" title="{xla t='Original file'}" onclick="top.restoreSession()">{xlt t='Download'}</a>
             <a class="btn btn-primary" href='' onclick='return showpnotes({$file->get_id()|attr_js})'>{xlt t='Show Notes'}</a>
@@ -150,6 +152,7 @@ function tagProcedure() {
             <label for="docdate">{xlt t='Date'}:</label>
             <input type='text' size='10' class='form-control datepicker' name='docdate' id='docdate' value='{$DOCDATE|attr}' title="{xla t='yyyy-mm-dd document date'}" />
           </div>
+          {dispatchVhPatientDocumentEvent event="actions_render_case_field" case_id="{$CASEID}" case_desc={$CASEDESC}}
           <div class="form-group">
             <select name="issue_id" class="form-control">{$ISSUES_LIST}</select>
           </div>
@@ -232,7 +235,7 @@ function tagProcedure() {
 		</td>
 	</tr>
 	<tr id="DocContents" class="h-100">
-		<td>
+		<td style="vertical-align:top">
       {if $file->get_mimetype() eq "image/tiff" or $file->get_mimetype() eq "text/plain"}
 			<embed  style="height:84vh; border: 0px" type="{$file->get_mimetype()|attr}" src="{$web_path|attr}as_file=false"></embed>
 			{elseif $file->get_mimetype() eq "image/png" or

@@ -129,6 +129,19 @@ function update_justify(data, event) {
     }
     var skip_issues = data.duplicates().length > 0;
     top.restoreSession();
+
+    // @VH: save current bill input values [2023011609]
+    let el = event.target;
+    let billing = {};
+    let bills = el.closest('form').querySelectorAll('[name^="bill"]');
+
+    if (bills) {
+        bills.forEach(item => {
+            billing[item.name] = item.value;
+        });
+    }
+    // END
+
     $.post(justify_ajax, {
             skip_issues: skip_issues,
             pid: data.patient_id,

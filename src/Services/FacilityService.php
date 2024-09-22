@@ -28,6 +28,7 @@ use OpenEMR\Validators\ProcessingResult;
 use OpenEMR\Events\Facility\FacilityCreatedEvent;
 use OpenEMR\Events\Facility\FacilityUpdatedEvent;
 use Particle\Validator\Validator;
+use OpenEMR\Events\Generic\AuthEvent;
 
 class FacilityService extends BaseService
 {
@@ -253,9 +254,11 @@ class FacilityService extends BaseService
     private function get($map)
     {
         try {
+            // @VH: added name1
             $sql = " SELECT FAC.id,";
             $sql .= "        FAC.uuid,";
             $sql .= "        FAC.name,";
+            $sql .= "        FAC.name1,";
             $sql .= "        FAC.phone,";
             $sql .= "        FAC.fax,";
             $sql .= "        FAC.street,";

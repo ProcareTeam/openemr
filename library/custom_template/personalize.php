@@ -327,21 +327,24 @@ if (isset($_REQUEST['submitform']) && $_REQUEST['submitform'] == 'save') {
                     <?php
                     if (AclMain::aclCheckCore('nationnotes', 'nn_configure')) {
                         ?>
-                        <a href="delete_category.php" id="share_link" class="iframe_medium btn btn-primary" onclick="top.restoreSession();"><?php echo xlt('Delete Category'); ?></a>
+                        <!-- @VH: Delete Category -->
+                        <!-- <a href="delete_category.php" id="share_link" class="iframe_medium btn btn-primary" onclick="top.restoreSession();"><?php echo xlt('Delete Category'); ?></a> -->
                         <?php
                     }
                     ?>
                     <?php
                     if (AclMain::aclCheckCore('nationnotes', 'nn_configure')) {
                         ?>
-                        <a href="add_template.php?list_id=<?php echo attr($_REQUEST['list_id']); ?>" onclick="top.restoreSession();" class="iframe_small btn btn-primary" title="<?php echo xla('Add Category'); ?>"><?php echo xlt('Add Category'); ?></a>
+                        <!-- @VH: Label change -->
+                        <a href="add_template.php?list_id=<?php echo attr($_REQUEST['list_id']); ?>" onclick="top.restoreSession();" class="iframe_small btn btn-primary" title="<?php echo xla('Add/Edit Category'); ?>"><?php echo xlt('Add/Edit Category'); ?></a>
                         <?php
                     }
                     ?>
                     <?php
                     if (AclMain::aclCheckCore('nationnotes', 'nn_configure')) {
                         ?>
-                        <a href="add_context.php" class="iframe_medium btn btn-primary" onclick="top.restoreSession();" title="<?php echo xla('Add Context'); ?>"><?php echo xlt('Add Context'); ?></a>
+                        <!-- @VH: Label change -->
+                        <a href="add_context.php" class="iframe_medium btn btn-primary" onclick="top.restoreSession();" title="<?php echo xla('Add/Edit Context'); ?>"><?php echo xlt('Add/Edit Context'); ?></a>
                         <?php
                     }
                     ?>
@@ -363,10 +366,14 @@ if (isset($_REQUEST['submitform']) && $_REQUEST['submitform'] == 'save') {
                         $join = '';
                         $arval = array($_SESSION['authUserID']);
                         $arval1 = array($filter_users, $_SESSION['authUserID']);
+                        // @VH:
+                        $arval2 = array();
                         if ($filter_context ?? null) {
                             $where .= " AND cl_list_id=?";
                             $arval[] = $filter_context;
                             $arval1[] = $filter_context;
+                            // @VH:
+                            $arval2[] = $filter_context;
                         }
                         $sql = "SELECT * FROM template_users AS tu LEFT OUTER JOIN customlists AS c ON tu.tu_template_id=c.cl_list_slno
                           WHERE cl_list_type=3 AND cl_deleted=0 AND tu.tu_template_id NOT IN (SELECT tu_template_id FROM template_users AS tuser WHERE
@@ -393,7 +400,8 @@ if (isset($_REQUEST['submitform']) && $_REQUEST['submitform'] == 'save') {
                         $sqlorphan = "SELECT * FROM customlists WHERE cl_list_type=3 AND cl_deleted=0 AND cl_list_slno" .
                             " NOT IN (SELECT DISTINCT tu_template_id FROM template_users) " . $where . " ORDER BY cl_list_id,cl_list_item_long";
                         if (empty($where)) {
-                            $resorphan = sqlStatement($sqlorphan);
+                            // @VH: added param
+                            $resorphan = sqlStatement($sqlorphan, $arval2);
                         }
                         while ($roworphan = sqlFetchArray($resorphan ?? '')) {
                             $cntxt = '';
@@ -407,9 +415,10 @@ if (isset($_REQUEST['submitform']) && $_REQUEST['submitform'] == 'save') {
                     </select>
                 </div>
                 <div class="col-sm-2 text-center">
-                    <button name="remove" class="btn btn-secondary" onclick="jsub_selected(document.myform,'personalized','topersonalized')">&raquo;</button>
+                    <!-- @VH: made type change -->
+                    <button name="remove" type="button" class="btn btn-secondary" onclick="jsub_selected(document.myform,'personalized','topersonalized')">&raquo;</button>
                     <br />
-                    <button name="remove" class="btn btn-secondary" onclick="check_user_category(document.myform,'topersonalized','personalized')">&laquo;</button>
+                    <button name="remove" type="button" class="btn btn-secondary" onclick="check_user_category(document.myform,'topersonalized','personalized')">&laquo;</button>
                 </div>
                 <div class="col-sm-5">
                     <select multiple class="form-control" name="personalized[]" id="personalized" size="6">

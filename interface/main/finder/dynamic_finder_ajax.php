@@ -155,6 +155,8 @@ if (isset($_GET['sSearch']) && $_GET['sSearch'] !== "") {
             $where .= " `" . escape_sql_column_name($colname, array('patient_data')) . "` LIKE ?"; // any search
             array_push($srch_bind, ('%' . $sSearch . '%'));
         } else {
+            // @VH: DOB date formate filter. [V100038]
+            if($colname == "DOB" && preg_match('/^[0-9\-\/]+$/', $sSearch)) $sSearch =dateSearch($sSearch);
             $where .= "`" . escape_sql_column_name($colname, array('patient_data')) . "` LIKE ? ";
             array_push($srch_bind, ($sSearch . '%'));
         }

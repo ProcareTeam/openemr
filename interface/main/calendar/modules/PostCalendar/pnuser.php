@@ -126,6 +126,8 @@ function postcalendar_user_search()
     $k_andor = pnVarCleanFromInput('pc_keywords_andor');
     $pc_category = pnVarCleanFromInput('pc_category');
     $pc_facility = pnVarCleanFromInput('pc_facility');
+    // @VH: Provider groups [V100034]
+    $provider_group = pnVarCleanFromInput('provider_groups');
     $pc_topic = pnVarCleanFromInput('pc_topic');
     $submit = pnVarCleanFromInput('submit');
     $event_dur_hours = pnVarCleanFromInput('event_dur_hours');
@@ -433,6 +435,11 @@ function postcalendar_user_search()
         // we can limit our search by facility -- JRM March 2008
         if (isset($pc_facility) && $pc_facility != "") {
             $searchargs['pc_facility'] = $pc_facility;
+        }
+
+        // @VH: set provider group value [V100034]
+        if (isset($provider_group) && $provider_group != "") {
+            $searchargs['provider_group'] = $provider_group;
         }
 
         //print_r($eventsByDate);

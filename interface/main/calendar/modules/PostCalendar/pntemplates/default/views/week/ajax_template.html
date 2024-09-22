@@ -34,9 +34,35 @@ $chevron_icon_right = $_SESSION['language_direction'] == 'ltr' ? 'fa-chevron-cir
  }
 
  function newEvt(startampm, starttimeh, starttimem, eventdate, providerid, catid) {
+  // @VH: - Set default facility value of block provider on appointment window when create new appointment. [V100027]
+  var dfacility = '';
+  if(calendar_facility_json.hasOwnProperty("p"+providerid)) {
+    if(starttimeh > 12) {
+        var apptdate = new Date(eventdate.toString().replace( /(\d{4})(\d{2})(\d{2})/, "$2/$3/$1") + " " +starttimeh+":"+starttimem);
+    } else {
+        var merv = startampm === 2 ? 'pm' : 'am';
+        var apptdate = new Date(eventdate.toString().replace( /(\d{4})(\d{2})(\d{2})/, "$2/$3/$1") + " " +starttimeh+":"+starttimem +" "+ merv );  
+    }
+
+    calendar_facility_json_provider = "p"+providerid in calendar_facility_json ? calendar_facility_json["p"+providerid] : {};
+    if(Array.isArray(calendar_facility_json_provider)) {
+        calendar_facility_json_provider.forEach(function (pitem, pindex) {
+            let sT = new Date(Date.parse(pitem['startTime']));
+            let eT = new Date(Date.parse(pitem['endTime']));
+
+            if(sT <= apptdate && eT >= apptdate) {
+                dfacility = pitem['facility'];
+                return;
+            }
+        });
+    }
+  }
+  dfacility = dfacility != '' ? '&default_facility=' + dfacility : '';
+  // End
+
   dlgopen('add_edit_event.php?startampm=' + encodeURIComponent(startampm) +
    '&starttimeh=' + encodeURIComponent(starttimeh) + '&starttimem=' + encodeURIComponent(starttimem) +
-   '&date=' + encodeURIComponent(eventdate) + '&userid=' + encodeURIComponent(providerid) + '&catid=' + encodeURIComponent(catid)
+   '&date=' + encodeURIComponent(eventdate) + '&userid=' + encodeURIComponent(providerid) + '&catid=' + encodeURIComponent(catid) + dfacility
       ,'_blank', 780, 675, '', '', {onClosed: 'refreshme'});
  }
 
@@ -139,6 +165,10 @@ $chevron_icon_right = $_SESSION['language_direction'] == 'ltr' ? 'fa-chevron-cir
 
  // echo "<!-- There are " . count($A_EVENTS) . " A_EVENTS days -->\n";
 
+ // @VH: Get Coverage Data [V100035]
+ coverageEleCSS();
+ $coverageData = getCoverageData($A_EVENTS);
+
  //==================================
  //FACILITY FILTERING (CHEMED)
  $facilities = getUserFacilities($_SESSION['authUserID']); // from users_facility
@@ -151,6 +181,17 @@ $chevron_icon_right = $_SESSION['language_direction'] == 'ltr' ? 'fa-chevron-cir
  //==================================
 
 [-/php-]
+
+[-php-]
+/* @VH: Default Facility Changes [V100034] */
+$proids = array();
+$inEvents = getBlockData($A_EVENTS);
+foreach ($providers as $pItem) { $proids[] = $pItem['id']; }
+$defFacility = getDefaultFacility1($proids, $Date, $inEvents);
+echo "<script type='text/javascript'>var calendar_facility_json = JSON.parse('".json_encode($defFacility)."');</script>";
+/* End */
+[-/php-]
+
 <div id="wrapper">
 <!-- stuff form element here to avoid the margin padding it introduces into the page in some browsers -->
 <form name='theform' id='theform' action='index.php?module=PostCalendar&func=view&tplview=default&pc_category=&pc_topic=' method='post' onsubmit='return top.restoreSession()'>
@@ -705,6 +746,11 @@ foreach ($providers as $provider) {
             $catname = $event['catname'];
             $title = "Age $patient_age ($patient_dob)";
 
+            // @VH: Display alert info and coverage info. [V100035]
+            $patient_alert_info = $event['alert_info'];
+            $patient_nickname = getNickName($event);
+            $coverage_info = getCoverageContent($event, $coverageData);
+
             //Variables for therapy groups
             $groupid = $event['gid'];
             if($groupid) $patientid = '';
@@ -763,13 +809,20 @@ foreach ($providers as $provider) {
                     $link_title = $fname . " " . $lname . " \n";
                     $link_title .= xl('Age') . ": " . $patient_age . "\n" . xl('DOB') . ": " . $patient_dob . $comment . "\n";
                     $link_title .= "(" . xl('Click to view') . ")";
-                    $content .= "<a class='link_title' data-pid='". attr($patientid) . "' href='javascript:goPid(" . attr_js($patientid) . ")' title='" . attr($link_title) . "'>";
-                    $content .= "<i class='fas fa-user text-success' onmouseover=\"javascript:ShowImage(" . attr_js($GLOBALS['webroot']."/controller.php?document&retrieve&patient_id=".$patientid."&document_id=-1&as_file=false&original_file=true&disable_exit=false&show_original=true&context=patient_picture") . ");\" onmouseout=\"javascript:HideImage();\" title='". attr($link_title) . "'></i>";
+                    // @VH: Code [V100035]
+                    // @VH: Made change to display alert info and coverage info. [V100035]
+                    $link_title .= getAlertInfoTitle($patient_alert_info);
+                    $link_title .= $coverage_info['title'];
+                    // @VH: Made change to display alert info and coverage info. [V100035]
+                    $content .= "<a class='link_title' data-pid='". attr($patientid) . "' href='javascript:goPid(" . attr_js($patientid) . ")' title='" . replaceSpace(attr($link_title)) . "'>";
+                    $content .= "<i class='fas fa-user text-success' onmouseover=\"javascript:ShowImage(" . attr_js($GLOBALS['webroot']."/controller.php?document&retrieve&patient_id=".attr($patientid)."&document_id=-1&as_file=false&original_file=true&disable_exit=false&show_original=true&context=patient_picture") . ");\" onmouseout=\"javascript:HideImage();\" title='" . replaceSpace(attr($link_title)) . "'></i>";
+                    // END
 
                     if ($catid == 1) $content .= "<s>";
                     $content .= text($lname);
                     if ($GLOBALS['calendar_appt_style'] != 1) {
-                        $content .= "," . text($fname);
+                        // @VH: Made change to add patient nickname. [V100035]
+                        $content .= "," . text($fname) . text($patient_nickname);
                         if ($event['title'] && $GLOBALS['calendar_appt_style'] >= 3) {
                             $content .= "(" . text($event['title']);
                             if ($event['hometext'] && $GLOBALS['calendar_appt_style'] >= 4)
@@ -779,6 +832,9 @@ foreach ($providers as $provider) {
                     }
                     if ($catid == 1) $content .= "</s>";
                     $content .= "</a>";
+                    // @VH: Display alert info and coverage info. [V100035]
+                    $content .= getAlertInfo($patient_alert_info);
+                    $content .= $coverage_info['content'];
                     $content .= '<a class="show-appointment shown"></a>';
                 }
                 elseif($groupid){

@@ -16,9 +16,11 @@
 
 require_once('../../globals.php');
 require_once("$srcdir/patient.inc.php");
+require_once("$srcdir/OemrAD/oemrad.globals.php");
 
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Core\Header;
+use OpenEMR\OemrAd\Utility;
 
 $info_msg = "";
 
@@ -32,13 +34,17 @@ if (!empty($_REQUEST['searchby']) && !empty($_REQUEST['searchparm'])) {
     if ($searchby == "Last") {
         $result = getPatientLnames("$searchparm", "*");
     } elseif ($searchby == "Phone") {                  //(CHEMED) Search by phone number
-        $result = getPatientPhone("$searchparm", "*");
+        // @VH: Replaced function for phone search. [V100033] 
+        $result = getPatientPhones("$searchparm", "*");
     } elseif ($searchby == "ID") {
         $result = getPatientId("$searchparm", "*");
     } elseif ($searchby == "DOB") {
         $result = getPatientDOB(DateToYYYYMMDD($searchparm), "*");
     } elseif ($searchby == "SSN") {
         $result = getPatientSSN("$searchparm", "*");
+    } elseif ($searchby == "Email") {
+        // @VH: To search patient by email. [V100033]
+        $result = Utility::getPatientEmail("$searchparm", "*");
     }
 }
 ?>
@@ -128,6 +134,10 @@ if (isset($_GET["res"])) {
     <label for="searchby" class="col-form-label col-form-label-sm col"><?php echo htmlspecialchars(xl('Search by:'), ENT_NOQUOTES); ?></label>
    <select name='searchby' id='searchby' class="form-control form-control-sm col">
     <option value="Last"><?php echo htmlspecialchars(xl('Name'), ENT_NOQUOTES); ?></option>
+    <!-- @VH: Search by email [V100033] -->
+    <option value="Email"<?php if ($searchby == 'Email') {
+            echo ' selected';
+    } ?>><?php echo htmlspecialchars(xl('Email'), ENT_NOQUOTES); ?></option>
     <!-- (CHEMED) Search by phone number -->
     <option value="Phone"<?php if (!empty($searchby) && ($searchby == 'Phone')) {
         echo ' selected';
@@ -178,7 +188,18 @@ if (isset($_GET["res"])) {
 <thead id="searchResultsHeader" class="head">
  <tr>
   <th class="srName"><?php echo htmlspecialchars(xl('Name'), ENT_NOQUOTES); ?></th>
-  <th class="srPhone"><?php echo htmlspecialchars(xl('Phone'), ENT_NOQUOTES); ?></th> <!-- (CHEMED) Search by phone number -->
+  <?php
+    // @VH: Search by email and phone number [V100033]
+    if($searchby == 'Email') {
+        ?>
+        <th class="srEmail"><?php echo htmlspecialchars(xl('Email'), ENT_NOQUOTES); ?></th> <!-- (CHEMED) Search by email -->
+        <?php
+    } else {
+        ?>
+        <th class="srPhone"><?php echo htmlspecialchars(xl('Phone'), ENT_NOQUOTES); ?></th> <!-- (CHEMED) Search by phone number -->
+        <?php
+    }
+  ?>
   <th class="srSS"><?php echo htmlspecialchars(xl('SS'), ENT_NOQUOTES); ?></th>
   <th class="srDOB"><?php echo htmlspecialchars(xl('DOB'), ENT_NOQUOTES); ?></th>
   <th class="srID"><?php echo htmlspecialchars(xl('ID'), ENT_NOQUOTES); ?></th>
@@ -194,6 +215,39 @@ if (isset($_GET["res"])) {
             $itermname = $iter['mname'];
             $iterdob   = $iter['DOB'];
 
+            // @VH: Alert Info [V100033]
+            $iterAlertInfo = isset($iter['alert_info']) ? $iter['alert_info'] : "";
+
+            // @VH: Email List [V100033]
+            $emailList = array();
+            $col = $GLOBALS['wmt::use_email_direct'] ? 'email_direct' : 'email';
+            if(!empty($iter[$col])) {
+                $emailList[] = $iter[$col];
+            }
+
+            if(!empty($iter['secondary_email'])) {
+                $secondary_email_list = explode(",",$iter['secondary_email']);
+                $emailList = array_merge($secondary_email_list, $emailList);
+            }
+            $emailStr = implode(", ", $emailList);
+
+            // @VH: Phone List [V100033]
+            $phoneList = array();
+            if(!empty($iter['phone_home'])) {
+                $phoneList[] = $iter['phone_home'];
+            }
+
+            if(!empty($iter['phone_cell'])) {
+                $phoneList[] = $iter['phone_cell'];
+            }
+
+            if(!empty($iter['secondary_phone_cell'])) {
+                $secondary_phone_list = explode(",",$iter['secondary_phone_cell']);
+                $phoneList = array_merge($phoneList, $secondary_phone_list);
+            }
+            $phoneStr = implode(", ", $phoneList);
+            // END
+
             // If billing note exists, then it gets special coloring and an extra line of output
             // in the 'name' column.
             $trClass = "oneresult";
@@ -201,15 +255,27 @@ if (isset($_GET["res"])) {
                 $trClass .= " billing";
             }
 
-            echo " <tr class='" . $trClass . "' id='" .
-            htmlspecialchars($iterpid . "~" . $iterlname . "~" . $iterfname . "~" . $iterdob, ENT_QUOTES) . "'>";
+            // @VH: Added data-field attribute and added iterdob value to id attribute.
+            echo " <tr class='" . $trClass . "' data-field='result_obj_".$iterpid."' id='" .
+            htmlspecialchars($iterpid . "~" . $iterlname . "~" . $iterfname . "~" . $iterdob . "~" . $iterAlertInfo, ENT_QUOTES) . "'>";
             echo "  <td class='srName'>" . htmlspecialchars($iterlname . ", " . $iterfname . " " . $itermname, ENT_NOQUOTES);
             if (!empty($iter['billing_note'])) {
                 echo "<br />" . htmlspecialchars($iter['billing_note'], ENT_NOQUOTES);
             }
 
+            // @VH: Result object [V100033] 
+            echo "<textarea name='result_obj_".$iterpid."' id='result_obj_".$iterpid."' style='display:none;' >". base64_encode(json_encode($iter)) ."</textarea>";
+
             echo "</td>\n";
-            echo "  <td class='srPhone'>" . htmlspecialchars($iter['phone_home'], ENT_NOQUOTES) . "</td>\n"; //(CHEMED) Search by phone number
+            
+            // @VH: Search by email and phone changes. [V100033]
+            if($searchby == 'Email') {
+                echo "  <td class='srEmail' width='180'>" . $emailStr . "</td>\n"; //(CHEMED) Search by email number
+            } else {
+                echo "  <td class='srPhone' width='180'>" . $phoneStr . "</td>\n"; //(CHEMED) Search by phone number
+            }
+            // END
+
             echo "  <td class='srSS'>" . htmlspecialchars($iter['ss'], ENT_NOQUOTES) . "</td>\n";
             echo "  <td class='srDOB'>" . htmlspecialchars($iter['DOB'], ENT_NOQUOTES) . "</td>\n";
             echo "  <td class='srID'>" . htmlspecialchars($iter['pubpid'], ENT_NOQUOTES) . "</td>\n";
@@ -252,11 +318,23 @@ $(function () {
     });
 });
 
-function selpid(pid, lname, fname, dob) {
-    if (opener.closed || ! opener.setpatient)
+// @VH: Added alert_info, pdata [V100033]
+function selpid(pid, lname, fname, dob, alert_info, pdata) {
+    // @VH: Changes.
+    if (!opener.closed && opener.setCaseGuarantor) {
+        opener.setCaseGuarantor(pid, lname, fname, dob);
+        // var oloc = opener.location.href;
+        // var res = String(oloc).match(/forms\/cases/);
+
+        self.close();
+    }
+
+    if (opener.closed || ! opener.setpatient) {
         alert("<?php echo htmlspecialchars(xl('The destination form was closed; I cannot act on your selection.'), ENT_QUOTES); ?>");
-    else
-        opener.setpatient(pid, lname, fname, dob);
+    } else {
+        // @VH: Added alert_info, pdata [V100033]
+        opener.setpatient(pid, lname, fname, dob, alert_info, pdata);
+    }
     dlgclose();
     return false;
 }
@@ -274,7 +352,16 @@ var SubmitForm = function(eObj) {
 var SelectPatient = function (eObj) {
     objID = eObj.id;
     var parts = objID.split("~");
-    return selpid(parts[0], parts[1], parts[2], parts[3]);
+    
+    // @VH: Get values sel patient. [V100033]
+    var fieldId = eObj.getAttribute('data-field');
+    var selectedFieldValue = document.getElementById(fieldId).value; 
+
+    var decodedBase64 = (selectedFieldValue != "") ? atob(selectedFieldValue) : "";
+    var decodedJson = (decodedBase64 != "") ? JSON.parse(decodedBase64) : {};
+
+    // @VH: Changed argument [V100033]
+    return selpid(parts[0], parts[1], parts[2], parts[3], parts[4], decodedJson);
 }
 
 </script>

@@ -51,6 +51,10 @@ require_once($GLOBALS['srcdir'] . '/patient_tracker.inc.php');
 require_once($GLOBALS['incdir'] . "/main/holidays/Holidays_Controller.php");
 require_once($GLOBALS['srcdir'] . '/group.inc.php');
 
+// @VH:
+require_once($GLOBALS['srcdir'] . '/wmt-v2/case_functions.inc.php');
+require_once($GLOBALS['srcdir'] . '/OemrAD/oemrad.globals.php');
+
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Twig\TwigContainer;
 use OpenEMR\Core\Header;
@@ -58,6 +62,12 @@ use OpenEMR\Events\Appointments\AppointmentSetEvent;
 use OpenEMR\Events\Appointments\AppointmentRenderEvent;
 use OpenEMR\Events\Appointments\AppointmentDialogCloseEvent;
 use OpenEMR\Common\Logging\SystemLogger;
+
+// @VH: Included file.
+use OpenEMR\OemrAd\Caselib;
+use OpenEMR\OemrAd\ZoomIntegration;
+use OpenEMR\OemrAd\Utility;
+use OpenEMR\OemrAd\MessagesLib;
 
  //Check access control
 if (!AclMain::aclCheckCore('patients', 'appt', '', array('write','wsome'))) {
@@ -70,6 +80,10 @@ $eid           = $_GET['eid'] ?? null; // only for existing events
 $date          = $_GET['date'] ?? null;        // this and below only for new events
 $userid        = $_GET['userid'] ?? null;
 $default_catid = !empty($_GET['catid']) ? $_GET['catid'] : (!empty($GLOBALS['default_visit_category'] ?? '') ? $GLOBALS['default_visit_category'] : '5');
+
+// @VH: Changes
+$created_eid = 0;
+if(isset($_REQUEST['eid'])) $created_eid = $_REQUEST['eid'];
 
 // form logic fails if not set to boolean
 if (isset($_GET['group'])) {
@@ -119,7 +133,8 @@ $eventDispatcher = $GLOBALS['kernel']->getEventDispatcher();
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<?php Header::setupHeader(['common', 'datetime-picker', 'opener']); ?>
+<!-- @VH: Added Jquery-UI -->
+<?php Header::setupHeader(['common', 'datetime-picker', 'opener', 'jquery-ui', 'jquery-ui-base', 'oemr_ad']); ?>
 <title><?php echo $eid ? xlt('Edit') : xlt('Add New{{Event}}') ?> <?php echo xlt('Event');?></title>
 
 <!-- validation library -->
@@ -143,6 +158,13 @@ if ($_GET['group'] == true) {
     $collectthis = collectValidationPageRules("/interface/main/calendar/add_edit_event.php?prov=true");
 } else { //patient tab
     $collectthis = collectValidationPageRules("/interface/main/calendar/add_edit_event.php");
+
+    // @VH: Case Validation Rule [V100017] 
+    if(isset($collectthis['theform']['page_name']) && $collectthis['theform']['page_name'] == "add_edit_event") {
+        $rules = json_decode($collectthis['theform']['rules'], true);
+        $rules['form_case'] = array('presence' => 'Please select case.');
+        $collectthis['theform']['rules'] = json_encode($rules);
+    }
 }
 
 if (empty($collectthis)) {
@@ -209,7 +231,8 @@ function InsertEventFull()
 
 function DOBandEncounter($pc_eid)
 {
-     global $event_date,$info_msg;
+     // @VH: Added created_eid
+     global $event_date,$info_msg, $created_eid;
      // Save new DOB if it's there.
      $patient_dob = trim($_POST['form_dob'] ?? '');
      $tmph = $_POST['form_hour'] + 0;
@@ -225,6 +248,11 @@ function DOBandEncounter($pc_eid)
                                 "pid = ?", array($patient_dob,$_POST['form_pid']));
     }
 
+    // @VH: Set Variable [V100024]
+    $form_todaysEncounterIf = (isset($_POST['form_todaysEncounterIf']) && $_POST['form_todaysEncounterIf'] == '1') ? true : false;
+    $form_todaysTherapyGroupEncounterIf = (isset($_POST['form_todaysTherapyGroupEncounterIf']) && $_POST['form_todaysTherapyGroupEncounterIf'] == '1') ? true : false;
+    // END
+
     // Manage tracker status.
     // And auto-create a new encounter if appropriate.
     if (!empty($_POST['form_pid'])) {
@@ -236,7 +264,8 @@ function DOBandEncounter($pc_eid)
             && $is_checkin == '1'
             && !$is_tracker
         ) {
-            $encounter = todaysEncounterCheck($_POST['form_pid'], $event_date, $_POST['form_comments'], $_POST['facility'], $_POST['billing_facility'], $_POST['form_provider'], $_POST['form_category'], false);
+            // @VH: Replaced function with todaysEncounterEventCheck and pass bypass param. if form_todaysEncounterIf value false then return existing encounter other wise create new encounter. [V100024]
+            $encounter = todaysEncounterEventCheck($_POST['form_pid'], $event_date, $_POST['form_title'], $_POST['facility'], $_POST['billing_facility'], $_POST['form_provider'], $_POST['form_category'], false, $form_todaysEncounterIf);
             if ($encounter) {
                 $info_msg .= xl("New encounter created with id");
                 $info_msg .= " $encounter";
@@ -259,7 +288,7 @@ function DOBandEncounter($pc_eid)
         }
     }
 
-    // auto create encounter for therapy group
+    // @VH: auto create encounter for therapy group [V100024]
     if (!empty($_POST['form_gid'])) {
         // status Took Place is the check in of therapy group
         if ($GLOBALS['auto_create_new_encounters'] && $event_date == date('Y-m-d') && $_POST['form_apptstatus'] == '=') {
@@ -460,6 +489,16 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
     /* =======================================================
      *                    UPDATE EVENTS
      * =====================================================*/
+
+    if(!isset($_POST['form_enddate'])) $_POST['form_enddate'] = '0000-00-00';
+        if(!$_POST['form_enddate']) $_POST['form_enddate'] = '0000-00-00';
+
+    // @VH: Set most recent case on save of appointment if no case selected [V100017]
+    if(!$_POST['form_case'] || $_POST['form_case'] == '0') {
+            $_POST['form_case'] = mostRecentCase($_POST['form_pid']);
+    }
+    // END
+
     if ($eid) {
         // what is multiple key around this $eid?
         $row = sqlQuery("SELECT pc_multiple FROM openemr_postcalendar_events WHERE pc_eid = ?", array($eid));
@@ -615,6 +654,7 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
                 // after the two diffs above, we must update for remaining providers
                 // those who are intersected in $providers_current and $providers_new
                 foreach ($_POST['form_provider'] as $provider) {
+                    // @VH: Added pc_case field for update. [V100017]
                     sqlStatement("UPDATE openemr_postcalendar_events SET " .
                     "pc_catid = '" . add_escape_custom($_POST['form_category']) . "', " .
                     "pc_pid = '" . add_escape_custom($_POST['form_pid']) . "', " .
@@ -635,6 +675,7 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
                     "pc_prefcatid = '" . add_escape_custom($_POST['form_prefcat']) . "' ,"  .
                     "pc_facility = '" . add_escape_custom((int)$_POST['facility']) . "' ,"  . // FF stuff
                     "pc_billing_location = '" . add_escape_custom((int)$_POST['billing_facility']) . "' "  .
+                    "pc_case = '" . add_escape_custom($_POST['form_case']) . "' "  .
                     "WHERE pc_aid = '" . add_escape_custom($provider) . "' AND pc_multiple = '" . add_escape_custom($row['pc_multiple'])  . "'");
                 } // foreach
             }
@@ -682,7 +723,8 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
                 InsertEvent($args);
             } elseif ($_POST['recurr_affect'] == 'future') {
                 // mod original event to stop recurring on this date-1
-                $selected_date = date("Ymd", (strtotime($_POST['selected_date']) - 24 * 60 * 60));
+                // @VH: Changed date formate
+                $selected_date = date("Y-m-d", (strtotime($_POST['selected_date']) - 24 * 60 * 60));
                 sqlStatement("UPDATE openemr_postcalendar_events SET " .
                 " pc_enddate = ? " .
                 " WHERE pc_eid = ?", array($selected_date,$eid));
@@ -708,8 +750,22 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
                     }
                 }
 
+                // @VH: Generate ICS File on save of appointment [V100022]
+                $ics_file_link = Utility::generateICSFileLink(array(
+                    'event_date' => $event_date, 
+                    'starttime' => $starttime, 
+                    'endtime' => $endtime, 
+                    'facility' => $_POST['facility'], 
+                    'formProvider' => $_POST['form_provider'], 
+                    'formCategory' => $_POST['form_category'], 
+                    'formTitle' => $_POST['form_title'], 
+                    'pc_eid' => $eid
+                ));
+                // End
+
                 // mod the SINGLE event or ALL EVENTS in a repeating series
                 // simple provider case
+                // @VH: Added pc_case & ics file field for update. [V100017][V100022]
                 sqlStatement("UPDATE openemr_postcalendar_events SET " .
                 "pc_catid = '" . add_escape_custom($_POST['form_category']) . "', " .
                 "pc_aid = '" . add_escape_custom($prov) . "', " .
@@ -730,7 +786,9 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
                 "pc_apptstatus = '" . add_escape_custom($_POST['form_apptstatus']) . "', "  .
                 "pc_prefcatid = '" . add_escape_custom($_POST['form_prefcat']) . "' ,"  .
                 "pc_facility = '" . add_escape_custom((int)$_POST['facility']) . "' ,"  . // FF stuff
-                "pc_billing_location = '" . add_escape_custom((int)$_POST['billing_facility']) . "' "  .
+                "pc_billing_location = '" . add_escape_custom((int)$_POST['billing_facility']) . "', "  .
+                "pc_case = '" . add_escape_custom($_POST['form_case']) . "' ,"  .
+                "ics_file = '" . add_escape_custom($ics_file_link) . "' "  . 
                 "WHERE pc_eid = '" . add_escape_custom($eid) . "'");
             }
         }
@@ -760,9 +818,21 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
         // done with EVENT insert/update statements
 
         DOBandEncounter(isset($eid) ? $eid : null);
+
+        // @VH: - Create/Update Zoom meeting for appointment [V100023] 
+        ZoomIntegration::handleZoomApptEvent($eid, $_POST['form_category'], array(
+            'pc_title' => $_POST['form_title'],
+            'event_datetime' => $event_date." ".$starttime,
+            'pc_duration' => ($duration * 60),
+            'pc_hometext' => $_POST['form_comments']
+        ), true);
+
 } elseif (!empty($_POST['form_action']) && ($_POST['form_action'] == "delete")) { //    DELETE EVENT(s)
     $appointmentService = new \OpenEMR\Services\AppointmentService();
     $appointmentService->deleteAppointment($eid, $_POST['recurr_affect'], $_POST['selected_date']);
+
+    // @VH: - Delete Zoom meeting for appointment [V100023]
+    ZoomIntegration::handleZoomApptDeleteEvent($eid);
 }
 
 if (!empty($_POST['form_action'])) {
@@ -781,7 +851,18 @@ if (!empty($_POST['form_action'])) {
         exit();
     }
     // Close this window and refresh the calendar (or the patient_tracker) display.
-    echo "<html>\n<body>\n<script>\n";
+    // @VH: Change
+    //echo "<html>\n<body>\n<script>\n";
+    echo "<html>\n<body>\n";
+
+    // @VH: Script [V100025]
+    if (isset($info_msg) && !empty($info_msg)) {
+        // @VH: Update Encounter/CalendarCategory list into top bar of openemr if selected patient and appointment patient is same. 
+        Utility::handleScript($eid, $_POST['form_pid'], $pid);
+    }
+
+    // @VH: Change [V100025]
+    echo "<script language='JavaScript'>\n";
     if ($info_msg) {
         echo " alert('" . addslashes($info_msg) . "');\n";
     }
@@ -812,6 +893,9 @@ if (!empty($_REQUEST['patientid'])) {
     $row = array();
     $informant = "";
     $groupid = '';
+
+    // @VH: Change [V100017]
+    $case = "";
 if (!empty($_REQUEST['groupid'])) {
     $groupid = $_REQUEST['groupid'];
 }
@@ -822,10 +906,12 @@ if (!empty($_REQUEST['groupid'])) {
 if ($eid) {
     // $row = sqlQuery("SELECT * FROM openemr_postcalendar_events WHERE pc_eid = $eid");
 
-    $row = sqlQuery("SELECT e.*, u.fname, u.mname, u.lname " .
+    // @VH: Query change. [V100023]
+    $row = sqlQuery("SELECT e.*, u.fname, u.mname, u.lname, za.`m_id` as `zm_id`, za.`start_url` as `zm_start_url`, za.`join_url` as `zm_join_url`, za.`password` as `zm_password` " .
       "FROM openemr_postcalendar_events AS e " .
+      "LEFT JOIN `zoom_appointment_events` as za ON za.`pc_eid` = e.`pc_eid` " .
       "LEFT OUTER JOIN users AS u ON u.id = e.pc_informant " .
-      "WHERE pc_eid = ?", array($eid));
+      "WHERE e.pc_eid = ?", array($eid));
     $informant = $row['fname'] . ' ' . $row['mname'] . ' ' . $row['lname'];
 
     // instead of using the event's starting date, keep what has been provided
@@ -838,6 +924,14 @@ if ($eid) {
     $userid = $row['pc_aid'];
     $patientid = $row['pc_pid'];
     $groupid = $row['pc_gid'];
+
+    // @VH: Fetch case info. [V100017] 
+    $case = $row['pc_case'];
+    $crow = sqlQuery('SELECT * FROM form_cases WHERE id = ?', array($case));
+    $case_desc = oeFormatShortDate($crow['form_dt']) . 
+        '&nbsp;&nbsp;&nbsp;[' .  substr($crow['case_description'],0,30) . ']';
+    // END
+
     $starttimeh = substr($row['pc_startTime'], 0, 2) + 0;
     $starttimem = substr($row['pc_startTime'], 3, 2);
     $repeats = $row['pc_recurrtype'];
@@ -899,15 +993,35 @@ if ($eid) {
 
  // If we have a patient ID, get the name and phone numbers to display.
 if ($patientid) {
-    $prow = sqlQuery("SELECT lname, fname, phone_home, phone_biz, DOB " .
+    // @VH: Query, patientnickname, patientname, patienttitle, phone_cell and phone_biz change and removed phone_home. [V100020]
+    $prow = sqlQuery("SELECT lname, fname, phone_home, phone_biz, DOB, phone_cell, pubpid, alert_info, nickname33 as nickname " .
      "FROM patient_data WHERE pid = ?", array($patientid));
-    $patientname = $prow['lname'] . ", " . $prow['fname'];
-    if ($prow['phone_home']) {
-        $patienttitle['phone_home'] = xl("Home Phone") . ": " . $prow['phone_home'];
+
+    // @VH: Patient nickname, Removed phone_home [V100020]
+    $patientnickname = (isset($prow['nickname']) && !empty($prow['nickname'])) ? " \"" . $prow['nickname'] . "\" " : "";
+    $patientname = $prow['lname'] . ", " . $prow['fname'] . $patientnickname;
+    //if ($prow['phone_home']) {
+    //    $patienttitle['phone_home'] = xl("Home Phone") . ": " . $prow['phone_home'];
+    //}
+
+    // @VH: Added DOB, phone_cell [V100020]
+    $patienttitle['dob'] = '<b>' . text(xl('DOB')) . ':</b> ' . text($prow['DOB']) . '&nbsp;&nbsp;&nbsp;&nbsp;<b>' . text(xl('Chart')) . ':</b> ' . text($prow['pubpid']);
+    if(!$prow['phone_cell']) $prow['phone_cell'] = text(xl('Not on File'));
+    if ($prow['phone_cell']) {
+        $phoneCell = MessagesLib::getPhoneNumbers($prow['phone_cell']);
+        $patienttitle['phone_cell'] = '<b>' . text(xl("Cell Phone")).":</b> " . text($phoneCell['pat_phone']);
     }
 
     if ($prow['phone_biz']) {
-        $patienttitle['phone_biz'] = xl("Work Phone") . ": " . $prow['phone_biz'];
+        // @VH: [V100020]
+        //$patienttitle['phone_biz'] = xl("Work Phone") . ": " . $prow['phone_biz'];
+        $phoneWork = MessagesLib::getPhoneNumbers($prow['phone_biz']);
+        $patienttitle['phone_biz'] = '<b>' . text(xl("Work Phone")).":</b> " . text($phoneWork['pat_phone']);
+    }
+
+    // @VH: Added alert info [V100020]
+    if (isset($prow['alert_info']) && !empty($prow['alert_info'])) {
+        $patienttitle['alert_info'] = '<b>' . text(xl("Alert Info")).":</b> " ."<span style='color:red;'>". text($prow['alert_info'])."</span>";
     }
 }
 
@@ -939,6 +1053,426 @@ if ($groupid) {
     }
 
     ?>
+
+<!-- @VH: Added script -->
+<script type="text/javascript">
+    // @VH: Make sure event start time valid [V100030] 
+    function validateHhMm(value) {
+        <?php if ($GLOBALS['time_display_format'] == 1) { ?>
+        var isValid = /^([0-0]?[0-9]|1[0-2]):([0-5][0-9])(:[0-5][0-9])?$/.test(value);
+        <?php } else { ?>
+        var isValid = /^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/.test(value);
+        <?php } ?>
+        return isValid;
+    }
+
+    // @VH: This invokes popup to send zoom details. [V100023]
+    function sel_communication_type(eid, pid) {
+        var url = "<?php echo $GLOBALS['webroot'] . '/interface/main/calendar/php/zoom_popup.php?eid='; ?>"+ eid + "&pid=" + pid;
+
+        let title = '<?php echo xlt('Select'); ?>';
+        dlgopen(url, 'selectCommunicationType', 400, 200, '', title);
+    }
+
+    // @VH: Set Communication Type for send zoom meeting details. [V100023]
+    async function setCommunicationType(obj) {
+        if(obj && obj.eid) {
+            var data = {};
+
+            data['eid'] = obj.eid;
+            data['selectedType'] = [];
+            
+            if(obj.email && obj.email == 1) {
+                data['selectedType'].push('email');
+            }
+
+            if(obj.sms && obj.sms == 1) {
+                data['selectedType'].push('sms');
+            }
+
+            sendJoinUrlDetails(data);
+        }
+    }
+
+    // @VH: Send Join Meeting URL [V100023]
+    async function sendJoinUrlDetails(data) {
+        $('#form_send_join_url').attr("disabled", true);
+        $('#form_send_join_url').val("Send Meeting Details...");
+
+        const result = await $.ajax({
+            type: "POST",
+            url: "<?php echo $GLOBALS['webroot'] .'/interface/main/calendar/ajax/send_zoom_details.php'; ?>",
+            datatype: "json",
+            data: data
+        });
+
+        if(result) {
+            resultObj = JSON.parse(result);
+
+            if(resultObj['message']) {
+                alert(resultObj['message']);
+            }
+        }
+
+        $('#form_send_join_url').val("Send Meeting Details");
+        $('#form_send_join_url').attr("disabled", false);
+    }
+
+    // @VH: Send Join URL [V100023]
+    async function sendJoinUrlEvent() {
+        $('#form_action').val("send_join_url");
+        var f = document.forms[0];
+        var eid = '<?php echo $eid; ?>';
+        var pid = f.form_pid.value;
+
+        if(pid != "" && eid != "") {
+            sel_communication_type(eid, pid);
+        }
+    }
+
+    // @VH: Recreate or Update zoom meeting details [V100023]
+    async function recreateUpdateZoomMeeting(mode = 'recreate') {
+        var data = {
+            'appt_id' : '<?php echo $eid; ?>',
+            'appt_provider': $('select[name="form_provider"]').val(),
+            'appt_date': $('input[name="form_date"]').val(),
+            'appt_hour': $('input[name="form_hour"]').val(),
+            'appt_minute': $('input[name="form_minute"]').val(),
+            'appt_ampm': $('select[name="form_ampm"]').val(),
+            'appt_duration': $('input[name="form_duration"]').val(),
+            'appt_facility': $('select[name="facility"]').val(),
+            'appt_category': $('select[name="form_category"]').val(),
+        }
+
+        const result = await $.ajax({
+            type: "POST",
+            url: "<?php echo $GLOBALS['webroot'] . '/interface/main/calendar/ajax/ajax_check_zoom_meeting.php?mode='; ?>"+mode,
+            datatype: "json",
+            data: data
+        });
+
+        if(result) {
+            resultObj = JSON.parse(result);
+
+            if(resultObj['message']) {
+                alert(resultObj['message']);
+            }
+
+            if(resultObj['status'] === true) {
+                location.reload();
+            }
+        }
+    }
+
+    async function deleteZoomMeeting() {
+        var data = {
+            'appt_id' : '<?php echo $eid; ?>',
+            'appt_provider': $('select[name="form_provider"]').val(),
+            'appt_date': $('input[name="form_date"]').val(),
+            'appt_hour': $('input[name="form_hour"]').val(),
+            'appt_minute': $('input[name="form_minute"]').val(),
+            'appt_ampm': $('select[name="form_ampm"]').val(),
+            'appt_duration': $('input[name="form_duration"]').val(),
+            'appt_facility': $('select[name="facility"]').val(),
+            'appt_category': $('select[name="form_category"]').val(),
+        }
+
+        const result = await $.ajax({
+            type: "POST",
+            url: "<?php echo $GLOBALS['webroot'] . '/interface/main/calendar/ajax/ajax_check_zoom_meeting.php?mode=delete'; ?>",
+            datatype: "json",
+            data: data
+        });
+
+        if(result) {
+            resultObj = JSON.parse(result);
+
+            if(resultObj['message']) {
+                alert(resultObj['message']);
+            }
+
+            if(resultObj['status'] === true) {
+                location.reload();
+            }
+        }
+    }
+
+    // @VH: Check Zoom meeting already exists on same time and for same provider then show error message and don't allow to create appointment. [V100019]
+    async function isMeetingExists() {
+        var data = {
+            'appt_id' : '<?php echo $eid; ?>',
+            'appt_provider': $('select[name="form_provider"]').val(),
+            'appt_date': $('input[name="form_date"]').val(),
+            'appt_hour': $('input[name="form_hour"]').val(),
+            'appt_minute': $('input[name="form_minute"]').val(),
+            'appt_ampm': $('select[name="form_ampm"]').val(),
+            'appt_duration': $('input[name="form_duration"]').val(),
+            'appt_facility': $('select[name="facility"]').val(),
+            'appt_category': $('select[name="form_category"]').val(),
+        }
+
+        const result = await $.ajax({
+            type: "POST",
+            url: "<?php echo $GLOBALS['webroot'] . '/interface/main/calendar/ajax/ajax_check_zoom_meeting.php?mode=check'; ?>",
+            datatype: "json",
+            data: data
+        });
+
+        if(result) {
+            resultObj = JSON.parse(result);
+
+            if(resultObj['message']) {
+                alert(resultObj['message']);
+                $('#form_save').attr('disabled', false);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // @VH: For Today any encounter exists [V100024]
+    async function todaysEncounterIf() {
+        var f = document.forms[0];
+        var responce = await $.ajax({
+            url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/add_edit_event_ajax.php?type=check&eid=$eid"; ?>',
+            type: 'POST',
+            data: $(f).serialize()
+        });
+
+        var resObj = JSON.parse(responce);
+        // @VH: Ask confirmation [V100024]
+        if(resObj.encounter == true) {
+            if (confirm("An encounter already exists for this patient for this day, do you still want to create a new encounter?")) {
+                $('#form_todaysEncounterIf').val("1");
+            } else {
+                $('#form_todaysEncounterIf').val("0");
+            }
+        }
+
+        // @VH: Ask confirmation [V100024]
+        if(resObj.encounter_group == true) {
+            if (confirm("An encounter group already exists for this patient for this day, do you still want to create a new group encounter?")) {
+                $('#form_todaysTherapyGroupEncounterIf').val("1");
+            } else {
+                $('#form_todaysTherapyGroupEncounterIf').val("0");
+            }
+        }
+    }
+
+    // @VH: Check Total Balance Due on appointment status change. [V100031]
+    async function getTotalBalanceDue(pid = '') {
+        if(pid == '') return 0;
+        let responce = await $.ajax({
+            url: '<?php echo $GLOBALS['webroot'].'/interface/patient_file/summary/idempiere_billing_fragment.php'; ?>?mode=patient_balance_due&pid=' + pid,
+            type: 'GET'
+        });
+
+        var responceJSON = JSON.parse(responce);
+        return responceJSON;
+    }
+
+    // @VH: Get Patients selected date Appointments [V100032] 
+    // Added By Sandeep
+    let current_date_appt_count = 0;
+    <?php
+        if(isset($eid) && !empty($eid) && !empty($patientid))
+        {
+            $pc_events_count = sqlQuery("select count(ope.pc_eid) as count from openemr_postcalendar_events ope where date(pc_eventDate) = ? and pc_pid = ? and pc_eid != ? ", array($date, $patientid, $eid));
+            if(!empty($pc_events_count))
+            {
+                ?>
+                current_date_appt_count = "<?php echo $pc_events_count["count"]; ?>";
+                <?php
+            }
+        }
+    ?>
+
+    // @VH: Check Total Balance Due on appointment status change. [V100031]
+    <?php if(isset($eid) && !empty($eid) && isset($patientid) && !empty($patientid)) { ?>
+    $(document).ready(function() {
+        $("#form_apptstatus").change(async function() {
+            let formApptStatusVal = $(this).val();
+            if(formApptStatusVal == "@") {
+                $('body.add-edit-event').append('<div class="apptloader position-fixed w-200 h-100 fixed-top" style="left: 0;background-color: rgba(255,255,255,0.5);"><div class="d-flex h-100 justify-content-center align-items-center"><div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div></div></div>');
+                let balanceData = await getTotalBalanceDue('<?php echo $patientid; ?>');
+                $('body.add-edit-event .apptloader').remove();
+                    
+                if(balanceData.hasOwnProperty('error')) {
+                    alert(balanceData['error']);
+                } else if((balanceData && balanceData.hasOwnProperty('patient_balance_due') && (balanceData['patient_balance_due'] > 0 || balanceData['patient_balance_due'] < 0)) || current_date_appt_count > 0) {
+                    
+                    // @VH: Get Patients selected date Appointments [V100032]
+                    dlgopen('<?php echo $GLOBALS['webroot'] . '/interface/main/calendar/ajax/current_date_appts_popup.php'; ?>?eid=<?php echo $eid ?>&pid=<?php echo $patientid ?>&date=<?php echo $date ?>&patient_balance_due=' + balanceData['patient_balance_due'], '', 'modal-sm', 100, '', 'Alert', {
+                        buttons: [
+                            {text: 'Close', close: true, style: 'default btn-sm'}
+                        ],
+                        allowDrag: false,
+                        allowResize: false,
+                    });
+                }
+            }
+        });
+    });
+    <?php } ?>
+
+    // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
+    async function getTotalCancelledPatientAppt(pid = '', caseId = '', totalCount = 1, futureAppt = 1, rehabProgress = 1) {
+        if(pid && pid != '') {
+            var responce = await $.ajax({
+                url: '<?php echo $GLOBALS['webroot'].'/interface/main/calendar/ajax/total_cancelled_patient_appt.php'; ?>?pid=' + pid + '&caseId=' + caseId + '&totalCount=' + totalCount + '&futureAppt=' + futureAppt + '&rehabProgress=' + rehabProgress,
+                type: 'GET'
+            });
+
+            var responceJSON = JSON.parse(responce);
+            var labelContent = "";
+
+            if(totalCount === 1) {
+                if(responceJSON && responceJSON['total_count1'] && responceJSON['total_count1'] > 0) {
+                    //labelContent = responceJSON['total_count'] + " Cancellation Violations in past 6 months";
+                    labelContent = responceJSON['total_count1'] + " Specialist, "+ responceJSON['total_count2']  +" chiro/pri cancellations in past 6 months";
+                    $('#cancellation_info').show();
+                }
+
+                document.getElementById('cancellation_info').innerHTML = labelContent;
+            }
+
+            if(futureAppt === 1) {
+                $('#future_appt_info').hide();
+
+                if(responceJSON && responceJSON['future_appt_list']) {
+                    var fapptList = [];
+                    var fapptFullList = [];
+                    var futurApptFullHtml = "";
+                    var futurApptHtml = "";
+
+                    responceJSON['future_appt_list'].forEach((item, i) => {
+                        if(i < 2) {
+                            fapptList.push("<span>"+item+"</span>");
+                        }
+
+                        fapptFullList.push("<li><span>"+item+"</span></li>");
+                    });
+
+                    if(fapptFullList.length > 0) {
+                        futurApptFullHtml = "<ul class='futureApptUlList'>" + fapptFullList.join("") + "</ul>";
+                    }
+
+                    if(fapptList.length > 0) {
+                        futurApptHtml = fapptList.join("<br/>");
+                        document.querySelector('#future_appt_info .future_appt_info_inner .content').innerHTML = futurApptHtml;
+                        $('#future_appt_info').show();
+                    }
+
+                    if(responceJSON['future_appt_list'].length > 2) {
+                        document.querySelector('#future_appt_info .future_appt_info_inner .more_content .hidden_content').innerHTML = futurApptFullHtml;
+                        $('#future_appt_info .future_appt_info_inner .more_content').show();
+                        //fapptList.push("<span><div data-toggle='tooltip' title='fff'>...</div></span>");
+                    }
+                }
+            }
+
+            if(rehabProgress == '1' && caseId != '') {
+                $('#rehab_progress_info').hide();
+
+                if(responceJSON && responceJSON['rehab_progress'] && responceJSON['rehab_progress'] != "") {
+                    document.querySelector('#rehab_progress_info .content').innerHTML = "<b>Rehab Progress: </b>" + responceJSON['rehab_progress'];
+                    $('#rehab_progress_info').show();
+                }
+            }
+        }
+    }
+
+    // @VH: Check appointment is authorized for selected case [V100018]
+    async function authorizedCase(case_id = '', start_date = '', pid = '', provider = '') {
+        let appt_case_id = case_id;
+        let appt_start_date = start_date;
+        let appt_pid = pid;
+        let appt_provider = provider;
+
+        if(appt_case_id == '') {
+            appt_case_id = document.getElementById('form_case').value;
+        }
+
+        if(appt_start_date == '') {
+            appt_start_date = document.getElementById('form_date').value;
+        }
+
+        if(appt_pid == '') {
+            appt_pid = document.querySelector('input[name="form_pid"]').value;
+        }
+
+        if(appt_pid == '') {
+            appt_pid = document.querySelector('input[name="form_pid"]').value;
+        }
+
+        if(appt_provider == '') {
+            appt_provider = document.querySelector('select[name="form_provider"]').value;
+        }
+
+        if(appt_case_id != '') {
+            var responce = await $.ajax({
+                type: "POST",
+                url: "<?php echo $GLOBALS['webroot'] . '/interface/forms/cases/ajax/authorized_case.php'; ?>",
+                datatype: "json",
+                data: { "type" : "appt", "case_id" : appt_case_id, "start_date" : appt_start_date, "pid" : appt_pid, "provider" : appt_provider }
+            });
+
+            var responceJSON = JSON.parse(responce);
+
+            if(responceJSON['status'] === false) {
+                alert(responceJSON['message'].join('\\n\\n'));
+            }
+        }
+    }
+
+    // @VH: Set Selected case from case window popup. [V100017]
+    function setCase(case_id, case_dt, desc) {
+      var decodedDesc = '';
+      if(desc) decodedDesc = window.atob(desc);
+      var desc = case_dt + '   [' + decodedDesc + ']';
+        var target = document.getElementById('case_desc');
+        while(target.firstChild) {
+            target.removeChild( target.firstChild );
+        }
+        target.appendChild( document.createTextNode(desc));
+        document.getElementById('form_case').value = case_id;
+
+        //Call Authorized Case
+        //authorizedCase(case_id);
+        
+        var pid = document.forms[0].form_pid.value;
+        getTotalCancelledPatientAppt(pid, case_id, 0, 0, 1);
+    }
+
+    // @VH: Select case from case window popup. [V100017]
+    function sel_case() {
+        var pid = document.forms[0].form_pid.value;
+        if(!pid) {
+            alert('You must select a patient first');
+            return false;
+        }
+      var href = "../../forms/cases/case_list.php?mode=choose&popup=pop&pid=" + pid;
+      dlgopen(href, 'findCase', 'modal-lg', '800', '', '<?php echo xlt('Case List'); ?>');
+    }
+
+    // @VH: Show patient alert info [V100020] 
+    function openAlertInfoPopup(message) {
+          top.restoreSession()
+          dlgopen('<?php echo $GLOBALS['webroot'] . '/interface/main/calendar/php/alert_popup.php'; ?>?message='+encodeURIComponent(message), 'alert_info_popup_add_edit_event', 500, 250, '', '', {
+              buttons: [
+                  {text: '<?php echo xla('Close'); ?>', close: true, style: 'default btn-sm'}
+              ],
+              allowResize: true,
+              allowDrag: true,
+              dialogId: '',
+              type: 'iframe'
+          });
+    }
+
+</script>
+<!-- End -->
+
 <script>
 <?php require $GLOBALS['srcdir'] . "/formatting_DateToYYYYMMDD_js.js.php" ?>
 
@@ -1010,12 +1544,36 @@ while ($crow = sqlFetchArray($cres)) {
 <?php require($GLOBALS['srcdir'] . "/restoreSession.php"); ?>
 
 // This is for callback by the find-patient popup.
-function setpatient(pid, lname, fname, dob) {
+// @VH: Added "alert_info" and "p_data" param to setpatient function. [V100020]
+function setpatient(pid, lname, fname, dob = '', alert_info = '', p_data = {}) {
+    // @VH: Alert info changes to show popup. [V100020]
+    if(alert_info != "" && alert_info.length !== 0) {
+        //Call Alert Info popup
+        openAlertInfoPopup(alert_info);
+    }
+
+    // @VH: nickNameVal changes. [V100020]
+    var nickNameVal = (p_data.hasOwnProperty('nickname33') && p_data['nickname33'] != "" && p_data['nickname33'] != null) ? ' "'+p_data['nickname33']+'" ' : '';
+
     var f = document.forms[0];
-    f.form_patient.value = lname + ', ' + fname;
+    // @VH: Added nickname value to patient name. [V100020]
+    //f.form_patient.value = lname + ', ' + fname;
+    f.form_patient.value = lname + ', ' + fname  + nickNameVal;
     f.form_pid.value = pid;
     dobstyle = (dob == '' || dob.substr(5, 10) == '00-00') ? '' : 'none';
     document.getElementById('dob_row').style.display = dobstyle;
+
+    // @VH: Set value. [V100020]
+    document.getElementById('patinfobox').textContent = '';
+    document.forms[0].form_case.value = '';
+
+    // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
+    if(pid && pid != "") {
+        //Get Total Cancelled Appt.
+        getTotalCancelledPatientAppt(pid, '', 1, 1, 0);
+    }
+    // END
+
     let event = new CustomEvent('openemr:appointment:patient:set', {
         bubbles: true
         ,detail: {form: f, pid: pid, lname: lname, fname: fname, dob: dob}
@@ -1237,25 +1795,25 @@ function setappt(year,mon,mday,hours,minutes) {
     $('#form_save').attr('disabled', false);
     var f = document.forms[0];
     <?php
-    $currentDateFormat = $GLOBALS['date_display_format'];
-    if ($currentDateFormat == 0) { ?>
+    //$currentDateFormat = $GLOBALS['date_display_format'];
+    //if ($currentDateFormat == 0) { ?>
     f.form_date.value =  '' + year + '-' +
         ('' + (mon  + 100)).substring(1) + '-' +
         ('' + (mday + 100)).substring(1);
-    <?php } elseif ($currentDateFormat == 1) { ?>
-    f.form_date.value = ('' + (mon  + 100)).substring(1) + '/' +
-        ('' + (mday + 100)).substring(1) + '/' +
-        '' + year;
-    <?php } elseif ($currentDateFormat == 2) { ?>
-    f.form_date.value = ('' + (mday + 100)).substring(1) + '/' +
-        ('' + (mon  + 100)).substring(1) + '/' +
-        '' + year;
-    <?php } ?>
+    <?php //} elseif ($currentDateFormat == 1) { ?>
+    //f.form_date.value = ('' + (mon  + 100)).substring(1) + '/' +
+    //    ('' + (mday + 100)).substring(1) + '/' +
+    //    '' + year;
+    <?php //} elseif ($currentDateFormat == 2) { ?>
+    //f.form_date.value = ('' + (mday + 100)).substring(1) + '/' +
+    //    ('' + (mon  + 100)).substring(1) + '/' +
+    //    '' + year;
+    <?php //} ?>
     f.form_hour.value = hours;
-    <?php if ($GLOBALS['time_display_format'] == 1) { ?>
+    <?php //if ($GLOBALS['time_display_format'] == 1) { ?>
         f.form_hour.value = (hours > 12) ? hours - 12 : hours;
         f.form_ampm.selectedIndex = (hours >= 12) ? 1 : 0;
-    <?php } ?>
+    <?php //} ?>
     f.form_minute.value = ('' + (minutes + 100)).substring(1);
 }
 
@@ -1287,6 +1845,22 @@ function find_available(extra) {
         '&eid=<?php echo (int)$eid; ?>' + extra,
         '', 725, 200, '', title);
 }
+
+// @VH: Tooltip [V100021]
+$(document).ready(function(){
+    jQuery('[data-toggle="tooltip"]').tooltip({
+        classes: {
+            "ui-tooltip": "ui-corner-all uiTooltipContainer",
+            "ui-tooltip-content" : "ui-tooltip-content uiTooltipContent"
+        },
+        content: function(){
+          var element = $( this );
+          return element.find('.hidden_content').html();
+        },
+        track: true
+    });
+});
+
 </script>
 <style>
     body {
@@ -1297,10 +1871,49 @@ function find_available(extra) {
             margin-bottom: 15px;
         }
     }
+
+    /* @VH: CSS Changes [V100021] */
+    .bottom-info-container {
+        margin-top: 15px;
+    }
+
+    #cancellation_info { line-height: 14px; margin-bottom: 0px !important; display: none; }
+    #future_appt_info { text-align: center; line-height: 14px; display: none; }
+    .future_appt_info_inner { /*margin-bottom: 5px; max-width: 450px;*/ text-align: left; }
+    .future_appt_info_inner .more_content, .hidden_content { display: none; }
+    #rehab_progress_info { text-align: center; line-height: 14px; display: none; }
+    .rehab_progress_info_inner { /*margin-bottom: 5px; max-width: 450px;*/ text-align: left; }
+    .uiTooltipContent { font-size: 12px; }
+    .uiTooltipContainer { max-width: 450px!important; }
+    .futureApptUlList { padding-left: 18px; margin-bottom: 0px; }
+    /* END  */
 </style>
 </head>
 <body class="add-edit-event">
 <div class="container-fluid">
+
+<?php
+// @VH: Check is allowed to create block or not [V100026]
+$uAllowCreateBlock = false;
+if(!empty($_SESSION['authUserID'])) {
+    $uData = sqlQuery("SELECT u.allow_create_block from users u where u.id = ?", array($_SESSION['authUserID']));
+    
+    if(AclMain::aclCheckCore('admin', 'super') || AclMain::aclCheckCore('admin', 'calendar_provider')) {
+        $uAllowCreateBlock = true;
+    } else if(!empty($uData) && isset($uData['allow_create_block']) && $uData['allow_create_block'] == "1") {
+        $uAllowCreateBlock = true;
+    }
+}
+
+if (!empty($_GET['prov']) && ($_GET['prov'] == true)) {
+    if($uAllowCreateBlock === false) { ?>
+        <center><?php echo xlt('Not Authorized');?></center>
+        <?php exit();
+    } 
+} 
+// END
+?>
+
 <nav class='mb-3'>
     <?php
         $provider_class = '';
@@ -1328,7 +1941,11 @@ function find_available(extra) {
             <a class="nav-link<?php echo $normal;?>" href='add_edit_event.php?startampm=<?php echo attr($startm);?>&starttimeh=<?php echo attr($starth);?>&userid=<?php echo attr($uid);?>&starttimem=<?php echo attr($starttm);?>&date=<?php echo attr($dt);?>&catid=<?php echo attr($cid);?>'><?php echo xlt('Patient');?></a>
         </li>
         <li class="nav-item">
+            <?php 
+            // @VH: Wrap into condition [V100026]
+            if($uAllowCreateBlock === true) { ?>
             <a class="nav-link<?php echo $provider_class;?>" href='add_edit_event.php?prov=true&startampm=<?php echo attr($startm);?>&starttimeh=<?php echo attr($starth);?>&userid=<?php echo attr($uid);?>&starttimem=<?php echo attr($starttm);?>&date=<?php echo attr($dt);?>&catid=<?php echo attr($cid);?>'><?php echo xlt('Provider');?></a>
+            <?php } ?>
         </li>
         <?php if ($have_group_global_enabled) :?>
             <li class="nav-item">
@@ -1365,6 +1982,12 @@ $classpati = '';
 <!-- Following added by epsdky 2016 (details in commit) -->
 <input type="hidden" name="old_repeats" id="old_repeats" value="<?php echo attr($repeats); ?>" />
 <input type="hidden" name="rt2_flag2" id="rt2_flag2" value="<?php echo attr(isset($rspecs['rt2_pf_flag']) ? $rspecs['rt2_pf_flag'] : '0'); ?>" />
+
+<!-- @VH: Added "form_todaysEncounterIf" and "form_todaysTherapyGroupEncounterIf" input field. [V100024] -->
+<input type="hidden" name="form_todaysEncounterIf" id="form_todaysEncounterIf" value="0">
+<input type="hidden" name="form_todaysTherapyGroupEncounterIf" id="form_todaysTherapyGroupEncounterIf" value="0">
+<!-- END -->
+
 <!-- End of addition by epsdky -->
 <div class="form-row mx-2">
     <div class="col-sm form-group">
@@ -1388,9 +2011,23 @@ $classpati = '';
             while ($facrow = sqlFetchArray($qsql)) {
                 if (!empty($_SESSION['authorizedUser']) || in_array($facrow, $facils)) {
                     $selected = ($facrow['id'] == $e2f) ? 'selected="selected"' : '';
+
+                    // @VH: Select default facility
+                    if(empty($eid) && isset($_REQUEST['default_facility'])) {
+                        $selected = ($facrow['id'] == $_REQUEST['default_facility']) ? 'selected="selected"' : '';
+                    }
+                    // END
+
                     echo "<option value='" . attr($facrow['id']) . "' $selected>" . text($facrow['name']) . "</option>";
                 } else {
                     $selected = (!empty($e2f) && ($facrow['id'] == $e2f)) ? 'selected="selected"' : '';
+
+                    // @VH: Select default facility
+                    if(empty($eid) && isset($_REQUEST['default_facility'])) {
+                        $selected = ($facrow['id'] == $_REQUEST['default_facility']) ? 'selected="selected"' : '';
+                    }
+                    // END
+
                     echo "<option value='" . attr($facrow['id']) . "' $selected>" . text($facrow['name']) . "</option>";
                 }
             }
@@ -1414,11 +2051,13 @@ if (empty($_GET['prov']) && empty($_GET['group'])) { ?>
 
             <!-- Patient phone numbers -->
             <div>
-        <span class="infobox text-danger" style='font-size: 0.75rem'>
+        <!-- @VH: Added id attribute and removed class. -->
+        <span class="infobox" id="patinfobox" style='font-size: 0.75rem'>
         <?php
         foreach ($patienttitle as $value) {
             if ($value != "") {
-                echo text(trim($value));
+                //echo text(trim($value));
+                echo trim($value);
             }
             if (count($patienttitle) > 1) {
                 echo "<br />";
@@ -1564,6 +2203,25 @@ if ($_GET['group'] === true && $have_group_global_enabled) { ?>
     ?>
      </div>
  </div> <!-- Done with providers now scheduling -->
+
+ <?php 
+    // @VH: Case Field [V100017]
+    if ($_GET['prov']!=true && $_GET['group']!=true) { 
+    ?>
+        <div class="form-row mx-2">
+            <div class="col-sm form-group">
+                 <label for="case">
+                    <?php echo xlt('Case'); ?>:
+                 </label>
+                 <input class='form-control' type='text' name='form_case' id="form_case" style='cursor:pointer;' placeholder='<?php echo xla('Click to select'); ?>' value='<?php echo is_null($case) ? '' : attr($case); ?>' onclick='sel_case()' title='<?php echo xla('Click to select case'); ?>' required />
+                 <div class="invalid-feedback">
+                    Please select case
+                 </div>
+                 <span id="case_desc"><i><?php echo $case_desc; ?></i></span>
+            </div>
+        </div>
+ <?php } ?>
+
 <?php
     //Check if repeat is using the new 'days every week' mechanism.
 function isDaysEveryWeek($repeat)
@@ -1613,7 +2271,8 @@ function isRegularRepeat($repeat)
         <label class='col-sm col-form-label' id='tdallday4'><?php echo xlt('duration'); ?></label>
         <input class="col-sm form-control" id='tdallday5' type='text' size='4' name='form_duration' value='<?php echo attr($thisduration) ?>' title='<?php echo xla('Event duration in minutes'); ?>' />
     </div>
-    <div class="form-row mb-sm-2">
+    <!-- @VH: Hide section if not prov [V100028] -->
+    <div class="form-row mb-sm-2" <?php echo $_GET['prov']!=true ? 'style="display: none;"' : '' ?>>
         <div class="col-sm form-check-inline">
             <input class='form-check-input' type='checkbox' name='form_repeat' id="form_repeat" onclick='set_repeat(this)' value='1'<?php echo (isRegularRepeat($repeats)) ? " checked" : ""; ?>/>
             <label class='form-check-label' id='tdrepeat1'><?php echo xlt('Repeats'); ?></label>
@@ -1667,7 +2326,8 @@ function isRegularRepeat($repeat)
         ?>
     </div>
     <!-- Days of Week -->
-    <div class="form-row" id="days_every_week_row">
+    <!-- @VH: Hide section if not prov [V100028] -->
+    <div class="form-row" id="days_every_week_row" <?php echo $_GET['prov']!=true ? 'style="display: none;"' : '' ?>>
         <div class="col-sm-4 form-check-inline">
             <input class="form-check-input" type='checkbox' id='days_every_week' name='days_every_week' onclick='set_days_every_week()' <?php echo (isDaysEveryWeek($repeats)) ? " checked" : ""; ?>/>
             <label class="form-check-label" for="days_every_week" id="days_label"><?php echo xlt('Days Of Week') . ": "; ?></label>
@@ -1735,6 +2395,41 @@ if (empty($_GET['prov'])) { ?>
         <input class='form-control' type='text' name='form_comments' value='<?php echo attr($hometext); ?>' title='<?php echo xla('Optional information about this event'); ?>' />
     </div>
 </div>
+
+<!-- @VH: Zoom meeting section block [V100023] -->
+<?php
+    // @VH: Show zoom metting url [V100023]
+    $join_url = array();
+    if(isset($row['zm_start_url']) && !empty($row['zm_start_url'])) {
+        $join_url[] = '<span>Zoom Meeting (Provider): </span><span><a href="'.$row['zm_start_url'].'" target="_blank">'. xla('Join meeting link') . '</a></span>';
+    }
+
+    if(isset($row['zm_join_url']) && !empty($row['zm_join_url'])) {
+        $join_url[] = '<span>Zoom Meeting (Patient): </span><span><a href="'.$row['zm_join_url'].'" target="_blank">'. xla('Join meeting link') . '</a></span>';
+    }
+ ?>
+
+<?php if(isset($join_url) && !empty($join_url)) { ?>
+<div class="jumbotron jumbotron-fluid px-3 py-4 my-2">
+<div class="form-row">
+    <div class="col-sm-12 form-group">
+        <?php echo implode("<br/>", $join_url) ?>
+    </div>
+    <div class="col-sm-12 form-group mb-0">
+        <div class="btn-group" role="group" aria-label="Basic example">
+            <input type='button' class="btn btn btn-primary" name='form_send_join_url' id='form_send_join_url' style='margin-top: 4px;' value='<?php echo xla('Send Meeting Details');?>'<?php echo (!$row['zm_join_url']) ? " disabled" : "";?> />
+
+            <?php if(AclMain::aclCheckCore('admin', 'super')) { ?>
+            <input type='button' class="btn btn btn-primary" name='recreate_zoom_meeting' id='recreate_zoom_meeting' style='margin-top: 4px;display: none;' value='<?php echo xla('ReCreate Zoom Meeting');?>'<?php echo (!$row['zm_join_url']) ? " disabled" : "";?> />
+            <input type='button' class="btn btn-danger" name='delete_zoom_meeting' id='delete_zoom_meeting' style='margin-top: 4px;' value='<?php echo xla('Delete Zoom Meeting');?>'<?php echo (!$row['zm_join_url']) ? " disabled" : "";?> />
+            <?php } ?>
+        </div>
+    </div>
+</div>
+</div>
+<?php } ?>
+<!-- END -->
+
 <?php
     // This invokes render below patient listener.
     $eventDispatcher->dispatch(new AppointmentRenderEvent($row), AppointmentRenderEvent::RENDER_BEFORE_ACTION_BAR, 10);
@@ -1760,14 +2455,49 @@ if (empty($_GET['prov'])) { ?>
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-secondary" type='button' id='cancel' onclick="dlgclose()" value='<?php echo xla('Cancel'); ?>' />
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-secondary" type='button' name='form_duplicate' id='form_duplicate' value='<?php echo xla('Create Duplicate'); ?>' />
 </div>
-<?php if ($informant) {
-    echo "<label><p class='text'>" . xlt('Last update by') . " " .
-    text($informant) . " " . xlt('on') . " " . text($row['pc_time']) . "</p></label>\n";
-} ?>
+
+<!-- @VH: Bottom info container [V100021] -->
+<div class="bottom-info-container">
+    <center>
+        <!-- @VH: Futurre appt info [V100021] -->
+        <div id="future_appt_info" class="text alert alert-primary py-1 mb-1">
+            <center>
+                <div class="future_appt_info_inner">
+                    <div class="content"></div>
+                    <div class="more_content" data-toggle='tooltip' title=''><span>...</span><div class="hidden_content"></div></div>
+                </div>
+            </center>
+        </div>
+        <!-- @VH: Rehab progress info [V100021] -->
+        <div id="rehab_progress_info" class="text alert alert-primary py-1 mb-1">
+            <center>
+                <div class="rehab_progress_info_inner">
+                    <div class="content"></div>
+                </div>
+            </center>
+        </div>
+
+        <!-- @VH: Cancellation info [V100021] -->
+        <div id="cancellation_info" class="text alert alert-danger py-1 mb-1">
+        </div>
+
+        <?php if ($informant) {
+            echo "<label><p class='text'>" . xlt('Last update by') . " " .
+            text($informant) . " " . xlt('on') . " " . text($row['pc_time']);
+            // @VH: Show Appt ID [V100021]
+            if($eid) echo " Appt ID ($eid) ";
+            echo "</p></label>\n";
+        } ?>
+    </center>
+</div>
+<!-- END -->
 
 </form><!-- This ends our form. The rest is action items-->
 
 </div> <!-- top container wrapper -->
+
+<!-- @VH: Added calender script and wmtpopup script. -->
+<script type="text/javascript" src="../../../library/wmt-v2/wmtpopup.js"></script>
 
 <!-- form support functions-->
 <script>
@@ -1816,8 +2546,21 @@ $(function () {
         HideRecurrPopup();
     });
 
+    // @VH: Zoom meeting changes. [V100023]
+    $("#form_send_join_url").click(function() { sendJoinUrlEvent(); });
+    $("#recreate_zoom_meeting").click(function() { recreateUpdateZoomMeeting(); });
+    $("#delete_zoom_meeting").click(function() { deleteZoomMeeting(); });
+    // END
+
     // Initialize repeat options.
     dateChanged();
+
+    // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
+    <?php if(isset($patientid) && !empty($patientid)) { ?>
+        //Initialize total cancelled appt.
+        getTotalCancelledPatientAppt('<?php echo $patientid; ?>', '<?php echo $case; ?>', 1, 1, 1);
+    <?php } ?>
+    // END
 
     $('.datepicker').datetimepicker({
         <?php $datetimepicker_timepicker = false; ?>
@@ -1848,8 +2591,99 @@ function are_days_checked(){
 * this enable to add new rules for this form in the pageValidation list.
 * */
 var collectvalidation = <?php echo $collectthis; ?>;
-function validateform(event,valu){
+// @VH: made function async.
+async function validateform(event,valu){
     $('#form_save').attr('disabled', true);
+
+    // @VH: Case Validation changes. [V100017]
+    var pat_field = document.getElementById('form_patient');
+    if(pat_field  != null) pat_field = pat_field.value;
+    // if(collectvalidation.form_patient == undefined && pat_field) {
+    if(pat_field) {
+      var case_id = document.getElementById('form_case');
+      if(case_id != null) case_id = case_id.value;
+
+      // @VH: Check is there any case for selected patient [V100017]
+      if(!case_id || case_id == 0) {
+        // @VH: Get case count [V100017]
+        var cCount = await caseCount(document.forms[0].form_pid.value);
+        cCount = 0;
+        if(Number(cCount) > 0) {
+            alert('<?php echo xls("You must choose a case"); ?>');
+            $('#form_save').attr('disabled', false);
+            return false;
+        }
+      }
+      // END
+
+      // @VH: Case validation [V100017]
+      if(!case_id || case_id == 0) {
+        // @VH: Get case count [V100017]
+        var cCount = await caseCount(document.forms[0].form_pid.value);
+
+        if(Number(cCount) > 0) {
+            alert('<?php echo xls("You must choose a case"); ?>');
+            $('#form_save').attr('disabled', false);
+            return false;
+        } else {
+            // @VH: Remove case validation rule. When create new case [V100017]
+            delete collectvalidation.form_case;
+            var msg = '<?php echo xls('Case will be created'); ?>';
+            alert(msg);
+        }
+      } else {
+        // @VH: Check selected case is inactive or not [V100017]
+        var pid = document.forms[0].form_pid.value;
+        var isRecentCaseInActive = await checkRecentInactive(pid, case_id);
+        if(isRecentCaseInActive == true) {
+            var msg1 = '<?php echo xls('Selected case is inactive. Choose "OK" to save the chosen case and change the case state from inactive to active.  Choose "Cancel" to choose another case or create a new case'); ?>?';
+            var confirmRes  = confirm(msg1);
+            if(confirmRes) {
+                // @VH: Make inactive case active. [V100017]
+                var activateCaseDAta = await activateCase(pid, case_id)
+            } else if(!confirmRes) {
+                $('#form_save').attr('disabled', false);
+                return false;
+            }
+        }
+      }
+    }
+    // END
+
+    // @VH: Authorized Case change. [V100018]
+    if(pat_field && valu == "save") {
+        // Call Authorized Case [V100018] 
+        await authorizedCase();
+    }
+
+    // @VH: Check Zoom meeting already exists on same time and for same provider then show error message and don't allow to create appointment. [V100019]
+    <?php if(!$_GET['prov']) { ?>
+        let isMExits = await isMeetingExists();
+        if(isMExits === true) {
+            return false;
+        }
+    <?php } ?>
+
+    // @VH: Make sure event start time valid [V100030]
+    $ele_form_hour = $('[name="form_hour"]').val();
+    $ele_form_minute = $('[name="form_minute"]').val();
+    $eventStartTimeStatus = validateHhMm($ele_form_hour+":"+$ele_form_minute);
+    if($eventStartTimeStatus === false) {
+        alert('<?php echo xls("Please enter valid event start time") .'.'; ?>');
+        $('#form_save').attr('disabled', false);
+        return false;
+    }
+
+    <?php if(!isset($_GET['eid']) && (!isset($_GET['prov']) || (isset($_GET['prov']) && $_GET['prov'] === false))) { ?>
+    // @VH: Fetch default facility [V100029]
+    let dfStatus = await GetDefaultFacilityFromBlock($ele_form_hour, $ele_form_minute);
+    if(dfStatus === false) { 
+        $('#form_save').attr('disabled', false);
+        return false; 
+    }
+    <?php } ?>
+    // END SECTION
+
     //Make sure if days_every_week is checked that at least one weekday is checked.
     if($('#days_every_week').is(':checked') && !are_days_checked()){
         alert('<?php echo xls("Must choose at least one day!"); ?>');
@@ -1921,6 +2755,29 @@ function validateform(event,valu){
     SubmitForm();
 }
 
+// @VH: Check appointment facility does match the facility listed in the IN block. [V100029]
+async function GetDefaultFacilityFromBlock(hr, mt) {
+    let ampmVal = $('select[name="form_ampm"]');
+    const result = await $.ajax({
+        type: "POST",
+        url: "<?php echo $GLOBALS['webroot'] .'/interface/main/calendar/get_block_facility.php'; ?>",
+        datatype: "json",
+        data: { form_hour :hr, form_minute: mt, form_date: $('#form_date').val(), form_provider : $('select[name="form_provider"]').val(), form_ampm : ampmVal && ampmVal.val() == "1" ? "AM" : "PM" }
+    });
+
+    if(result) {
+        resultObj = JSON.parse(result);
+        if(resultObj['facility'] && resultObj['facility'] != $('#facility').val()) {
+            if (!confirm("<?php echo addslashes(xl('This appointment facility does not match the facility listed in the IN block.  Press Cancel to correct this appointment. Press Ok to save as-is')); ?>")) {
+                //$('#facility').val(resultObj['facility']);
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 // disable all the form elements outside the recurr_popup
 function DisableForm() {
     $("#theform").children().attr("disabled", "true");
@@ -1954,15 +2811,28 @@ function deleteEvent() {
     return false;
 }
 
-function SubmitForm() {
+// @VH: made function async.
+async function SubmitForm() {
     var f = document.forms[0];
+
+    // @VH: Call todaysEncounterIf [V100024]
+    await todaysEncounterIf();
+
     <?php if (!($GLOBALS['select_multi_providers']) && empty($_GET['prov'])) { // multi providers appt is not supported by check slot avail window, so skip. && is not provider tab. ?>
     if (f.form_action.value != 'delete') {
         // Check slot availability.
         var mins = parseInt(f.form_hour.value) * 60 + parseInt(f.form_minute.value);
         <?php if ($GLOBALS['time_display_format']  == 1) :
             ?>if (f.form_ampm.value == '2' && mins < 720) mins += 720;<?php endif ?>
-        find_available('&cktime=' + mins);
+        
+        // @VH: Move logic into condition changes added if condition.
+        <?php if($GLOBALS['disable_calendar_availability_popup'] === "1") { ?>
+            top.restoreSession();
+            f.submit();
+        <?php } else { ?>
+            find_available('&cktime=' + mins);
+        <?php } ?>
+        // END
     }
     else {
         top.restoreSession();

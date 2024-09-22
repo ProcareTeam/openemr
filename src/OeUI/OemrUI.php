@@ -48,7 +48,8 @@ class OemrUI
     private $expandable_icon;
     private $expandTitle;
     private $header_expand_js;
-    private $heading;
+    // @VH: Changed to public
+    public $heading;
     private $help_file;
     private $help_icon;
     private $help_modal;

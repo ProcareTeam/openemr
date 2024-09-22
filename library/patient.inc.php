@@ -353,6 +353,148 @@ function getInsuranceData($pid, $type = "primary", $given = "insd.*, ic.name as 
     return sqlQuery($sql, array($pid, $type));
 }
 
+// @VH: getInsuranceDataItems
+function getInsuranceDataItems($pid, $given = "insd.*, ic.name as provider_name")
+{
+    $items = array();
+    $sql = "select $given from insurance_data as insd " .
+    "left join insurance_companies as ic on ic.id = insd.provider " .
+    "where pid = ? and provider != '' order by id DESC";
+    $res = sqlStatement($sql, array($pid));
+    while ($result = sqlFetchArray($res)) {
+        unset($result['uuid']);
+        $items[] = $result;
+    }
+
+    return $items;
+}
+// END
+
+// @VH: find patient data by email
+function getPatientEmail($email = "%", $given = "pid, id, lname, fname, mname, providerID", $orderby = "lname ASC, fname ASC", $limit = "all", $start = "0")
+{
+    $col = $GLOBALS['wmt::use_email_direct'] ? 'email_direct' : 'email';
+    $sqlBindArray = array();
+    $where = "$col LIKE ? OR CONCAT(',',secondary_email,',') LIKE '%,$email%,'";
+    array_push($sqlBindArray, $email."%");
+    $sql="SELECT $given FROM patient_data WHERE $where ORDER BY $orderby";
+    if ($limit != "all") {
+        $sql .= " limit " . escape_limit($start) . ", " . escape_limit($limit);
+    }
+
+    $rez = sqlStatement($sql, $sqlBindArray);
+    for ($iter=0; $row=sqlFetchArray($rez); $iter++) {
+        $returnval[$iter]=$row;
+    }
+
+    _set_patient_inc_count($limit, count($returnval), $where, $sqlBindArray);
+    return $returnval;
+}
+
+// @VH: Search by phone number [V100033]
+function getPatientPhones($phone = "%", $given = "pid, id, lname, fname, mname, providerID", $orderby = "lname ASC, fname ASC", $limit = "all", $start = "0")
+{
+    $phone = preg_replace("/[[:punct:]]/", "", $phone);
+    $phone_number = preg_replace('/^\+?1|\|1|\D/', '', ($phone));
+
+
+    $sqlBindArray = array();
+    $where = "REPLACE(REPLACE(phone_home, '-', ''), ' ', '') REGEXP ? ";
+    array_push($sqlBindArray, $phone);
+    
+    $where .= "OR TRIM(LEADING '1' FROM replace(replace(replace(replace(replace(replace(phone_cell,' ',''),'(','') ,')',''),'-',''),'/',''),'+','')) LIKE ? ";
+    array_push($sqlBindArray, $phone_number."%");
+
+    $where .= "OR CONCAT(',',replace(replace(replace(replace(replace(replace(secondary_phone_cell,' ',''),'(','') ,')',''),'-',''),'/',''),'+',''),',') LIKE ? ";
+    array_push($sqlBindArray, "%,1".$phone_number."%,");
+
+    $where .= "OR CONCAT(',',replace(replace(replace(replace(replace(replace(secondary_phone_cell,' ',''),'(','') ,')',''),'-',''),'/',''),'+',''),',') LIKE ? ";
+    array_push($sqlBindArray, "%,".$phone_number."%,");
+    
+
+    $sql="SELECT $given FROM patient_data WHERE $where ORDER BY $orderby";
+    if ($limit != "all") {
+        $sql .= " limit " . escape_limit($start) . ", " . escape_limit($limit);
+    }
+
+    $rez = sqlStatement($sql, $sqlBindArray);
+    for ($iter=0; $row=sqlFetchArray($rez); $iter++) {
+        $returnval[$iter]=$row;
+    }
+
+    _set_patient_inc_count($limit, count($returnval), $where, $sqlBindArray);
+    return $returnval;
+}
+
+function getPatientByCondition($conditions = array(), $given = "pid, id, lname, fname, mname, providerID", $orderby = "lname ASC, fname ASC", $limit = "all", $start = "0")
+{
+    $sqlBindArray = array();
+    $where = array();
+
+    foreach ($conditions as $col => $colValue) {
+        $cond = isset($colValue['condition']) ? $colValue['condition'] : " AND ";
+        $cond_op = isset($colValue['operation']) ? $colValue['operation'] : "=";  
+
+        if($col == "phone_home" && !empty($colValue['value'])) {
+
+            $phNumber = preg_replace("/[^0-9]/", "", $colValue['value']);
+
+            // Find patient(s) by phone
+            $test_number = (strlen($phNumber) > 10) ? substr($phNumber,1,10) : $phNumber;
+            $test_area = substr($test_number,0,3);
+            $test_prefix = substr($test_number,3,3);
+            $test_local = substr($test_number,6,4);
+            $phone_home_number = $test_area .'.?'. $test_prefix .'.?'. $test_local;
+
+            if(!empty($test_area) && !empty($test_prefix) && !empty($test_local)) {
+                $where[] = " " . $cond . " replace(replace(replace(replace(replace(replace(phone_home,' ',''),'(','') ,')',''),'-',''),'/',''),'+','') REGEXP ? ";
+                array_push($sqlBindArray, $phone_home_number);
+            }
+
+        } else if($col == "phone_cell" && !empty($colValue['value'])) { 
+
+            $phNumber = preg_replace("/[^0-9]/", "", $colValue['value']);
+
+            // Find patient(s) by phone
+            $test_number = (strlen($phNumber) > 10) ? substr($phNumber,1,10) : $phNumber;
+            $test_area = substr($test_number,0,3);
+            $test_prefix = substr($test_number,3,3);
+            $test_local = substr($test_number,6,4);
+            $phone_cell_number = $test_area .'.?'. $test_prefix .'.?'. $test_local;
+
+            if(!empty($test_area) && !empty($test_prefix) && !empty($test_local)) {
+                $where[] = " " . $cond . " ( replace(replace(replace(replace(replace(replace(phone_cell,' ',''),'(','') ,')',''),'-',''),'/',''),'+','') REGEXP ? ";
+                array_push($sqlBindArray, $phone_cell_number);
+
+                $where[] = " OR replace(replace(replace(replace(replace(replace(secondary_phone_cell,' ',''),'(','') ,')',''),'-',''),'/',''),'+','') REGEXP ? ) ";
+                array_push($sqlBindArray, "(^|,)(1)?($phone_cell_number)(,|$)");
+            }
+
+        } else if(!empty($col) && !empty($colValue['value'])) {
+            $where[] = " " . $cond . " " . $col . " " . $cond_op . "  ? ";
+            array_push($sqlBindArray, $colValue['value']);
+        } else if(!empty($col) && empty($colValue['value'])) {
+            $where[] = " " . $cond . " " . $col . " ";
+        }
+    }
+
+    $whereStr = !empty($where) ? " WHERE " . implode("", $where) . " " : "";
+
+    $sql="SELECT $given FROM patient_data " . $whereStr . " ORDER BY $orderby";
+    if ($limit != "all") {
+        $sql .= " limit " . escape_limit($start) . ", " . escape_limit($limit);
+    }
+
+    $rez = sqlStatement($sql, $sqlBindArray);
+    
+    for ($iter=0; $row=sqlFetchArray($rez); $iter++) {
+        $returnval[$iter]=$row;
+    }
+
+    return count($returnval) == 1 ? $returnval[0] : $returnval;
+}
+// End
+
 function getInsuranceDataNew($pid, $type = "primary", $given = "insd.*, ic.name as provider_name")
 {
     $sql = "select $given from insurance_data as insd " .
@@ -1768,3 +1910,216 @@ function get_unallocated_payment_id($pid)
         return '';
     }
 }
+
+// @VH: Section
+// @VH: formatPhoneNumber
+function formatPhoneNumber($pat_phone) {
+    if(empty($pat_phone)) {
+        return array('msg_phone' => $pat_phone, 'pat_phone' => $pat_phone);
+    }
+
+    $pat_phone = preg_replace('/[^0-9]/', '', trim($pat_phone));
+
+    // Get phone numbers
+    $msg_phone = $pat_phone;
+    if(strlen($msg_phone) != 12) {
+      if (substr($pat_phone,0,1) != '1') $msg_phone = "1" . $msg_phone;
+      if (strlen($msg_phone) > 11) $msg_phone = substr($msg_phone,0,11);
+      
+      //if (substr($pat_phone,0,1) == '1') $pat_phone = substr($pat_phone,1,10);
+      //if (strlen($pat_phone) > 10) $pat_phone = substr($pat_phone,0,10);
+      //$pat_phone = substr($pat_phone,0,3) ."-". substr($pat_phone,3,3) ."-". substr($pat_phone,6,4);
+      if(preg_match('/^(1|)?(\d{3})(\d{3})(\d{4})$/', $pat_phone,  $matches ) ) {
+        $intlCode = $matches[1] ? '+1-' : '';
+        $pat_phone = $intlCode.'' . $matches[2] . '-' .$matches[3] . '-' . $matches[4];
+      }
+    }
+    return array('msg_phone' => $msg_phone, 'pat_phone' => $pat_phone);
+}
+
+// @VH: getAlterPatientData
+function getAlterPatientData($formtype = '', $data = array()) {
+    $fres = sqlStatement("SELECT distinct group_id FROM layout_options " .
+            "WHERE form_id = ? AND uor > 0 " .
+            "ORDER BY group_id", array($formtype));
+
+    // This loops once per group within a given layout.
+    while ($frow = sqlFetchArray($fres)) {
+        $this_group = $frow['group_id'];
+
+        $group_fields_query = sqlStatement("SELECT * FROM layout_options " .
+                "WHERE form_id = ? AND uor > 0 AND group_id = ? " .
+                "ORDER BY seq", array($formtype, $this_group));
+
+        // This loops once per field within a given group.
+        while ($group_fields = sqlFetchArray($group_fields_query)) {
+            if (isOption($group_fields['edit_options'], 'MP') !== false) {
+                //$tValue = formatPhoneNumber($data[$group_fields['field_id']]);
+
+                $tValue = !empty(trim($data[$group_fields['field_id']])) ? array_filter(array_map('trim', explode(",",$data[$group_fields['field_id']]))) : array();
+                $tValue = array_map(function($item) { $tfValue = formatPhoneNumber($item); return $tfValue['pat_phone']; }, $tValue);
+
+                if(isset($data[$group_fields['field_id']])) $data[$group_fields['field_id']] = implode(",",$tValue);
+            }
+        }
+    }
+
+    return $data;
+}
+
+// @VH: saveInsuranceData
+function saveInsuranceData($data = array()) {
+    $type = isset($data['type']) ? $data['type'] : "primary";
+    $provider = isset($data['provider']) ? $data['provider'] : "";
+    $policy_number = isset($data['policy_number']) ? $data['policy_number'] : "";
+    $group_number = isset($data['group_number']) ? $data['group_number'] : "";
+    $plan_name = isset($data['plan_name']) ? $data['plan_name'] : "";
+    $subscriber_lname = isset($data['subscriber_lname']) ? $data['subscriber_lname'] : "";
+    $subscriber_mname = isset($data['subscriber_mname']) ? $data['subscriber_mname'] : "";
+    $subscriber_fname = isset($data['subscriber_fname']) ? $data['subscriber_fname'] : "";
+    $subscriber_relationship = isset($data['subscriber_relationship']) ? $data['subscriber_relationship'] : "";
+    $subscriber_ss = isset($data['subscriber_ss']) ? $data['subscriber_ss'] : "";
+    $subscriber_DOB = isset($data['subscriber_DOB']) ? $data['subscriber_DOB'] : "";
+    $subscriber_street = isset($data['subscriber_street']) ? $data['subscriber_street'] : "";
+    $subscriber_postal_code = isset($data['subscriber_postal_code']) ? $data['subscriber_postal_code'] : "";
+    $subscriber_city = isset($data['subscriber_city']) ? $data['subscriber_city'] : "";
+    $subscriber_state = isset($data['subscriber_state']) ? $data['subscriber_state'] : "";
+    $subscriber_country = isset($data['subscriber_country']) ? $data['subscriber_country'] : "";
+    $subscriber_phone = isset($data['subscriber_phone']) ? $data['subscriber_phone'] : "";
+    $subscriber_employer = isset($data['subscriber_employer']) ? $data['subscriber_employer'] : "";
+    $subscriber_employer_street = isset($data['subscriber_employer_street']) ? $data['subscriber_employer_street'] : "";
+    $subscriber_employer_city = isset($data['subscriber_employer_city']) ? $data['subscriber_employer_city'] : "";
+    $subscriber_employer_postal_code = isset($data['subscriber_employer_postal_code']) ? $data['subscriber_employer_postal_code'] : "";
+    $subscriber_employer_state = isset($data['subscriber_employer_state']) ? $data['subscriber_employer_state'] : "";
+    $subscriber_employer_country = isset($data['subscriber_employer_country']) ? $data['subscriber_employer_country'] : "";
+    $copay = isset($data['copay']) ? $data['copay'] : "";
+    $subscriber_sex = isset($data['subscriber_sex']) ? $data['subscriber_sex'] : "";
+    $effective_date = isset($data['effective_date']) ? $data['effective_date'] : "";
+    $accept_assignment = isset($data['accept_assignment']) ? $data['accept_assignment'] : "";
+    $policy_type = isset($data['policy_type']) ? $data['policy_type'] : "";
+    $claim_number = isset($data['claim_number']) ? $data['claim_number'] : "";
+    $payer_inactive = isset($data['payer_inactive']) ? $data['payer_inactive'] : 0;
+    $payerid = isset($data['payerid']) ? $data['payerid'] : "";
+    $pid = isset($data['pid']) ? $data['pid'] : "";
+
+    if (is_null($accept_assignment)) {
+        $accept_assignment = "TRUE";
+    }
+    if (is_null($policy_type)) {
+        $policy_type = "";
+    }
+
+    // If empty dates were passed, then null.
+    if (empty($effective_date)) {
+        $effective_date = null;
+    }
+    if (empty($subscriber_DOB)) {
+        $subscriber_DOB = null;
+    }
+
+    if($payerid != "") {
+        $data = array();
+        $data['type'] = $type;
+        $data['provider'] = $provider;
+        $data['policy_number'] = $policy_number;
+        $data['group_number'] = $group_number;
+        $data['plan_name'] = $plan_name;
+        $data['subscriber_lname'] = $subscriber_lname;
+        $data['subscriber_mname'] = $subscriber_mname;
+        $data['subscriber_fname'] = $subscriber_fname;
+        $data['subscriber_relationship'] = $subscriber_relationship;
+        $data['subscriber_ss'] = $subscriber_ss;
+        $data['subscriber_DOB'] = $subscriber_DOB;
+        $data['subscriber_street'] = $subscriber_street;
+        $data['subscriber_postal_code'] = $subscriber_postal_code;
+        $data['subscriber_city'] = $subscriber_city;
+        $data['subscriber_state'] = $subscriber_state;
+        $data['subscriber_country'] = $subscriber_country;
+        $data['subscriber_phone'] = $subscriber_phone;
+        $data['subscriber_employer'] = $subscriber_employer;
+        $data['subscriber_employer_city'] = $subscriber_employer_city;
+        $data['subscriber_employer_street'] = $subscriber_employer_street;
+        $data['subscriber_employer_postal_code'] = $subscriber_employer_postal_code;
+        $data['subscriber_employer_state'] = $subscriber_employer_state;
+        $data['subscriber_employer_country'] = $subscriber_employer_country;
+        $data['copay'] = $copay;
+        $data['subscriber_sex'] = $subscriber_sex;
+        $data['pid'] = $pid;
+        $data['date'] = $effective_date;
+        $data['accept_assignment'] = $accept_assignment;
+        $data['policy_type'] = $policy_type;
+        $data['claim_number'] = $claim_number;
+        $data['inactive'] = $payer_inactive;
+        
+        updateInsuranceData($payerid, $data);
+    } else {
+        return sqlInsert(
+            "INSERT INTO `insurance_data` SET `type` = ?,
+            `provider` = ?,
+            `policy_number` = ?,
+            `group_number` = ?,
+            `claim_number` = ?,
+            `plan_name` = ?,
+            `subscriber_lname` = ?,
+            `subscriber_mname` = ?,
+            `subscriber_fname` = ?,
+            `subscriber_relationship` = ?,
+            `subscriber_ss` = ?,
+            `subscriber_DOB` = ?,
+            `subscriber_street` = ?,
+            `subscriber_postal_code` = ?,
+            `subscriber_city` = ?,
+            `subscriber_state` = ?,
+            `subscriber_country` = ?,
+            `subscriber_phone` = ?,
+            `subscriber_employer` = ?,
+            `subscriber_employer_city` = ?,
+            `subscriber_employer_street` = ?,
+            `subscriber_employer_postal_code` = ?,
+            `subscriber_employer_state` = ?,
+            `subscriber_employer_country` = ?,
+            `copay` = ?,
+            `subscriber_sex` = ?,
+            `pid` = ?,
+            `date` = ?,
+            `accept_assignment` = ?,
+            `policy_type` = ?,
+            `inactive` = ?",
+            [
+                $type,
+                $provider,
+                $policy_number,
+                $group_number,
+                $claim_number,
+                $plan_name,
+                $subscriber_lname,
+                $subscriber_mname,
+                $subscriber_fname,
+                $subscriber_relationship,
+                $subscriber_ss,
+                $subscriber_DOB,
+                $subscriber_street,
+                $subscriber_postal_code,
+                $subscriber_city,
+                $subscriber_state,
+                $subscriber_country,
+                $subscriber_phone,
+                $subscriber_employer,
+                $subscriber_employer_city,
+                $subscriber_employer_street,
+                $subscriber_employer_postal_code,
+                $subscriber_employer_state,
+                $subscriber_employer_country,
+                $copay,
+                $subscriber_sex,
+                $pid,
+                $effective_date,
+                $accept_assignment,
+                $policy_type,
+                $payer_inactive
+            ]
+        );
+    }
+}
+// End
+

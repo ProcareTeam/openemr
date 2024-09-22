@@ -43,6 +43,9 @@ if (!AclMain::aclCheckCore('patients', 'pat_rep')) {
 
 $facilityService = new FacilityService();
 
+// @VH: Facility services. [V100064]
+$facility = $facilityService->getById('3');
+
 $staged_docs = array();
 $archive_name = '';
 
@@ -92,6 +95,266 @@ $N = $PDF_OUTPUT ? 4 : 6;
 
 $first_issue = 1;
 
+// @VH: Changes
+if(!function_exists('cm_display_layout_rows')) {
+function cm_display_layout_rows($formtype, $result1, $result2 = '', $incGroup = array())
+{
+    global $item_count, $cell_count, $last_group, $CPR;
+
+    if ('HIS' == $formtype) {
+        $formtype .= '%'; // TBD: DEM also?
+    }
+    $pres = sqlStatement(
+        "SELECT grp_form_id, grp_seq, grp_title " .
+        "FROM layout_group_properties " .
+        "WHERE grp_form_id LIKE ? AND grp_group_id = '' " .
+        "ORDER BY grp_seq, grp_title, grp_form_id",
+        array("$formtype")
+    );
+    while ($prow = sqlFetchArray($pres)) {
+        $formtype = $prow['grp_form_id'];
+        $last_group = '';
+        $cell_count = 0;
+        $item_count = 0;
+
+        $grparr = array();
+        getLayoutProperties($formtype, $grparr, '*');
+
+        $TOPCPR = empty($grparr['']['grp_columns']) ? 4 : $grparr['']['grp_columns'];
+
+        $fres = sqlStatement("SELECT * FROM layout_options " .
+        "WHERE form_id = ? AND uor > 0 " .
+        "ORDER BY group_id, seq", array($formtype));
+
+        while ($frow = sqlFetchArray($fres)) {
+            $this_group = $frow['group_id'];
+            $titlecols  = $frow['titlecols'];
+            $datacols   = $frow['datacols'];
+            $data_type  = $frow['data_type'];
+            $field_id   = $frow['field_id'];
+            $list_id    = $frow['list_id'];
+            $currvalue  = '';
+            $jump_new_row = isOption($frow['edit_options'], 'J');
+            $prepend_blank_row = isOption($frow['edit_options'], 'K');
+            $portal_exclude = (!empty($_SESSION["patient_portal_onsite_two"]) && isOption($frow['edit_options'], 'EP')) ?? null;
+            $span_col_row = isOption($frow['edit_options'], 'SP');
+            
+            $grpName = $grparr[$this_group]['grp_title'];
+            if(!empty($incGroup) && !in_array($grpName, $incGroup)) {
+                continue;
+            }
+
+            if (!empty($portal_exclude)) {
+                continue;
+            }
+
+            $CPR = empty($grparr[$this_group]['grp_columns']) ? $TOPCPR : $grparr[$this_group]['grp_columns'];
+
+            if ($formtype == 'DEM') {
+                if (strpos($field_id, 'em_') === 0) {
+                    // Skip employer related fields, if it's disabled.
+                    if ($GLOBALS['omit_employers']) {
+                        continue;
+                    }
+
+                    $tmp = substr($field_id, 3);
+                    if (isset($result2[$tmp])) {
+                        $currvalue = $result2[$tmp];
+                    }
+                } else {
+                    if (isset($result1[$field_id])) {
+                        $currvalue = $result1[$field_id];
+                    }
+                }
+            } else {
+                if (isset($result1[$field_id])) {
+                    $currvalue = $result1[$field_id];
+                }
+            }
+
+            // Handle a data category (group) change.
+            if (strcmp($this_group, $last_group) != 0) {
+                $group_name = $grparr[$this_group]['grp_title'];
+                // totally skip generating the employer category, if it's disabled.
+                if ($group_name === 'Employer' && $GLOBALS['omit_employers']) {
+                    continue;
+                }
+
+                disp_end_group();
+                $last_group = $this_group;
+            }
+
+            // filter out all the empty field data from the patient report.
+            if (!empty($currvalue) && !($currvalue == '0000-00-00 00:00:00')) {
+                // Handle starting of a new row.
+                if (($titlecols > 0 && $cell_count >= $CPR) || $cell_count == 0 || $prepend_blank_row || $jump_new_row) {
+                    disp_end_row();
+                    if ($prepend_blank_row) {
+                        echo "<tr><td class='label' colspan='" . ($CPR + 1) . "'>&nbsp;</td></tr>\n";
+                    }
+                    echo "<tr>";
+                    if ($group_name) {
+                        echo "<td class='groupname'>";
+                        echo text(xl_layout_label($group_name));
+                        $group_name = '';
+                    } else {
+                        echo "<td class='align-top'>&nbsp;";
+                    }
+
+                        echo "</td>";
+                }
+
+                if ($item_count == 0 && $titlecols == 0) {
+                    $titlecols = 1;
+                }
+
+                // Handle starting of a new label cell.
+                if ($titlecols > 0 || $span_col_row) {
+                    disp_end_cell();
+                    $titlecols = $span_col_row ? 0 : $titlecols;
+                    $titlecols_esc = htmlspecialchars($titlecols, ENT_QUOTES);
+                    if (!$span_col_row) {
+                        echo "<td class='label_custom' colspan='$titlecols_esc' ";
+                        echo ">";
+                    }
+                    $cell_count += $titlecols;
+                }
+
+                ++$item_count;
+
+                // Prevent title write if span entire row.
+                if (!$span_col_row) {
+                    // Added 5-09 by BM - Translate label if applicable
+                    if ($frow['title']) {
+                        $tmp = xl_layout_label($frow['title']);
+                        echo text($tmp);
+                        // Append colon only if label does not end with punctuation.
+                        if (strpos('?!.,:-=', substr($tmp, -1, 1)) === false) {
+                            echo ':';
+                        }
+                    } else {
+                        echo "&nbsp;";
+                    }
+                }
+                // Handle starting of a new data cell.
+                if ($datacols > 0) {
+                    disp_end_cell();
+                    $datacols = $span_col_row ? $CPR : $datacols;
+                    $datacols_esc = htmlspecialchars($datacols, ENT_QUOTES);
+                    echo "<td class='text data' colspan='$datacols_esc'";
+                    echo ">";
+                    $cell_count += $datacols;
+                }
+
+                ++$item_count;
+                echo generate_display_field($frow, $currvalue);
+            }
+        }
+        disp_end_group();
+    } // End this layout, there may be more in the case of history.
+}
+}
+
+if(!function_exists('replaceHTMLContentForPrint')) {
+function replaceHTMLContentForPrint($html = '') {
+    global $PDF_OUTPUT;
+
+    if($PDF_OUTPUT === 1) {
+        $html = str_replace('&lt;br /&gt;', "<br/>", $html);
+    }
+
+    $doc = new \DOMDocument();
+    $doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+
+    $xpath = new \DOMXpath($doc);
+    $nodes = $xpath->query("//*[contains(@class, 'class_dictation')]");
+
+    foreach ($nodes as $node) {
+        $htmlReplace = $node->ownerDocument->saveHTML( $node );
+        $htmlReplace = preg_replace('/<table/', "<div class='newTable'", $htmlReplace);
+        $htmlReplace = preg_replace('/<tbody/', "<div class='tableTbody'", $htmlReplace);
+        $htmlReplace = preg_replace('/<tr/', "<div class='tableRow'", $htmlReplace);
+        $htmlReplace = preg_replace('/<td/', "<div class='tableCell'", $htmlReplace);
+        $htmlReplace = preg_replace('/<\/td/', "</div", $htmlReplace);
+        $htmlReplace = preg_replace('/<\/tr/', "</div", $htmlReplace);
+        $htmlReplace = preg_replace('/<\/tbody/', "</div", $htmlReplace);
+        $htmlReplace = preg_replace('/<\/table/', "</div", $htmlReplace);
+
+        $htmlReplace = preg_replace('/<\/table/', "</div", $htmlReplace);
+
+        $domDocumentReplace = new \DOMDocument;
+        $domDocumentReplace->loadHTML($htmlReplace, LIBXML_HTML_NOIMPLIED);
+
+        $htmlReplaceNode = $doc->importNode($domDocumentReplace->documentElement, true);
+
+        $node->parentNode->replaceChild($htmlReplaceNode, $node);
+    }
+    return @$doc->saveHTML();
+}
+}
+
+// Generate a report title including report name and facility name, address
+// and phone.
+if(!function_exists('genFacilityTitleForReport')) {
+function genFacilityTitleForReport($repname = '', $facid = 0, $logo = "")
+{
+    $s = '';
+    $s .= "<table class='ftitletable' width='100%'>\n";
+    $s .= " <tr>\n";
+    if (empty($logo)) {
+        $s .= "  <td align='left' class='ftitlecell1'>" . text($repname) . "</td>\n";
+    } else {
+        $s .= "  <td align='left' class='ftitlecell1'><img class='h-auto' style='max-height:8%;' src='" . attr($logo) . "' /></td>\n";
+        $s .= "  <td align='left' class='ftitlecellm'><h2>" . text($repname) . "</h2></td>\n";
+    }
+    $s .= "  <td align='right' class='ftitlecell2'>\n";
+    $r = getFacility($facid);
+    if (!empty($r)) {
+        $s .= "<b>" . text($GLOBALS['openemr_name'] ?? '') . "</b>\n";
+        if (!empty($r['street'])) {
+            $s .= "<br />" . text($r['street']) . "\n";
+        }
+
+        if (!empty($r['city']) || !empty($r['state']) || !empty($r['postal_code'])) {
+            $s .= "<br />";
+            if ($r['city']) {
+                $s .= text($r['city']);
+            }
+
+            if ($r['state']) {
+                if ($r['city']) {
+                    $s .= ", \n";
+                }
+
+                $s .= text($r['state']);
+            }
+
+            if ($r['postal_code']) {
+                $s .= " " . text($r['postal_code']);
+            }
+
+            $s .= "\n";
+        }
+
+        if (!empty($r['country_code'])) {
+            $s .= "<br />" . text($r['country_code']) . "\n";
+        }
+
+        if (preg_match('/[1-9]/', ($r['phone'] ?? ''))) {
+            $s .= "<br />" . text($r['phone']) . "\n";
+        }
+    }
+
+    $s .= "  </td>\n";
+    $s .= " </tr>\n";
+    $s .= "</table>\n";
+    return $s;
+}
+}
+// END
+
+// @VH: wrap into if condition
+if(!function_exists('getContent')) {
 function getContent()
 {
     global $web_root, $webserver_root;
@@ -114,9 +377,15 @@ function getContent()
         }
     }
 
+    // @VH: Replace HTML Content.
+    $content = replaceHTMLContentForPrint($content);
+
     return $content;
 }
+}
 
+// @VH: wrap into if condition
+if(!function_exists('postToGet')) {
 function postToGet($arin)
 {
     $getstring = "";
@@ -132,7 +401,10 @@ function postToGet($arin)
 
     return $getstring;
 }
+}
 
+// @VH: wrap into if condition
+if(!function_exists('report_basename')) {
 function report_basename($pid)
 {
     $ptd = getPatientData($pid, "fname,lname");
@@ -143,7 +415,10 @@ function report_basename($pid)
 
     return array('base' => $fn, 'fname' => $ptd['fname'], 'lname' => $ptd['lname']);
 }
+}
 
+// @VH: wrap into if condition
+if(!function_exists('zip_content')) {
 function zip_content($source, $destination, $content = '', $create = true)
 {
     if (!extension_loaded('zip')) {
@@ -169,6 +444,39 @@ function zip_content($source, $destination, $content = '', $create = true)
 
     return $zip->close();
 }
+}
+
+// @VH: Changes
+$titleres = getPatientData($pid, "fname,lname,providerID,DATE_FORMAT(DOB,'%m/%d/%Y') as DOB_TS");
+if(!function_exists('replaceHTMLTags')) {
+function replaceHTMLTags($string, $tags) {
+    $tags_to_strip = $tags;
+    foreach ($tags_to_strip as $tag){
+        $string = preg_replace("/<\\/?" . $tag . "(.|\\s)*?>/","",$string);
+    }
+
+    return $string;
+}
+}
+/*End*/
+
+if(!function_exists('canImportPdf')) {
+function canImportPdf($filePath) {
+    try {
+        $mpdf = new mPDF();
+        $mpdf->SetImportUse();
+        $mpdf->SetSourceFile($filePath);
+        $pageCount = $mpdf->SetSourceFile($filePath);
+
+        // Return true if at least one page was imported
+        return $pageCount > 0;
+    } catch (Exception $e) {
+        // Handle exception (e.g., invalid PDF, encryption issues)
+        return false;
+    }
+}
+}
+// END
 
 ?>
 
@@ -178,6 +486,12 @@ function zip_content($source, $destination, $content = '', $create = true)
 <html>
 <head>
     <?php Header::setupHeader(['esign-theme-only', 'search-highlight']); ?>
+
+    <!-- @VH: Changes -->
+    <?php if ($printable) { ?>
+    <title><?php echo xlt("PATIENT") . ':' . text($titleres['lname']) . ', ' . text($titleres['fname']) . ' - ' . $titleres['DOB_TS']; ?></title>
+    <?php } ?>
+    <!-- End -->
     <?php } ?>
 
     <?php // do not show stuff from report.php in forms that is encaspulated
@@ -200,6 +514,13 @@ function zip_content($source, $destination, $content = '', $create = true)
 
       img {
         max-width: 700px;
+      }
+
+      /* @VH:  */
+      @media print {
+        .encounter {
+            page-break-before: always;
+        }
       }
     </style>
 
@@ -228,10 +549,15 @@ function zip_content($source, $destination, $content = '', $create = true)
                  *******************************************************************/
                 $facility = null;
                 if ($_SESSION['pc_facility']) {
-                    $facility = $facilityService->getById($_SESSION['pc_facility']);
+                    // @VH: Changes [V100064]
+                    //$facility = $facilityService->getById($_SESSION['pc_facility']);
                 } else {
-                    $facility = $facilityService->getPrimaryBillingLocation();
+                    // @VH: Changes [V100064]
+                    //$facility = $facilityService->getPrimaryBillingLocation();
                 }
+
+                // @VH: Facility services. [V100064]
+                $facility = $facilityService->getById('4');
 
                 /******************************************************************/
                 // Setup Headers and Footers for mPDF only Download
@@ -254,7 +580,10 @@ function zip_content($source, $destination, $content = '', $create = true)
                     $logo = $GLOBALS['OE_SITE_WEBROOT'] . "/images/" . basename($practice_logo);
                 }
 
-                echo genFacilityTitle(getPatientName($pid), $_SESSION['pc_facility'], $logo); ?>
+                // @VH: Replaced function with custom function to generate pdf header.
+                //echo genFacilityTitle(getPatientName($pid), $_SESSION['pc_facility'], $logo); 
+                echo genFacilityTitleForReport(getPatientName($pid), '3', $logo);
+                ?>
 
             <?php } else { // not printable
                 ?>
@@ -400,7 +729,8 @@ function zip_content($source, $destination, $content = '', $create = true)
                         $result1 = getPatientData($pid);
                         $result2 = getEmployerData($pid);
                         echo "   <div class='table-responsive'><table class='table'>\n";
-                        display_layout_rows('DEM', $result1, $result2);
+                        // @VH: Replaced with customized function
+                        cm_display_layout_rows('DEM', $result1, $result2, array('Who', 'Contact'));
                         echo "   </table></div>\n";
                         echo "</div>\n";
                     } elseif ($val == "history") {
@@ -761,6 +1091,186 @@ function zip_content($source, $destination, $content = '', $create = true)
 
                         echo "</div>\n"; //end the issue DIV
                     } else {
+                        // @VH: Documents for doc field
+                        preg_match('/^(.*)_(\d+)$/', $key, $res1);
+                        if(!empty($res1) && $res1[1] == "doc") {
+
+                            $document_id = $val;
+                            if (!is_numeric($document_id)) {
+                                continue;
+                            }
+
+                            $d = new Document($document_id);
+                            $fname = basename($d->get_name());
+
+                            //  Extract the extension by the mime/type and not the file name extension
+                            // -There is an exception. Need to manually see if it a pdf since
+                            //  the image_type_to_extension() is not working to identify pdf.
+                            $extension = strtolower(substr($fname, strrpos($fname, ".")));
+
+                            if ($extension != '.pdf') { 
+                                $pdf->AddPage();
+                            }
+
+                            echo "<hr />";
+                            
+                            if ($extension != '.pdf') { 
+                                echo "<div class='text documents'>";
+                            }
+
+                            
+                            if ($extension != '.pdf') { // Will print pdf header within pdf import
+                                echo "<h5>" . xlt('Document') . " '" . text($fname) . "-" . text($d->get_id()) . "'</h5>";
+                            }
+
+                            $notes = $d->get_notes();
+                            if (!empty($notes)) {
+                                echo "<div class='table-responsive'><table class='table'>";
+                            }
+
+                            foreach ($notes as $note) {
+                                echo '<tr>';
+                                echo '<td>' . xlt('Note') . ' #' . text($note->get_id()) . '</td>';
+                                echo '</tr>';
+                                echo '<tr>';
+                                echo '<td>' . xlt('Date') . ': ' . text(oeFormatShortDate($note->get_date())) . '</td>';
+                                echo '</tr>';
+                                echo '<tr>';
+                                echo '<td>' . text($note->get_note()) . '<br /><br /></td>';
+                                echo '</tr>';
+                            }
+
+                            if (!empty($notes)) {
+                                echo "</table></div>";
+                            }
+
+                            // adding support for .txt MDM-TXA interface/orders/receive_hl7_results.inc.php
+                            if ($extension != (".pdf" || ".txt")) {
+                                $tempCDoc = new C_Document();
+                                $tempFile = $tempCDoc->retrieve_action($d->get_foreign_id(), $document_id, false, true, true, true);
+                                // tmp file in temporary_files_dir
+                                $tempFileName = tempnam($GLOBALS['temporary_files_dir'], "oer");
+                                file_put_contents($tempFileName, $tempFile);
+                                $image_data = getimagesize($tempFileName);
+                                $extension = image_type_to_extension($image_data[2]);
+                                unlink($tempFileName);
+                            }
+
+                            if ($extension == ".png" || $extension == ".jpg" || $extension == ".jpeg" || $extension == ".gif") {
+                                if ($PDF_OUTPUT) {
+                                    // OK to link to the image file because it will be accessed by the
+                                    // mPDF parser and not the browser.
+                                    $tempDocC = new C_Document();
+                                    $fileTemp = $tempDocC->retrieve_action($d->get_foreign_id(), $document_id, false, true, true, true);
+                                    // tmp file in ../documents/temp since need to be available via webroot
+                                    $from_file_tmp_web_name = tempnam($GLOBALS['OE_SITE_DIR'] . '/documents/temp', "oer");
+                                    file_put_contents($from_file_tmp_web_name, $fileTemp);
+                                    echo "<img src='$from_file_tmp_web_name'";
+                                    // Flag images with excessive width for possible stylesheet action.
+                                    $asize = getimagesize($from_file_tmp_web_name);
+                                    if ($asize[0] > 750) {
+                                        echo " class='bigimage'";
+                                    }
+                                    $tmp_files_remove[] = $from_file_tmp_web_name;
+                                    echo " /><br /><br />";
+                                } else {
+                                    echo "<img src='" . $GLOBALS['webroot'] .
+                                        "/controller.php?document&retrieve&patient_id=&document_id=" .
+                                        attr_url($document_id) . "&as_file=false&original_file=true&disable_exit=false&show_original=true'><br /><br />";
+                                }
+                            } else {
+                                // Most clinic documents are expected to be PDFs, and in that happy case
+                                // we can avoid the lengthy image conversion process.
+                                if ($PDF_OUTPUT && $extension == ".pdf") {
+                                    //echo "</div></div>\n"; // HTML to PDF conversion will fail if there are open tags.
+                                    $content = getContent();
+                                    $pdf->writeHTML($content); // catch up with buffer.
+                                    $err = '';
+                                    try {
+                                        // below header isn't being used. missed maybe!
+                                        $pg_header = "<span>" . xlt('Document') . " " . text($fname) . "-" . text($d->get_id()) . "</span>";
+                                        $tempDocC = new C_Document();
+                                        $pdfTemp = $tempDocC->retrieve_action($d->get_foreign_id(), $document_id, false, true, true, true);
+                                        // tmp file in temporary_files_dir
+                                        $from_file_tmp_name = tempnam($GLOBALS['temporary_files_dir'], "oer");
+                                        file_put_contents($from_file_tmp_name, $pdfTemp);
+
+                                        // Check PDF Version
+                                        if (!canImportPdf($from_file_tmp_name)) {
+                                            $from_file_tmp_name1 = tempnam($GLOBALS['temporary_files_dir'], "oer");
+
+                                            // Excute new file
+                                            shell_exec('gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile="'.$from_file_tmp_name1.'" "'.$from_file_tmp_name.'"');
+
+                                            // Replace the original file with the converted file
+                                            rename($from_file_tmp_name1, $from_file_tmp_name);
+
+                                            // Remove tmp file
+                                            unlink($from_file_tmp_name1);
+                                        }
+
+                                        $pagecount = $pdf->setSourceFile($from_file_tmp_name);
+                                        for ($i = 0; $i < $pagecount; ++$i) {
+                                            $pdf->AddPage();
+                                            $itpl = $pdf->importPage($i + 1);
+                                            $pdf->useTemplate($itpl);
+                                        }
+                                    } catch (Exception $e) {
+                                        // chances are PDF is > v1.4 and compression level not supported.
+                                        // regardless, we're here so lets dispose in different way.
+                                        //
+                                        unlink($from_file_tmp_name);
+                                        $archive_name = ($GLOBALS['temporary_files_dir'] . '/' . report_basename($pid)['base'] . ".zip");
+                                        $rtn = zip_content(basename($d->url), $archive_name, $pdfTemp);
+                                        $err = "<span>" . xlt('PDF Document Parse Error and not included. Check if included in archive.') . " : " . text($fname) . "</span>";
+                                        $pdf->writeHTML($err);
+                                        $staged_docs[] = array('path' => $d->url, 'fname' => $fname);
+                                    } finally {
+                                        unlink($from_file_tmp_name);
+                                        // Make sure whatever follows is on a new page. Maybe!
+                                        // okay if not a series of pdfs so if so need @todo
+
+                                        if (empty($err)) {
+                                            //$pdf->AddPage();
+                                        }
+                                        // Resume output buffering and the above-closed tags.
+                                        ob_start();
+                                        //echo "<div><div class='text documents'>\n";
+                                    }
+                                } elseif ($extension == ".txt") {
+                                    echo "<pre>";
+                                    $tempDocC = new C_Document();
+                                    $textTemp = $tempDocC->retrieve_action($d->get_foreign_id(), $document_id, false, true, true, true);
+                                    echo text($textTemp);
+                                    echo "</pre>";
+                                } else {
+                                    if ($PDF_OUTPUT) {
+                                        // OK to link to the image file because it will be accessed by the mPDF parser and not the browser.
+                                        $tempDocC = new C_Document();
+                                        $fileTemp = $tempDocC->retrieve_action($d->get_foreign_id(), $document_id, false, false, true, true);
+                                        // tmp file in ../documents/temp since need to be available via webroot
+                                        $from_file_tmp_web_name = tempnam($GLOBALS['OE_SITE_DIR'] . '/documents/temp', "oer");
+                                        file_put_contents($from_file_tmp_web_name, $fileTemp);
+                                        echo "<img src='$from_file_tmp_web_name'><br /><br />";
+                                        $tmp_files_remove[] = $from_file_tmp_web_name;
+                                    } else {
+                                        if ($extension === '.pdf' || $extension === '.zip') {
+                                            echo "<strong>" . xlt('Available Document') . ":</strong><em> " . text($fname) . "</em><br />";
+                                        } else {
+                                            echo "<img src='" . $GLOBALS['webroot'] . "/controller.php?document&retrieve&patient_id=&document_id=" . attr_url($document_id) . "&as_file=false&original_file=false'><br /><br />";
+                                        }
+                                    }
+                                }
+                            } // end if-else
+
+                            if ($extension != '.pdf') { 
+                                echo "</div>";
+                            }
+
+                            continue;
+                        }
+                        // @VH: End
+
                         // we have an "encounter form" form field whose name is like
                         // dirname_formid, with a value which is the encounter ID.
                         //
@@ -777,7 +1287,8 @@ function zip_content($source, $destination, $content = '', $create = true)
 
                             if ($res[1] == 'newpatient') {
                                 echo "<div class='text encounter'>\n";
-                                echo "<h4>" . xlt($formres["form_name"]) . "</h4>";
+                                // @VH: Change
+                                //echo "<h4>" . xlt($formres["form_name"]) . "</h4>";
                             } else {
                                 echo "<div class='text encounter_form'>";
                                 echo "<h4>" . text(xl_form_title($formres["form_name"])) . "</h4>";
@@ -799,15 +1310,25 @@ function zip_content($source, $destination, $content = '', $create = true)
                                 <?php
                                 if (!empty($res[1])) {
                                     $esign = $esignApi->createFormESign($formId, $res[1], $form_encounter);
+
+                                    // @VH: Added Do not print field [V100010]
+                                    $doNotPrintField = true;
+
                                     if ($esign->isSigned('report') && !empty($GLOBALS['esign_report_show_only_signed'])) {
                                         if (substr($res[1], 0, 3) == 'LBF') {
                                             call_user_func("lbf_report", $pid, $form_encounter, $N, $form_id, $res[1]);
                                         } else {
+                                            // @VH: Wrap into if condition
+                                            if ($res[1] == 'newpatient') {
+                                            call_user_func($res[1] . "_report", $pid, $form_encounter, $N, $form_id, TRUE);
+                                            } else {
                                             call_user_func($res[1] . "_report", $pid, $form_encounter, $N, $form_id);
+                                            }
                                         }
                                     } elseif (empty($GLOBALS['esign_report_show_only_signed'])) {
                                         if (substr($res[1], 0, 3) == 'LBF') {
-                                            call_user_func('lbf_report', $pid, $form_encounter, $N, $form_id, $res[1]);
+                                            // @VH: No world wrap
+                                            call_user_func('lbf_report', $pid, $form_encounter, $N, $form_id, $res[1], true);
                                         } else {
                                             call_user_func($res[1] . '_report', $pid, $form_encounter, $N, $form_id);
                                         }
@@ -849,7 +1370,8 @@ function zip_content($source, $destination, $content = '', $create = true)
             } // end $ar loop
 
             if ($printable && !$PDF_OUTPUT) {// Patched out of pdf 04/20/2017 sjpadgett
-                echo "<br /><br />" . xlt('Signature') . ": _______________________________<br />";
+                // @VH: Commented
+                //echo "<br /><br />" . xlt('Signature') . ": _______________________________<br />";
             }
             ?>
 
@@ -873,6 +1395,9 @@ function zip_content($source, $destination, $content = '', $create = true)
         }
 
         try {
+            // @VH: Replaced html tags from content
+            $fContent = replaceHTMLTags($content, Array("html","head","body"));
+
             $pdf->writeHTML($content); // convert html
         } catch (MpdfException $exception) {
             die(text($exception));

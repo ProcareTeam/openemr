@@ -253,7 +253,8 @@ function popup_close() {
 
                 row_delete("patient_data", "pid = '" . add_escape_custom($patient) . "'");
             } elseif ($encounterid) {
-                if (!AclMain::aclCheckCore('admin', 'super')) {
+                // @VH: Added delete rule [V100052]
+                if (!AclMain::aclCheckCore('admin', 'super') && !AclMain::aclCheckCore("encounters", "delete")) {
                     die("Not authorized!");
                 }
 
@@ -262,12 +263,26 @@ function popup_close() {
                 row_modify("ar_activity", "deleted = NOW()", "encounter = '" . add_escape_custom($encounterid) . "' AND deleted IS NULL");
                 row_delete("claims", "encounter_id = '" . add_escape_custom($encounterid) . "'");
                 row_delete("issue_encounter", "encounter = '" . add_escape_custom($encounterid) . "'");
+                // @VH: Change [V100052]
+                $patientId = 0;
                 $res = sqlStatement("SELECT * FROM forms WHERE encounter = ?", array($encounterid));
                 while ($row = sqlFetchArray($res)) {
                     form_delete($row['formdir'], $row['form_id'], $row['pid'], $row['encounter']);
+
+                    // @VH: Set patient id [V100052]
+                    $patientId = $row['pid'];
                 }
 
                 row_delete("forms", "encounter = '" . add_escape_custom($encounterid) . "'");
+
+                // @VH: Delete appt link relationship [V100052]
+                row_delete("case_appointment_link", "encounter = '" . add_escape_custom($encounterid) . "'");
+
+                if (!empty($patientId)) {
+                    // Update encounter id to null if already in appt it used.
+                    row_modify("patient_tracker", "encounter = 0", "pid = '" . add_escape_custom($patientId) . "' AND encounter = '" . add_escape_custom($encounterid) . "'");
+                }
+                // END
             } elseif ($formid) {
                 if (!AclMain::aclCheckCore('admin', 'super')) {
                     die("Not authorized!");

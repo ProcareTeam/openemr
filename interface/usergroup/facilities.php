@@ -37,8 +37,10 @@ $facilityService = new FacilityService();
 
 $alertmsg = '';
 
+// @VH: added name1 to save facility1 values to table
 $columns = [
     "name" => "facility",
+    "name1" => "facility1",
     "phone" => true,
     "fax" => true,
     "street" => true,

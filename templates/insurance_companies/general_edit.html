@@ -84,19 +84,25 @@
         </div>
     </div>
     <div class="form-row my-sm-2">
-        <label for="cms_id" class="col-form-label col-sm-2">{xlt t='Payer ID'}</label>
+        <!-- @VH: lable change of field from "Payer ID" to "CMS ID" [2023011604] -->
+        <label for="cms_id" class="col-form-label col-sm-2">{xlt t='CMS ID'}</label>
         <div class="col-sm-8">
             <input type="text" id="cms_id" name="cms_id" class="form-control" value="{$insurancecompany->get_cms_id()|attr}" onKeyDown="PreventIt(event)">
         </div>
     </div>
+
     {if $SUPPORT_ENCOUNTER_CLAIMS}
+    {/if}
+        
+        <!-- @VH: Show section without if condition [2023011604] -->
         <div class="form-row my-sm-2">
-            <label for="alt_cms_id" class="col-form-label col-sm-2">{xlt t='Payer ID For Encounter Claims'}</label>
+            <!-- @VH: lable change of field from "Payer ID For Encounter Claims" to "Eligibility ID" [2023011604] -->
+            <label for="alt_cms_id" class="col-form-label col-sm-2">{xlt t='Eligibility ID'}</label>
             <div class="col-sm-8">
                 <input type="text" id="alt_cms_id" name="alt_cms_id" class="form-control" value="{$insurancecompany->get_alt_cms_id()|attr}" onKeyDown="PreventIt(event)">
             </div>
         </div>
-    {/if}
+    
     {if $SUPPORT_ELIGIBILITY_REQUESTS}
     <div class="form-row my-sm-2">
         <label for="eligibility_id" class="col-form-label col-sm-2">{xlt t='Payer Id For Eligibility'}</label>
@@ -139,6 +145,22 @@
         </div>
     </div>
     {/if}
+
+    <!-- @VH: added new form field "Parent Company" [2024081401] -->
+    <div class="form-row my-sm-2">
+        <label for="cqm_sop" class="col-form-label col-sm-2">{xlt t='Parent Company'}</label>
+        <div class="col-sm-6">
+            <select id="parent_company" name="parent_company" class="form-control">
+                {html_options options=$insurancecompany_list selected=$insurancecompany->get_parent_company()}
+            </select>
+        </div>
+        <div class="col-sm-2">
+            <a href="../../practice/ins_search.php?ins=" class="medium_modal btn btn-primary"
+               >{xlt t="Search/Add/Edit"}</a>
+        </div>
+    </div>
+    <!-- END -->
+
     <div class="btn-group offset-sm-2">
         <a href="javascript:submit_insurancecompany();" class="btn btn-secondary btn-save" onclick="top.restoreSession()">
             {xlt t='Save'}
@@ -170,4 +192,27 @@
             endTime = new Date();
         } while ((endTime - startTime) < delay);
     }
+
+    // @VH: The ins_search.php window calls this to set the selected insurance. [2024081401] 
+    function set_insurance(ins_id, ins_name) {
+        thesel = $('#parent_company');
+        if ($(thesel).find("option[value='" + ins_id  + "']").length) {
+            thesel.val(ins_id).trigger('change');
+        } else {
+            // no matching option was found so create one, append it to the
+            // end of the list, and select it.
+            let newOption = new Option(ins_name, ins_id, true, true);
+            thesel.append(newOption).trigger('change');
+        }
+    }
+</script>
+
+<script type="text/javascript">
+    // @VH: For Insurance search for parent insurance field [2024081401]
+    $(document).on('click', ".medium_modal", function(e) {literal}{{/literal}
+        e.preventDefault();e.stopPropagation();
+        let title = {xlj t='Insurance Search/Add/Select'};
+        var url = 'interface/practice/ins_search.php?dlg=true';
+        dlgopen(url, 'insSearch', 700, 1000, '', title);
+    {literal}}{/literal});
 </script>

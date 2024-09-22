@@ -78,7 +78,8 @@ function trimAll(sString)
     return sString;
 }
 
-function submitform() {
+// @VH: made it async
+async function submitform() {
 
     var valid = submitme(1, undefined, 'new_user', collectvalidation);
     if (!valid) return;
@@ -167,6 +168,33 @@ function submitform() {
       return false;
    }
     <?php } // End erx_enable only include block?>
+
+    // @VH: Check npi id used by another user or not
+    let alertMsg1 = '';
+
+    ff=document.forms[0];
+
+    if(ff.npi && ff.npi.value != "") {
+        let checknpi =  await $.ajax({
+            url: 'user_validate_ajax.php?action=validate_npi',
+            type: 'post',
+            data: $("#new_user").serialize()
+        });
+
+        checknpi = JSON.parse(checknpi);
+        if (checknpi.hasOwnProperty('status') && checknpi['status'] === true) {
+            alertMsg1 += checknpi['msg'];
+        }
+
+    }
+
+    if(alertMsg1)
+    {
+      alert(alertMsg1);
+      return false;
+    }
+
+    // End
 
     let post_url = $("#new_user").attr("action");
     let request_method = $("#new_user").attr("method");
@@ -346,6 +374,13 @@ foreach (array(1 => xl('None{{Authorization}}'), 2 => xl('Only Mine'), 3 => xl('
     <td>
         <?php echo generate_select_list("physician_type", "physician_type", '', '', xl('Select Type'), 'physician_type_class', '', '', ''); ?>
     </td>
+
+    <!-- @VH: added 'Auto Confirm Appointment' input field -->
+    <td colspan="2">
+        <span class='text'><?php echo xlt('Auto Confirm Appointment'); ?>:
+        <input type="checkbox" name="auto_confirm_appt"<?php echo ($iter["auto_confirm_appt"]) ? " checked" : ""; ?>/>
+    </td>
+    <!-- End -->
 </tr>
 <tr>
   <td>

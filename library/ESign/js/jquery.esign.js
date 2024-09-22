@@ -46,6 +46,9 @@
 				});
 				var editButtonId = "form-edit-button-"+response.formDir+"-"+response.formId;
 				$("#"+editButtonId).replaceWith( response.editButtonHtml );
+			},
+			beforeFormSubmit : function() {
+				// @VH: Added "beforeFormSubmit" Changes
 			}
 		}, customEvents );
 
@@ -121,9 +124,17 @@
 			// Override the anchor
 			element.attr( 'href', '#esign-mask-content' );
 
-			element.click( function( e ) {
+			// @VH: Added "async" to function.
+			element.click(async function( e ) {
 
 				e.preventDefault();
+
+				// @VH: Before Form Submit Changes
+				var eventStatus = await events.beforeFormSubmit();
+				if(eventStatus === false) {
+					return false;
+				}
+				// END
 
 				//Get the screen height and width
 				var maskHeight = $(document).height();

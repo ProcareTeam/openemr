@@ -72,6 +72,10 @@ class InsuranceCompany extends ORDataObject
      */
     var $cqm_sop_array;
 
+    // @VH: Added fax and parent company [2023012301][2024081401]
+    var $fax;
+    var $parent_company;
+
     /**
      * Constructor sets all Insurance Company attributes to their default value
      */
@@ -96,6 +100,10 @@ class InsuranceCompany extends ORDataObject
         if ($id != "") {
             $this->populate();
         }
+
+        // @VH: Set fax value [2023012301]
+        // TODO: @VH move into module
+        $this->fax = $fax;
 
         $this->X12Partner = new X12Partner();
         $this->cqm_sop_array = $this->InsuranceCompany->getInsuranceCqmSopCached();
@@ -377,5 +385,51 @@ class InsuranceCompany extends ORDataObject
         } else {
             return $string;
         }
+    }
+
+    // @VH: Set parent company value [2024081401]
+    // TODO: @VH move into module
+    public function set_parent_company($id)
+    {
+        $this->parent_company = $id;
+    }
+
+    // @VH: Get parent company value [2024081401]
+    // TODO: @VH move into module
+    public function get_parent_company()
+    {
+        return $this->parent_company;
+    }
+
+    // @VH: Get parent company display value [2024081401]
+    // TODO: @VH move into module
+    public function get_parent_company_display()
+    {
+        if (isset($this->parent_company) && !empty($this->parent_company)) {
+            $parent_company = new InsuranceCompany($this->parent_company);
+            return $parent_company->get_name();
+        }
+
+        return;
+    }
+
+    // @VH: Get fax number value [2023012301]
+    // TODO: @VH move into module
+    public function get_fax_number()
+    {
+        foreach ($this->phone_numbers as $fax) {
+            if ($fax->type == TYPE_FAX) {
+                return $fax->get_phone_display();
+            }
+        }
+
+        return "";
+    }
+
+    // @VH: Set fax number value [2023012301]
+    // TODO: @VH move into module
+    public function set_fax_number($fax)
+    {
+        $this->set_number($fax, TYPE_FAX);
     }
 }

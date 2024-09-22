@@ -13,6 +13,7 @@
                     {% if a.pc_recurrtype %}&nbsp;<i class="fa fa-retweet"></i>{% endif %}
                     {% if a.pc_catid not in therapyGroupCategories %}
                 </a>
+                &nbsp;&nbsp;<a href="#" onclick="return oldEvt1({{ a.jsEvent }})"><i class="fa fa-calendar" aria-hidden="true"></i></a>
                 {% endif %}
             </h6>
             <small class="text-right">

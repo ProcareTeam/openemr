@@ -15,6 +15,9 @@ require_once("$include_root/globals.php");
 require_once("$srcdir/pnotes.inc.php");
 require_once("$srcdir/patient.inc.php");
 
+// @VH: Include
+require_once("$srcdir/formdata.inc.php");
+
 use OpenEMR\Common\Acl\AclMain;
 
 function lab_results_messages($set_pid, $rid, $provider_id = "")

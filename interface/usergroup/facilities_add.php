@@ -18,6 +18,7 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Common\Twig\TwigContainer;
 use OpenEMR\Core\Header;
 use OpenEMR\Services\FacilityService;
+use OpenEMR\Events\Generic\Facility\FacilityEditRenderEvent;
 
 // Ensure authorized
 if (!AclMain::aclCheckCore('admin', 'users')) {
@@ -38,6 +39,7 @@ $pc = new POSRef();
 $resPBE = $facilityService->getPrimaryBusinessEntity(array("excludedId" => ($my_fid ?? null)));
 $disabled = (!empty($resPBE) && sizeof($resPBE) > 0) ? 'disabled' : '';
 
+// @VH: Added eventNames and FacilityEditRenderEvent for render field using events
 $args = [
     'collectThis' => (empty($rules)) ? "undefined" : json_sanitize($rules["facility-add"]["rules"]),
     'forceClose' => (isset($_POST["mode"]) && $_POST["mode"] == "facility") ? true : false,
@@ -46,6 +48,12 @@ $args = [
     'disablePBE' => $disabled,
     'pos_code' => $pc->get_pos_ref(),
     'mode' => 'add',
+    'eventNames' => array(
+        'facilityBasicEditRenderBefore' => array(
+            'name' => FacilityEditRenderEvent::EVENT_FACILITY_BASIC_EDIT_RENDER_BEFORE,
+            'data' => ['facility' => new FacilityEditRenderEvent('facility_admin.php', $_GET['fid'] ?? '')]
+        )
+    )
 ];
 
 $twig = new TwigContainer(null, $GLOBALS["kernel"]);

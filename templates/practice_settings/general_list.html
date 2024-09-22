@@ -29,7 +29,8 @@
             </div>
         </div>
     </nav>
-      <nav class="nav-sidebar bg-light mt-3 mt-md-5 pt-5 pt-md-3">
+      <!-- @VH: added class to nav element -->
+      <nav class="nav-sidebar bg-light mt-3 mt-md-5 pt-5 pt-md-3  nav-pills navpractice">
           <div class="sidebar-content">
               <ul class="nav flex-column">
                   <li class="nav-item"><a class="nav-link text-body" href="{$TOP_ACTION}pharmacy&action=list">{xlt t='Pharmacies'}</a></li>
@@ -59,6 +60,12 @@
         $('#pharmacies').dataTable({
 
         });
+    });
+
+    // @VH: Change
+    $(".navpractice .nav-link").on("click", function(){
+       $(".nav-link").find(".active").removeClass("active");
+       $(this).addClass("active");
     });
 </script>
 </html>

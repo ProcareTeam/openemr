@@ -23,8 +23,22 @@ function moveOptions_11(theSelFrom, theSelTo) {
         });
     } else {
         val = str;
+        // @VH: Removed text before ~
+        val = jsText1(val.replace(/^(.*?~[\W]*)(.*)$/gm, '$2'));
+
         CKEDITOR.instances.textarea1.insertText(val);
     }
+}
+
+// @VH: HtmlDecode
+function jsText1(string) {
+    const htmlEscapesText = {
+        '&amp;': '&'
+    };
+
+    return ('' + string).replace(/(&amp;)/gm, function (match) {
+        return htmlEscapesText[match];
+    });
 }
 
 function movePD(val, theSelTo) {

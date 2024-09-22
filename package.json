@@ -109,7 +109,9 @@
     "sortablejs": "1.15.0",
     "tiff": "git+https://github.com/seikichi/tiff.js.git",
     "underscore": "1.13.6",
-    "validate.js": "0.13.1"
+    "validate.js": "0.13.1",
+    "bootstrap-multiselect": "^1.1.0",
+    "tinymce": "^4.5.0"
   },
   "napa": {
     "bootstrap-rtl": "https://github.com/PerseusTheGreat/bootstrap-4-rtl/archive/643a8f9e221ed86729b51913d1a7d5614e615682.zip",

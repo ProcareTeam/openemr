@@ -117,6 +117,14 @@ function submitme(new_validate,e,form_id, constraints) {
                 }
             }
 
+            // @VH: Clean pattern regexp value 
+            Object.keys(constraints).forEach(function(v, i) {
+                if(Object.prototype.hasOwnProperty.call(constraints, v) && Object.prototype.hasOwnProperty.call(constraints[v], 'format') &&  Object.prototype.hasOwnProperty.call(constraints[v]['format'], 'pattern')) {
+                    constraints[v]['format']['pattern'] =  new RegExp(constraints[v]['format']['pattern']);
+                }
+            });
+            // END
+
             //error conatins an list of the elements and their errors
             //set false full message because the name of the input not can be translated
             var errors = validate(elements, constraints, {fullMessages: false});

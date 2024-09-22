@@ -44,6 +44,21 @@
     ]
   },
   {
+    "label": "Message Board",
+    "menu_id": "pmb0",
+    "target": "mgb",
+    "url": "/interface/patient_tracker/message_tracker_new.php",
+    "children": [],
+    "requirement": 0,
+    "acl_req": [
+      "patients",
+      "appt"
+    ],
+    "global_req_strict": [
+      "!disable_msg_board"
+    ]
+  },
+  {
         "label": "Recalls",
         "menu_id": "pfb0",
         "target": "rcb",
@@ -111,6 +126,18 @@
         "menu_id": "dem1",
         "target": "pat",
         "url": "/interface/patient_file/summary/demographics.php",
+        "children": [],
+        "requirement": 1,
+        "acl_req": [
+          "patients",
+          "demo"
+        ]
+      },
+      {
+        "label": "Cases",
+        "menu_id": "cas1",
+        "target": "case",
+        "url": "/interface/forms/cases/case_list.php",
         "children": [],
         "requirement": 1,
         "acl_req": [
@@ -669,7 +696,64 @@
         ]
       }
     ],
-    "requirement": 0
+    "requirement": 0,
+    "global_req_strict": "!wmt_lab_enable"
+  },
+  {
+    "label": "Laboratory",
+    "menu_id": "proimg",
+    "children": [
+      {
+        "label": "Processors",
+        "menu_id": "orl0",
+        "target": "pat",
+        "url": "/interface/laboratory/laboratory_list.php",
+        "children": [],
+        "requirement": 0,
+        "acl_req": [
+          "admin",
+          "super"
+        ]
+      },
+      {
+        "label": "Compendium",
+        "menu_id": "ort0",
+        "target": "pat",
+        "url": "/interface/laboratory/types.php",
+        "children": [],
+        "requirement": 0,
+        "acl_req": [
+          "admin",
+          "super"
+        ]
+      },
+      {
+        "label": "Load Compendium",
+        "menu_id": "orc0",
+        "target": "pat",
+        "url": "/interface/laboratory/load_compendium.php",
+        "children": [],
+        "requirement": 0,
+        "acl_req": [
+          "admin",
+          "super"
+        ]
+      },
+      {
+        "label": "Batch Process",
+        "menu_id": "orb0",
+        "target": "pat",
+        "url": "/interface/laboratory/batch_process.php",
+        "children": [],
+        "requirement": 0,
+        "acl_req": [
+          "admin",
+          "super"
+        ]
+      }
+    ],
+    "requirement": 0,
+    "global_req_strict": "wmt_lab_enable"
   },
   {
     "label": "New Crop",
@@ -1166,8 +1250,8 @@
         "children": [],
         "requirement": 0,
         "acl_req": [
-          "admin",
-          "practice"
+          ["admin", "practice"],
+          ["admin", "addresses"]
         ]
       },
       {
@@ -1239,6 +1323,30 @@
             "global_req": [
               "erx_enable"
             ]
+          },
+          {
+            "label": "Un-Esign",
+            "menu_id": "adm0",
+            "target": "adm",
+            "url": "/interface/reports/myreports/form_unesign.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "admin",
+              "super"
+            ]
+          },
+          {
+            "label": "Attorney in Case",
+            "menu_id": "adm01",
+            "target": "adm",
+            "url": "/interface/reports/myreports/replace_remove_attorney.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "admin",
+              "super"
+            ]
           }
         ],
         "requirement": 0,
@@ -1277,6 +1385,10 @@
       [
         "admin",
         "superbill"
+      ],
+      [
+        "admin",
+        "addresses"
       ]
     ]
   },
@@ -1354,6 +1466,90 @@
             "menu_id": "rep0",
             "target": "rep",
             "url": "/interface/reports/referrals_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "Orders/RTO",
+            "menu_id": "rep0",
+            "target": "rep",
+            "url": "/interface/reports/myreports/rto_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "Imaging Orders",
+            "menu_id": "repimg0",
+            "target": "rep",
+            "url": "/interface/reports/myreports/imaging_order_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "Case Manager",
+            "menu_id": "repimg23",
+            "target": "rep",
+            "url": "/interface/reports/myreports/case_manager_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "PI Billing/Records",
+            "menu_id": "repimg24",
+            "target": "rep",
+            "url": "/interface/reports/myreports/case_pi_billing_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "Pre-Visit Planning",
+            "menu_id": "repimg25",
+            "target": "rep",
+            "url": "/interface/reports/myreports/pre_visit_planning_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "CM Action Items Report",
+            "menu_id": "repimg27",
+            "target": "rep",
+            "url": "/interface/reports/myreports/cm_action_items_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "med"
+            ]
+          },
+          {
+            "label": "15k Threshold Report",
+            "menu_id": "repimg26",
+            "target": "rep",
+            "url": "/interface/reports/myreports/15k_threshold.php",
             "children": [],
             "requirement": 0,
             "acl_req": [
@@ -1458,6 +1654,16 @@
               "patients",
               "med"
             ]
+          },
+          {
+            "label": "Missing Documents",
+            "menu_id": "rep0",
+            "target": "rep",
+            "url": "/interface/reports/myreports/missing_documents.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+            ]
           }
         ],
         "requirement": 0,
@@ -1496,6 +1702,19 @@
             "global_req": "!disable_calendar"
           },
           {
+            "label": "Appointments Report (Referring Provider)",
+            "menu_id": "rep0",
+            "target": "rep",
+            "url": "/interface/reports/custom_appointments_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "appt"
+            ],
+            "global_req": "!disable_calendar"
+          },
+          {
             "label": "Patient Flow Board",
             "menu_id": "rep0",
             "target": "rep",
@@ -1516,6 +1735,18 @@
             "menu_id": "rep0",
             "target": "rep",
             "url": "/interface/reports/encounters_report.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "encounters",
+              "coding_a"
+            ]
+          },
+          {
+            "label": "Enc No Fees",
+            "menu_id": "rep0",
+            "target": "rep",
+            "url": "/interface/reports/myreports/enc_no_fee.php",
             "children": [],
             "requirement": 0,
             "acl_req": [
@@ -1618,6 +1849,18 @@
               "patients",
               "med"
             ]
+          },
+          {
+            "label": "Chiro COS",
+            "menu_id": "adm0",
+            "target": "adm",
+            "url": "/interface/reports/jasper_report_checkoutsheet.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+                    "patients",
+                    "cos"
+            ]
           }
         ],
         "requirement": 0
@@ -1711,6 +1954,16 @@
             ]
           },
           {
+            "label": "Fees schedule",
+            "menu_id": "rep0",
+            "target": "rep",
+            "url": "/interface/reports/idempiere_fees_schedule.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+            ]
+          },
+          {
             "label": "Payment Processing",
             "menu_id": "rep0",
             "target": "rep",
@@ -1797,7 +2050,71 @@
             ]
           }
         ],
-        "requirement": 0
+        "requirement": 0,
+        "global_req": "!wmt_lab_enable"
+      },
+      {
+        "label": "Laboratory",
+        "icon": "fa-caret-right",
+        "children": [
+          {
+            "label": "Pending Orders",
+            "url": "/interface/reports/laboratory/lab_pending.php",
+            "target": "rep",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "lab"
+            ]
+          },
+          {
+            "label": "Orders Report",
+            "url": "/interface/reports/laboratory/lab_orders.php",
+            "target": "rep",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "lab"
+            ]
+          },
+          {
+            "label": "Results Report",
+            "url": "/interface/reports/laboratory/lab_results.php",
+            "target": "rep",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "lab"
+            ]
+          },
+          {
+            "label": "Orphan Report",
+            "url": "/interface/reports/laboratory/lab_orphans.php",
+            "target": "rep",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+              "patients",
+              "lab"
+            ]
+          },
+          {
+            "label": "Results Analysis",
+            "url": "/interface/reports/laboratory/lab_analysis.php",
+            "target": "rep",
+            "children": [],
+            "requirement": 1,
+            "acl_req": [
+              "patients",
+              "lab"
+            ]
+          }
+        ],
+        "requirement": 0,
+        "global_req": "wmt_lab_enable"
       },
       {
         "label": "Insurance",
@@ -1992,6 +2309,13 @@
     "menu_id": "misimg",
     "children": [
       {
+        "label": "PBX Data",
+        "menu_id": "pbxdata",
+        "url": "/interface/asterisk/viewCalls.php",
+        "children": [],
+        "requirement": 0
+      },
+      {
         "label": "Portal Dashboard",
         "menu_id": "por2",
         "target": "por",
@@ -2102,6 +2426,37 @@
         ]
       },
       {
+        "label": "ActionEvents",
+        "menu_id": "adm0",
+        "target": "msc",
+        "url": "/interface/batchcom/extsettings.php",
+        "children": [],
+        "requirement": 0,
+        "acl_req": [
+          [
+            "admin",
+            "actionevents"
+          ],
+          [
+            "admin",
+            "practice"
+          ]
+        ]
+      },
+      {
+        "label": "Communication Blast",
+        "menu_id": "custom_notifications_reminders",
+        "target": "msc",
+        "url": "/interface/reports/custom_notifications.php",
+        "children": [],
+        "requirement": 0,
+        "acl_req": [
+          "patients",
+          "appt"
+        ],
+        "global_req": "!disable_calendar"
+      },
+      {
         "label": "Configure Tracks",
         "menu_id": "con0",
         "target": "msc",
@@ -2109,6 +2464,14 @@
         "children": [],
         "requirement": 0,
         "global_req": "track_anything_state"
+      },
+      {
+        "label": "Message Templates",
+        "menu_id": "adm0",
+        "target": "msc",
+        "url": "/interface/super/edit_template.php",
+        "children": [],
+        "requirement": 0
       },
       {
         "label": "New Documents",

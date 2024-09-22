@@ -221,6 +221,10 @@ class Document extends ORDataObject
      */
     public $deleted;
 
+    // @VH: For tagging with the case
+    // TODO: @VH Move code to module
+    public $case_id;
+
     /**
      * Constructor sets all Document attributes to their default value
      * @param int $id optional existing id of a specific document, if omitted a "blank" document is created
@@ -251,6 +255,10 @@ class Document extends ORDataObject
         $this->encounter_check = "";
         $this->encrypted = 0;
         $this->deleted = 0;
+
+        // @VH: For tagging with the case
+        // TODO: @VH Move code to module
+        $this->case_id = 0;
 
         if ($id != "") {
             $this->populate();
@@ -1251,6 +1259,265 @@ class Document extends ORDataObject
     function get_notes()
     {
         return (Note::notes_factory($this->get_id()));
+    }
+
+    // @VH: Set case_id For tagging case with document
+    // TODO: @VH Move code to module
+    function set_case_id($case_id)
+    {
+        $this->case_id = $case_id;
+    }
+
+    // @VH: Get case_id For tagging case with document
+    // TODO: @VH Move code to module
+    function get_case_id()
+    {
+        return $this->case_id;
+    }
+
+    /**
+     * @VH: Copy code from "createDocument"
+     * Update the existing document file. This functionality is used to apply changes when a user has edited the file using an image editor.
+     * TODO: @VH Move code to module
+     */
+    function updateDocument(
+        $filename,
+        $mimetype,
+        &$data,
+        $higher_level_path = '',
+        $path_depth = 1,
+        $owner = 0,
+        $tmpfile = null,
+        $date_expires = null,
+        $foreign_reference_id = null,
+        $foreign_reference_table = null
+    ) {
+
+        // @VH: Added to original code
+        if(empty($this->id)) {
+            return xl('Document not exists');
+        }
+
+        if(empty($this->foreign_id)) {
+            return xl('Foreign id not found');
+        }
+
+        $patient_id = $this->foreign_id;
+        $currentUrl = $this->url;
+        $currentSize = $this->size;
+        $currentHash = $this->hash;
+        // END
+
+        if (
+            !empty($foreign_reference_id) && empty($foreign_reference_table)
+            || empty($foreign_reference_id) && !empty($foreign_reference_table)
+        ) {
+            return xl('Reference table and reference id must both be set');
+        }
+        $this->set_foreign_reference_id($foreign_reference_id);
+        $this->set_foreign_reference_table($foreign_reference_table);
+        // The original code used the encounter ID but never set it to anything.
+        // That was probably a mistake, but we reference it here for documentation
+        // and leave it empty. Logically, documents are not tied to encounters.
+
+        // Create a crypto object that will be used for for encryption/decryption
+        $cryptoGen = new CryptoGen();
+
+        if ($GLOBALS['generate_doc_thumb']) {
+            $thumb_size = ($GLOBALS['thumb_doc_max_size'] > 0) ? $GLOBALS['thumb_doc_max_size'] : null;
+            $thumbnail_class = new Thumbnail($thumb_size);
+
+            if (!is_null($tmpfile)) {
+                $has_thumbnail = $thumbnail_class->file_support_thumbnail($tmpfile);
+            } else {
+                $has_thumbnail = false;
+            }
+
+            if ($has_thumbnail) {
+                $thumbnail_resource = $thumbnail_class->create_thumbnail(null, $data);
+                if ($thumbnail_resource) {
+                    $thumbnail_data = $thumbnail_class->get_string_file($thumbnail_resource);
+                } else {
+                    $has_thumbnail = false;
+                }
+            }
+        } else {
+            $has_thumbnail = false;
+        }
+
+        $encounter_id = '';
+        $this->storagemethod = $GLOBALS['document_storage_method'];
+        $this->mimetype = $mimetype;
+        if ($this->storagemethod == self::STORAGE_METHOD_COUCHDB) {
+            // Store it using CouchDB.
+            if ($GLOBALS['couchdb_encryption']) {
+                $document = $cryptoGen->encryptStandard($data, null, 'database');
+            } else {
+                $document = base64_encode($data);
+            }
+            if ($has_thumbnail) {
+                if ($GLOBALS['couchdb_encryption']) {
+                    $th_document = $cryptoGen->encryptStandard($thumbnail_data, null, 'database');
+                } else {
+                    $th_document = base64_encode($thumbnail_data);
+                }
+                $this->thumb_url = $this->get_thumb_name($filename);
+            } else {
+                $th_document = false;
+            }
+
+            $couch = new CouchDB();
+            $docid = $couch->createDocId('documents');
+            if (!empty($th_document)) {
+                $couchdata = ['_id' => $docid, 'data' => $document, 'th_data' => $th_document];
+            } else {
+                $couchdata = ['_id' => $docid, 'data' => $document];
+            }
+            $resp = $couch->save_doc($couchdata);
+            if (!$resp->id || !$resp->rev) {
+                return xl('CouchDB save failed');
+            } else {
+                $docid = $resp->id;
+                $revid = $resp->rev;
+            }
+
+            $this->url = $filename;
+            $this->couch_docid = $docid;
+            $this->couch_revid = $revid;
+        } else {
+            // Store it remotely.
+            $offSiteUpload = new PatientDocumentStoreOffsite($data);
+            $offSiteUpload->setPatientId($patient_id) ?? '';
+            $offSiteUpload->setRemoteFileName($filename) ?? '';
+            $offSiteUpload->setRemoteMimeType($mimetype) ?? '';
+            $offSiteUpload->setRemoteCategory($category_id) ?? '';
+            /**
+             * There must be a return to terminate processing.
+             */
+             $this->eventDispatcher->dispatch($offSiteUpload, PatientDocumentStoreOffsite::REMOTE_STORAGE_LOCATION);
+
+            /**
+             * If the response from the listener is true then the file was uploaded to another location.
+             * Else resume the local file storage
+             */
+
+            if ($GLOBALS['documentStoredRemotely'] ?? '') {
+                return xlt("Document was uploaded to remote storage"); // terminate processing
+            }
+
+            // Storing document files locally.
+            $repository = $GLOBALS['oer_config']['documents']['repository'];
+            $higher_level_path = preg_replace("/[^A-Za-z0-9\/]/", "_", $higher_level_path);
+            if ((!empty($higher_level_path)) && (is_numeric($patient_id) && $patient_id > 0)) {
+                // Allow higher level directory structure in documents directory and a patient is mapped.
+                $filepath = $repository . $higher_level_path . "/";
+            } elseif (!empty($higher_level_path)) {
+                // Allow higher level directory structure in documents directory and there is no patient mapping
+                // (will create up to 10000 random directories and increment the path_depth by 1).
+                $filepath = $repository . $higher_level_path . '/' . rand(1, 10000)  . '/';
+                ++$path_depth;
+            } elseif (!(is_numeric($patient_id)) || !($patient_id > 0)) {
+                // This is the default action except there is no patient mapping (when patient_id is 00 or direct)
+                // (will create up to 10000 random directories and set the path_depth to 2).
+                $filepath = $repository . $patient_id . '/' . rand(1, 10000)  . '/';
+                $path_depth = 2;
+                $patient_id = 0;
+            } else {
+                // This is the default action where the patient is used as one level directory structure
+                // in documents directory.
+                $filepath = $repository . $patient_id . '/';
+                $path_depth = 1;
+            }
+
+            if (!file_exists($filepath)) {
+                if (!mkdir($filepath, 0700, true)) {
+                    return xl('Unable to create patient document subdirectory');
+                }
+            }
+
+            // collect the drive storage filename
+            $this->drive_uuid = (new UuidRegistry(['document_drive' => true]))->createUuid();
+            $filenameUuid = UuidRegistry::uuidToString($this->drive_uuid);
+
+            $this->url = "file://" . $filepath . $filenameUuid;
+            if (is_numeric($path_depth)) {
+                // this is for when directory structure is more than one level
+                $this->path_depth = $path_depth;
+            }
+
+            // Store the file.
+            if ($GLOBALS['drive_encryption']) {
+                $storedData = $cryptoGen->encryptStandard($data, null, 'database');
+            } else {
+                $storedData = $data;
+            }
+            if (file_exists($filepath . $filenameUuid)) {
+                // this should never happen with current uuid mechanism
+                return xl('Failed since file already exists') . " $filepath$filenameUuid";
+            }
+            if (file_put_contents($filepath . $filenameUuid, $storedData) === false) {
+                return xl('Failed to create') . " $filepath$filenameUuid";
+            }
+
+            if ($has_thumbnail) {
+                // Store the thumbnail.
+                $this->thumb_url = "file://" . $filepath . $this->get_thumb_name($filenameUuid);
+                if ($GLOBALS['drive_encryption']) {
+                    $storedThumbnailData = $cryptoGen->encryptStandard($thumbnail_data, null, 'database');
+                } else {
+                    $storedThumbnailData = $thumbnail_data;
+                }
+                if (file_exists($filepath . $this->get_thumb_name($filenameUuid))) {
+                    // this should never happend with current uuid mechanism
+                    return xl('Failed since file already exists') .  $filepath . $this->get_thumb_name($filenameUuid);
+                }
+                if (
+                    file_put_contents(
+                        $filepath . $this->get_thumb_name($filenameUuid),
+                        $storedThumbnailData
+                    ) === false
+                ) {
+                    return xl('Failed to create') .  $filepath . $this->get_thumb_name($filenameUuid);
+                }
+            }
+        }
+
+        if (
+            ($GLOBALS['drive_encryption'] && ($this->storagemethod != 1))
+            || ($GLOBALS['couchdb_encryption'] && ($this->storagemethod == 1))
+        ) {
+            $this->set_encrypted(self::ENCRYPTED_ON);
+        } else {
+            $this->set_encrypted(self::ENCRYPTED_OFF);
+        }
+
+        /* @VH: Removed code
+        // we need our external unique reference identifier that can be mapped back to our table.
+        $docUUID = (new UuidRegistry(['table_name' => $this->_table]))->createUuid();
+        $this->set_uuid($docUUID);
+        */
+        $this->name = $filename;
+        $this->size  = strlen($data);
+        $this->hash  = hash('sha3-512', $data);
+        $this->type  = $this->type_array['file_url'];
+        /* @VH: Removed code
+        $this->owner = $owner ? $owner : ($_SESSION['authUserID'] ?? null);
+        $this->date_expires = $date_expires;
+        $this->set_foreign_id($patient_id);
+        */
+        $this->persist();
+        $this->populate();
+        /* @VH: Removed code
+        if (is_numeric($this->get_id()) && is_numeric($category_id)) {
+            $sql = "REPLACE INTO categories_to_documents SET category_id = ?, document_id = ?";
+            $this->_db->Execute($sql, array($category_id, $this->get_id()));
+        }
+        */
+
+        // @VH: Added - Log current patient documents to maintain document history
+        sqlInsert("INSERT INTO `vh_document_history` (`doc_id`, `url`, `hash`, `size`) VALUES (?, ?, ?, ?) ", array($this->id, $currentUrl, $currentHash, $currentSize));
+
+        return '';
     }
 // end of Document
 }

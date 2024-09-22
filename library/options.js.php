@@ -385,3 +385,106 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 });
 };
 </script>
+
+<!-- @VH: Change -->
+
+<?php include_once("email_verification.js.php") ?>
+
+<script type="text/javascript">
+
+    function cleanPhoneValue(val = '') {
+        return val.replace(/[^\d]/g, '');
+    }
+
+    function clearPhoneno(ele) {
+        if(ele) {
+            var phonefieldid = ele.getAttribute('phonemask-field');
+            if(phonefieldid != "") {
+                var phonefield = document.getElementById(phonefieldid);
+                if(phonefield && phonefield != undefined) phonefield.value = cleanPhoneValue(ele.value);
+            }
+        }
+    }
+
+    function fieldPhonekeyup(ele = '', format = false) {
+        var oldVal = ele.getAttribute("oldvalue");
+        oldVal = oldVal != null ? oldVal : "";
+        
+        if(ele == '') return false;
+
+        var mypcc = <?php echo js_escape($GLOBALS['phone_country_code']); ?>;
+        if(ele && ele.value != '') {
+            var clearVal = cleanPhoneValue(ele.value);
+            if(clearVal.length > 10) ele.value = "+" + ele.value;
+        }
+
+        if(format == true || (oldVal.length < ele.value.length) ) {
+            phonekeyup(ele, mypcc);
+        }
+        clearPhoneno(ele);
+
+        prepareMiValues();
+
+        ele.setAttribute('oldvalue', ele.value);
+    }
+
+    /*Init phone mask when page load.*/
+    window.onload = function(){
+        const collection = document.getElementsByClassName("phonemask");
+        for (let i = 0; i < collection.length; i++) {
+            fieldPhonekeyup(collection[i]);
+        }
+    }
+
+
+    /*-------------------(Multi Text Input)----------------*/
+    // Add more input
+    function addMoreInput(elem) {
+      var dataId = elem.getAttribute('data-id');
+
+      if(dataId != '') {
+        var cloneElement = document.getElementById('clone-container_'+dataId).children[0];
+        var inputContainerEle = document.querySelectorAll("#mti-container-" + dataId + " .mti-inputcontainer");
+
+        inputContainerEle[0].appendChild(cloneElement.cloneNode(true));
+
+        prepareMiValues();
+      }
+    }
+
+    // Remove more input
+    function removeMoreInput(elem) {
+        var currentInputContainer = elem.parentElement.parentElement;
+
+        if(currentInputContainer.parentElement.children.length > 1) {
+            if(currentInputContainer) {
+                currentInputContainer.remove();
+            }
+        } else {
+            currentInputContainer.querySelector('input[type="text"]').value = "";
+        }
+
+       prepareMiValues();
+    }
+
+    function prepareMiValues() {
+      var miContainer = document.querySelectorAll(".mti-container");
+
+      miContainer.forEach(function (containerElement, index) {
+        var dataId = containerElement.getAttribute('data-id');
+        var inputElements = containerElement.querySelectorAll('.mti-inputcontainer .mti-form-control[data-id="'+dataId+'"]');
+        
+        var valList = [];
+        inputElements.forEach(function (inputElement, index) {
+          var eleVal = inputElement.value;
+          if(inputElement.classList.contains('phonemask')) eleVal = cleanPhoneValue(inputElement.value);
+          
+          if(eleVal != "") valList.push(eleVal);
+        });
+
+        containerElement.querySelector('#form_' + dataId).value = valList.join(); 
+      });
+    }
+
+</script>
+<!-- End -->

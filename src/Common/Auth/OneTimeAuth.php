@@ -110,6 +110,9 @@ class OneTimeAuth
             throw new RuntimeException($err);
         }
 
+        // @VH: Return Form TokenID
+        $rtn['tokenId'] = $save;
+
         $this->systemLogger->debug(xlt("New standard onetime token created and saved successfully."));
 
         return $rtn;
@@ -138,7 +141,9 @@ class OneTimeAuth
                 if (!empty($one_time)) {
                     $t_info = $this->getOnetime($one_time);
                     if (!empty($t_info['pid'] ?? 0)) {
-                        $auth = sqlQueryNoLog("Select * From patient_access_onsite Where `pid` = ?", array($t_info['pid']));
+                        // @VH: Corrected select param of query becuase of slowness.
+                        //$auth = sqlQueryNoLog("Select * From patient_access_onsite Where `pid` = ?", array($t_info['pid']));
+                        $auth = sqlQueryNoLog("Select pid, fname, lname, mname From patient_data Where `pid` = ?", array($t_info['pid']));
                     }
                 } else {
                     $this->systemLogger->error("Onetime decrypt token failed. Empty!");
@@ -173,12 +178,14 @@ class OneTimeAuth
                 $this->systemLogger->debug("Redirect token decrypted: pid = " . $redirect_array['pid'] . " redirect = " . $redirect);
             }
         }
+
+        // @VH: Change
         $rtn['pid'] = $auth['pid'];
         $rtn['pin'] = $t_info['onetime_pin'];
         $rtn['redirect'] = $redirect;
-        $rtn['username'] = $auth['portal_username'];
-        $rtn['login_username'] = $auth['portal_login_username'];
-        $rtn['portal_pwd'] = $auth['portal_pwd'];
+        $rtn['username'] = isset($auth['portal_username']) ? $auth['portal_username'] : "";
+        $rtn['login_username'] = isset($auth['portal_login_username']) ? $auth['portal_login_username'] : "";
+        $rtn['portal_pwd'] = isset($auth['portal_pwd']) ? $auth['portal_pwd'] : "";
         $rtn['onetime_decrypted'] = $one_time;
 
         $this->updateOnetime($auth['pid'], $one_time);
@@ -248,7 +255,8 @@ class OneTimeAuth
      */
     public function insertOnetime($pid, $onetime_pin, $onetime_token, $redirect_url, $expires): int
     {
-        $bind = [$pid, $_SESSION['authUserID'] ?? null, $this->context, $onetime_pin, $onetime_token, $redirect_url, $expires];
+        // @VH: Replaced NULL with 1
+        $bind = [$pid, $_SESSION['authUserID'] ?? 1, $this->context, $onetime_pin, $onetime_token, $redirect_url, $expires];
 
         $sql = "INSERT INTO `onetime_auth` (`id`, `pid`, `create_user_id`, `context`, `onetime_pin`, `onetime_token`, `redirect_url`, `expires`, `date_created`) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, current_timestamp())";
 

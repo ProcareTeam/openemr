@@ -10,13 +10,19 @@
         <thead>
         <tr>
             <th>{{ 'Name'|xlt}}</th>
+            <!-- @VH: added attn column [2023011605] -->
+            <th>{{ 'Attn'|xlt}}</th>
             <th>{{ 'Address'|xlt}}</th>
             <th>{{ 'City, State, ZIP'|xlt}}</th>
             <th>{{ 'Phone'|xlt}}</th>
             <th>{{ 'Fax'|xlt}}</th>
             <th>{{ 'Payer ID'|xlt}}</th>
             <th>{{ 'Default X12 Partner'|xlt}}</th>
+            <!-- @VH: added type column [2023011605] -->
+            <th>{{ 'Type'|xlt}}</th>
             <th>{{ 'Deactivated'|xlt}}</th>
+            <!-- @VH: added parent company column [2024081401] -->
+            <th>{{ 'Parent Company'|xlt}}</th>
         </tr>
         </thead>
         <tbody>
@@ -28,13 +34,19 @@
                     {{insurancecompany.name|text}}
                 </a>
             </td>
+            <!-- @VH: added attn column [2023011605] -->
+            <td>{{insurancecompany.attn|text}} &nbsp;</td>
             <td>{{insurancecompany.line1|text}} {{insurancecompany.line2|text}}&nbsp;</td>
             <td>{{insurancecompany.city|text}} {{insurancecompany.state|upper|text}} {{insurancecompany.zip|text}}&nbsp;</td>
             <td>{{insurancecompany.phone|text}}&nbsp;</td>
             <td>{{insurancecompany.fax|text}}&nbsp;</td>
             <td>{{insurancecompany.cms_id|text}}&nbsp;</td>
             <td>{{insurancecompany.x12_default_partner_name|text}}&nbsp;</td>
+            <!-- @VH: added type column [2023011605] -->
+            <td>{{insurancecompany.ins_type_code|text}}&nbsp;</td>
             <td>{% if insurancecompany.inactive == 1%}{{ 'Yes'|xlt}}{% endif %}&nbsp;</td>
+            <!-- @VH: added parent company column [2024081401] -->
+            <td>{{insurancecompany.parent_company|text}}&nbsp;</td>
         </tr>
         {% endfor %}
         {% else %}

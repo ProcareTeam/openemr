@@ -1,0 +1,59 @@
+<html>
+<head>
+    <title>{{ 'Propio'|xlt }}</title>
+
+    {{ setupHeader(['opener', 'dialog', 'jquery', 'jquery-ui']) }}
+
+    <script language="JavaScript">
+        function selpropio(languageId, conferenceId, joinLink, apptId) {
+          if (opener.closed || ! opener.setpropio)
+           alert("{{ 'The destination form was closed; I cannot act on your selection.'|xlt }}");
+          else
+           opener.setpropio(languageId, conferenceId, joinLink, apptId);
+           dlgclose();
+          return false;
+        }
+
+        function propioSubmit() {
+            let languageId = document.getElementById('form_language_id').value;
+            let conferenceId = document.getElementById('form_conference_id').value;
+            let joinLink = document.getElementById('form_join_link').value;
+
+            if(languageId == "") {
+                alert("Please select language");
+                return false;
+            }
+
+            if(conferenceId == "") {
+                alert("Please enter conference id");
+                return false;
+            }
+
+            if(joinLink == "") {
+                alert("Please enter join link");
+                return false;
+            }
+
+            selpropio(languageId, conferenceId, joinLink, '{{apptId}}');
+        }
+
+    </script>
+</head>
+<body>
+    <form name="propio_form">
+        <div class="form-group">
+            <label>{{ 'Language'|xlt }}</label>
+            {{language_id_list}}
+        </div>
+        <div class="form-group">
+            <label>{{ 'Conference Id'|xlt }}</label>
+            <input type="text" name="form_conference_id" id="form_conference_id" class="form-control" placeholder="{{ 'Conference Id'|xlt }}" value="{{conferenceId}}" readonly="readonly">
+        </div>
+        <div class="form-group">
+            <label>{{ 'Join Link'|xlt }}</label>
+            <input type="text" name="form_join_link" id="form_join_link" class="form-control" placeholder="{{ 'Join Link'|xlt }}" value="{{joinLink}}" readonly="readonly">
+        </div>
+        <button type="button" id="form_propio_submit" onclick="propioSubmit()" class="btn btn-primary">{{ 'Submit'|xlt }}</button>
+    </form>
+</body>
+</html>

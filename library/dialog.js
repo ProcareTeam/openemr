@@ -507,12 +507,13 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
     });
 
     // onward
+    // @VH: make allowdrag by default true
     var opts_defaults = {
         type: 'iframe', // POST, GET (ajax) or iframe
         async: true,
         frameContent: "", // for iframe embedded content
         html: "", // content for alerts, comfirm etc ajax
-        allowDrag: false,
+        allowDrag: true,
         allowResize: true,
         sizeHeight: 'auto', // 'full' will use as much height as allowed
         // use is onClosed: fnName ... args not supported however, onClosed: 'reload' is auto defined and requires no function to be created.
@@ -530,7 +531,8 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
     opts.resolvePromiseOn = opts.resolvePromiseOn ?? 'init';
     var mHeight, mWidth, mSize, msSize, dlgContainer, fullURL, where; // a growing list...
 
-    where = (opts.type === 'iframe') ? top : window;
+    // @VH: Change
+    where = (opts.type === 'iframe' || opts.topWindow === true) ? top : window;
 
     // get url straight...
     fullURL = "";
@@ -675,6 +677,14 @@ function dlgopen(url, winname, width, height, forceNewWindow, title, opts) {
                         }
                     }, 800);
                 });
+
+                // VH: Return elements.
+                resolve({
+                    where,
+                    modalwin,
+                    dlgContainer
+                });
+                
             } else {
                 var modalwin = where.jQuery('body').find("[name='" + winname + "']");
                 jQuery('div.modal-dialog', modalwin).css({'margin': '15px auto auto'});

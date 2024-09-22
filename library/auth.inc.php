@@ -50,6 +50,8 @@ if (
     $passTemp = $_POST['clearPass'];
 
     $login_success = false;
+    // @VH: added
+    $_SESSION['force_google_sign_in'] = 0;
     if (
         !empty($GLOBALS['google_signin_enabled']) &&
         !empty($GLOBALS['google_signin_client_id']) &&
@@ -59,13 +61,39 @@ if (
         // google sign-in
         $login_success = AuthUtils::verifyGoogleSignIn($_POST['google_signin_token']);
     } else {
+        // @VH: Added force google sign code and wraped original code into if condition
         // normal login
-        $login_success = (new AuthUtils('login'))->confirmPassword($_POST['authUser'], $passTemp);
+        // Change - 12 Jan 2024 - Added by Sandeep
+        // Check if google sign in is enabled. If yes, validate email. If email is valid, force user to use google sign in.
+        $gmail_sign_in_address = sqlQuery("select google_signin_email from users where username = ? ", array($_POST["authUser"]));
+        $_SESSION['force_google_sign_in'] = false;
+        $valid_email_address  = filter_var($gmail_sign_in_address['google_signin_email'], FILTER_VALIDATE_EMAIL);
+        $force_google= 0;
+        if ($google_sing_in_enabled ){
+            if( $valid_email_address ) {
+                $force_google = 1;
+            }
+        }
+
+        if($force_google == 0)
+        {
+            $_SESSION['force_google_sign_in'] = 0;
+            $login_success = (new AuthUtils('login'))->confirmPassword($_POST['authUser'], $passTemp);
+        }else
+        {
+            $login_success = false;
+            $_SESSION["force_google_sign_in"] = 1;
+        }
+        // END
     }
 
     if ($login_success !== true) {
         // login attempt failed
-        $_SESSION['loginfailure'] = 1;
+        // @VH: Wraped into if condition
+        if(!$_SESSION['force_google_sign_in'])
+            $_SESSION['loginfailure'] = 1;
+        else
+            $_SESSION['loginfailure'] = 0;
         if (function_exists('sodium_memzero')) {
             sodium_memzero($_POST["clearPass"]);
         } else {

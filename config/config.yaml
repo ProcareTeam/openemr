@@ -259,3 +259,12 @@ assets:
     dompurify:
         basePath: '%assets_static_relative%/modified/'
         script: dompurify/dist/purify.js
+    oemr_ad:
+        basePath: '%webroot%/library/OemrAD/'
+        script: 
+            - assets/js/script_js.php
+            - assets/js/script.js
+            - assets/js/datatable_customization.js
+        link:
+            - assets/css/custom_style.css
+            - assets/css/custom_datatable.css

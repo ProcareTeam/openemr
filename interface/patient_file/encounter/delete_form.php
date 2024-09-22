@@ -22,7 +22,8 @@ use OpenEMR\Common\Logging\EventAuditLogger;
 use OpenEMR\Core\Header;
 
 // Control access
-if (!AclMain::aclCheckCore('admin', 'super')) {
+// @VH: added acl rule [V100052]
+if (!AclMain::aclCheckCore('admin', 'super') && !AclMain::aclCheckCore("encounters", "delete_form")) {
     echo (new TwigContainer(null, $GLOBALS['kernel']))->getTwig()->render('core/unauthorized.html.twig', ['pageTitle' => xl("Delete Encounter Form")]);
     exit;
 }

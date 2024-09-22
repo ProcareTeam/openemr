@@ -257,8 +257,10 @@ $loading = "";
         let serverUrl = "dynamic_finder_ajax.php";
         let srcAny = <?php echo js_url($searchAny); ?>;
         if (srcAny) {
-            serverUrl += "?search_any=" + srcAny;
+            // @VH: Commented code [V100038]
+            // serverUrl += "?search_any=" + srcAny;
         }
+        // @VH: Added search param [V100038]
         var oTable = $('#pt_table').dataTable({
             "processing": true,
             // next 2 lines invoke server side processing
@@ -279,6 +281,9 @@ $loading = "";
             "order": [ <?php echo $orderjson; ?> ],
             "lengthMenu": [10, 25, 50, 100],
             "pageLength": <?php echo empty($GLOBALS['gbl_pt_list_page_size']) ? '10' : $GLOBALS['gbl_pt_list_page_size']; ?>,
+            "search": {
+                "search": "<?php echo $searchAny; ?>"
+            },
             <?php // Bring in the translations ?>
             <?php $translationsDatatablesOverride = array('search' => (xla('Search all columns') . ':')); ?>
             <?php $translationsDatatablesOverride = array('processing' => $loading); ?>

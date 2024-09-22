@@ -47,6 +47,13 @@ left_nav.setPatient = function(pname, pid, pubpid, frname, str_dob)
         tabCloseByName('rev');
     });
 
+    // @VH: Cose the case tab of patient when patient set [V100040]
+    if(left_nav['closetab'] === undefined || left_nav['closetab'] === true) {
+        tabCloseByName('case');
+    }
+    delete left_nav.closetab;
+    // END
+
     /* close therapy group tabs */
     tabCloseByName('gdg');
     attendant_type = 'patient';
@@ -79,14 +86,34 @@ left_nav.setTherapyGroup = function(group_id, group_name){
     app_view_model.attendant_template_type('therapy-group-template');
 };
 
-left_nav.setPatientEncounter = function(EncounterIdArray,EncounterDateArray,CalendarCategoryArray)
+// @VH: Fetch encounter data and provider details [V100041]
+left_nav.fetchEncounterData = async function(EncounterIdArray)
 {
+    const response = await fetch(webroot_url+"/interface/main/tabs/ajax/get_encounter_details.php", {
+        method: 'post',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ "encounter": EncounterIdArray})
+    });
+
+    const enJson = await response.json();
+    return enJson;
+}
+// End
+
+// @VH: Made function async. [V100041]
+left_nav.setPatientEncounter = async function(EncounterIdArray,EncounterDateArray,CalendarCategoryArray)
+{
+    // @VH: Fetch encounter data and provider info. [V100041]
+    const enJson = await left_nav.fetchEncounterData(EncounterIdArray);
+    const ProviderArray = enJson['providers'] ? enJson['providers'] : array();
+    // End
 
     app_view_model.application_data[attendant_type]().encounterArray.removeAll();
     for(var encIdx=0;encIdx<EncounterIdArray.length;encIdx++)
     {
+        // @VH: Added "ProviderArray" param. [V100041]
         app_view_model.application_data[attendant_type]().encounterArray.push(
-            new encounter_data(EncounterIdArray[encIdx], EncounterDateArray[encIdx], CalendarCategoryArray[encIdx]));
+            new encounter_data(EncounterIdArray[encIdx], EncounterDateArray[encIdx], CalendarCategoryArray[encIdx], ProviderArray[encIdx]));
     }
 };
 

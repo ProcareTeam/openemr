@@ -322,12 +322,13 @@ if ($erx_upload_complete == 1) {
     }
 
     $id = "old_medication_ps_expand";
+    // @VH: Changed
     $viewArgs = [
         'title' => xl('Old Medication'),
         'label' => $id,
         'initiallyCollapsed' => (getUserSetting($id) == 0) ? true : false,
         'btnLabel' => 'Edit',
-        'btnLink' => "return load_location(\"{$GLOBALS['webroot']}/interface/patient_file/summary/stats_full.php?active=all&category=medication\")",
+        'btnLink' => "return load_location('{$GLOBALS['webroot']}/interface/patient_file/summary/stats_full.php?active=all&category=medication')",
         'linkMethod' => 'javascript',
         'auth' => true,
         'list' => $rxList,

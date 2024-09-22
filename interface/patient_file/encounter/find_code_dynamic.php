@@ -124,7 +124,8 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
                 <?php if ($what == 'codes') { ?>
                 // this.id is of the form "CID|jsonstring".
                 var codesel = jobj['code'].split('|');
-                selcode(jobj['codetype'], codesel[0], codesel[1], jobj['description'], target_element, limit, jobj['modifier']);
+                // @VH: Sel code change added 'modifier' param. [V100053] 
+                selcode(jobj['codetype'], codesel[0], (codesel[1] | ''), jobj['description'], target_element, limit, jobj['modifier']);
                 <?php } elseif ($what == 'fields') { ?>
                 selectField(jobj);
                 <?php } elseif ($what == 'lists') { ?>

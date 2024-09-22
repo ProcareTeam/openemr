@@ -31,10 +31,13 @@ require_once("$srcdir/options.inc.php");
 require_once("$srcdir/patient.inc.php");
 require_once($GLOBALS['fileroot'] . '/custom/code_types.inc.php');
 require_once("$srcdir/FeeSheetHtml.class.php");
+require_once("php/lbf_functions.php");
+require_once("$srcdir/wmt-v2/wmtstandard.inc");
 
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
+use OpenEMR\Billing\BillingUtilities;
 
 $CPR = 4; // cells per row
 
@@ -125,6 +128,18 @@ if ($patientPortalSession && !empty($formid)) {
 
 $visitid = (int)(empty($_GET['visitid']) ? $encounter : $_GET['visitid']);
 
+// @VH: Load recent form data if no formid set when new LBF form create [V10003]
+if(!isset($formid) || empty($formid) || $formid == 0) {
+    $formData = sqlQuery(
+        "SELECT pid, encounter, form_id FROM forms WHERE " .
+        "encounter = ? AND formdir = ?",
+        array($encounter, $formname)
+    );
+
+    $formid = isset($formData['form_id']) ? $formData['form_id'] : 0;
+}
+// End
+
 // If necessary get the encounter from the forms table entry for this form.
 if ($formid && !$visitid && $is_core) {
     $frow = sqlQuery(
@@ -200,6 +215,42 @@ if (isset($LBF_SERVICES_SECTION) || isset($LBF_PRODUCTS_SECTION) || isset($LBF_D
     $fs = new FeeSheetHtml($pid, $visitid);
 }
 
+// @VH: Billing code regading changes to save code from list to feesheet [2023062601]
+$billTypeList = array("CPT4", "HCPCS");
+$billList = array();
+$billOptionCodeList = array();
+
+// @VH: Get billing code associated with list used with form field [2023062601]
+function getFieldOptionList($frow, &$billOptionCodeList) {
+    if(isset($frow['list_id']) && !empty($frow['list_id'])) {
+        $tdata = sqlStatement("SELECT option_id, title, codes FROM list_options WHERE list_id = ? AND activity = 1 ORDER BY seq", array($frow['list_id']));
+        while ($trow = sqlFetchArray($tdata)) {
+            if(isset($trow['codes']) && !empty($trow['codes'])) {
+                $lcode =  explode(";", $trow['codes']);
+                if(!empty($lcode)) {
+                    if(!isset($billOptionCodeList['form_'.$frow['field_id']])) {
+                        $billOptionCodeList['form_'.$frow['field_id']] = array();
+                    }
+
+                    $billOptionCodeList['form_'.$frow['field_id']][$trow['option_id']] = $lcode;
+                }
+            }
+        }
+    }
+
+    return $billOptionCodeList;
+}
+
+// @VH: Get Current billing code by encounter [2023062601]
+if(!empty($pid) && !empty($encounter)) {
+    $billresult = BillingUtilities::getBillingByEncounter($pid, $encounter, "*");
+    foreach ($billresult as $bItem) {
+        $billList[] = $bItem['code_type'] .":". $bItem['code'];
+    }
+}
+
+// END
+
 if (!$from_trend_form) {
     $fname = $GLOBALS['OE_SITE_DIR'] . "/LBF/" . check_file_dir_name($formname) . ".plugin.php";
     if (file_exists($fname)) {
@@ -229,6 +280,12 @@ if (
 
     $my_form_id = $formid ? $formid : $newid;
 
+    // @VH: Update Deleted Status [V10002]
+    sqlStatement(
+        "UPDATE forms SET deleted = 0 WHERE formdir = ? AND form_id = ? AND deleted = 1",
+        array($formname, $my_form_id)
+    );
+
     // If there is an issue ID, update it in the forms table entry.
     if (isset($_POST['form_issue_id'])) {
         sqlStatement(
@@ -251,6 +308,20 @@ if (
         "WHERE form_id = ? AND uor > 0 AND field_id != '' AND " .
         "edit_options != 'H' AND edit_options NOT LIKE '%0%' " .
         "ORDER BY group_id, seq", array($formname));
+
+    // @VH: Prepare group ids On save if group section is unchecked then make all field section value empty. [V10001]
+    $c_grp_ids = array();
+    foreach ($_POST as $pk => $p_val) {
+        if(substr($pk, 0, 11) === "form_cb_lbf") {
+            $grpInx = substr($pk, 11);
+
+            if(!empty($grpInx) && $p_val == "1") {
+                $c_grp_ids[] = $grpInx;
+            }
+        }
+    }
+    // END
+
     while ($frow = sqlFetchArray($fres)) {
         $field_id = $frow['field_id'];
         $data_type = $frow['data_type'];
@@ -269,6 +340,14 @@ if (
             continue; // skip static text fields
         }
         $value = get_layout_form_value($frow);
+
+        // @VH: On save if group section is unchecked then make all field section value empty. [V10001] 
+        $fgroup_id = $frow['group_id'];
+        if(!in_array($fgroup_id, $c_grp_ids)) {
+            $value = '';
+        }
+        // END
+
         // If edit option P or Q, save to the appropriate different table and skip the rest.
         $source = $frow['source'];
         if ($source == 'D' || $source == 'H') {
@@ -332,6 +411,91 @@ if (
             }
         }
     } // end while save
+
+    // @VH: Changes
+    // @VH: Set rehab progress [2021022101]
+    if(!empty($visitid) && isset($_REQUEST['formname']) && in_array($_REQUEST['formname'], array('LBF_rehab', 'LBF_UErehab', 'LBF_elbow'))) {
+
+        $caseApptLink = sqlQuery("SELECT * from case_appointment_link WHERE encounter = ?", array($visitid));
+
+        if(!empty($caseApptLink) && isset($caseApptLink['enc_case']) && !empty($caseApptLink['enc_case'])) {
+            
+            // @VH: Set rehab plan & rehab progress [2021022101]
+            sqlStatement("UPDATE `form_cases` SET `vh_rehabplan` = COALESCE(NULLIF(rehabplan('" . $caseApptLink['enc_case'] . "'), ''), NULL), `vh_rehabprogress` = COALESCE(NULLIF(rehabprogress('" . $caseApptLink['enc_case'] . "'), ''), NULL) WHERE `id` = ?", array($caseApptLink['enc_case']));
+        }
+    }
+
+    // @VH: Save code to feesheet if associated list with field item has code [2023062601]
+    $temp_billing_code = isset($_POST['temp_billing_code']) ? json_decode($_POST['temp_billing_code']) : array();
+    if(is_array($temp_billing_code) && !empty($temp_billing_code)) {
+        foreach ($temp_billing_code as $bcodeitem) {
+            list($codeType, $codeValue) = explode(":", $bcodeitem);
+
+            // @VH: Get billing code value [2023062601]
+            $cres = main_code_set_search($codeType, $codeValue);
+
+            $isBilingCodeFound = false;
+            $codemodifier = "";
+
+            if (!empty($cres)) {
+                while ($crow = sqlFetchArray($cres)) {
+                    if (isset($crow['code']) && isset($crow['code_type_name'])) {
+                        if ($crow['code'] == $codeValue && $crow['code_type_name'] == $codeType) {
+                            // Set when billing code found
+                            $isBilingCodeFound = true;
+
+                            if (empty($codemodifier) && !empty($crow['modifier'])) {
+                                $codemodifier = $crow['modifier'];
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if($isBilingCodeFound === true && in_array($codeType, array("CPT4", "ICD10", "ICD9", "HCPCS"))) {
+                $fs1 = new FeeSheetHtml($pid, $encounter);
+                //$billresult1 = isset($billresult) ? $billresult : array();
+                $billresult1 = BillingUtilities::getBillingByEncounter($pid, $encounter, "*");
+                $needToAdd = true;
+
+                $bill = array(array(
+                    "code_type" => $codeType,
+                    "code" => $codeValue,
+                    "billed" => "",
+                    "mod" => $codemodifier ?? "", 
+                    "price" => 0,
+                    "units" => 1,
+                    "justify" => "", 
+                    "provid" => "" 
+                ));
+
+                foreach ($billresult1 as $billItem) {
+                    if($billItem['code_type'] == $bill[0]['code_type'] && $billItem['code'] == $bill[0]['code']) {
+                        if (in_array($bill[0]['code_type'], $billTypeList)) {
+                            $bill[0] = $billItem;
+                            $bill[0]['units'] = $bill[0]['units'] + 1;
+                        } else {
+                            $needToAdd = false;
+                        }
+                    }
+                }
+
+                if($needToAdd === true && !empty($bill)) {
+                    $fsprod = "";
+                    $fs1->save(
+                        $bill,
+                        $fsprod,
+                        $fs1->provider_id,
+                        $fs1->supervisor_id,
+                        null,
+                        null
+                    );
+                }
+            }
+        }
+    }
+    // End
 
     // Save any history data that was collected above.
     if (!empty($newhistorydata)) {
@@ -649,6 +813,81 @@ if (
         function validate(f, restore = true) {
             var errMsgs = new Array();
             <?php generate_layout_validation($formname); ?>
+
+            // @VH: If form field has error then show error message into alert popup. [V10004]
+            if(errMsgs.length > 0) {
+                let errMsgStr = new Array();
+                errMsgs.forEach((errMsg, i) => {
+                    errMsgStr.push("- The "+errMsg+" field is required.");
+                });
+                
+                if(errMsgStr.length > 0) {
+                   alert(errMsgStr.join("\n")); 
+                }
+                return false;
+            }
+
+            let cdlist = [];
+            document.querySelectorAll('#form_related_code').forEach(function(el) {
+                //cdlist = generateBillingCodeList(el.value, cdlist);
+            });
+
+            // @VH: For List [2023062601]
+            document.querySelectorAll('form select[name]').forEach(function(el) {
+                let selFieldName = el.getAttribute("id");
+                for (var option of el.options) {
+                    if (option.selected) {
+                        if(selFieldName != "" && billOptionCodeList.hasOwnProperty(selFieldName) && billOptionCodeList[selFieldName].hasOwnProperty(option.value)) {
+                            billOptionCodeList[selFieldName][option.value].forEach(function (cc, ci) {
+                              cdlist = generateBillingCodeList(cc, cdlist);
+                            });
+                        }
+                    }
+                }
+            });
+
+            // @VH: For Checkbox and radio [2023062601]
+            document.querySelectorAll('form input[type="checkbox"], form input[type="radio"]').forEach(function(el) {
+                if(el.checked === true) {
+                    let selFieldName = el.getAttribute("id");
+
+                    if(selFieldName != "" && selFieldName != null) {
+                        selFieldName = selFieldName.replace('form_','').replace('check_','');
+                        for (const bol in billOptionCodeList) {
+                            for (const bocl in billOptionCodeList[bol]) {
+                                let bol1 = bol.replace('form_','').replace('check_', ' ');
+
+                                if(bol1+"["+bocl+"]" == selFieldName) {
+                                    billOptionCodeList[bol][bocl].forEach(function (cc, ci) {
+                                      cdlist = generateBillingCodeList(cc, cdlist);
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            for (const bol in billOptionCodeList) {
+                for (const bocl in billOptionCodeList[bol]) {
+                    let tl_ele = document.querySelector('form input[type="text"][name="'+bol+"["+bocl+"]"+'"]');
+                    if(tl_ele && tl_ele.value != "") {
+                        billOptionCodeList[bol][bocl].forEach(function (cc, ci) {
+                          cdlist = generateBillingCodeList(cc, cdlist);
+                        });
+                    }
+                }
+            }
+
+            if(cdlist.length > 0) {
+                let codehiddeninput = document.createElement("input");
+                codehiddeninput.setAttribute("type", "hidden");
+                codehiddeninput.setAttribute("name", "temp_billing_code");
+                codehiddeninput.setAttribute("value", JSON.stringify(cdlist));
+                document.forms[0].appendChild(codehiddeninput);
+            }
+            // END
+
             // Validation for Fee Sheet stuff. Skipping this because CV decided (2015-11-03)
             // that these warning messages are not appropriate for layout based visit forms.
             //
@@ -674,6 +913,30 @@ if (
             }
 
             return errMsgs.length == 0;
+        }
+
+        // @VH: Generate billing code list to check code already exists in the feesheet or not before save. [2023062601]
+        function generateBillingCodeList(code_value, cdlist = []) {
+            let billList = JSON.parse('<?php echo json_encode($billList); ?>');
+            let billTypeList = JSON.parse('<?php echo json_encode($billTypeList); ?>');
+
+            if(code_value != "") {
+                if(billList.includes(code_value)) {
+                    let elcode = code_value != "" ? code_value.split(":") : [];
+                    if(elcode.length > 0 && billTypeList.includes(elcode[0])) {
+                        if(confirm(code_value+" code already exists in the fee sheet.  Select OK to increment the units of the existing code or Cancel to bypass code insertion")) {
+                            // Add
+                            //if(!cdlist.includes(code_value)) cdlist.push(code_value);
+                            cdlist.push(code_value);
+                        }
+                    }
+                } else {
+                    //if(!cdlist.includes(code_value)) cdlist.push(code_value);
+                    cdlist.push(code_value);
+                }
+            }
+
+            return cdlist;
         }
 
         // Called to open the data entry form of a specified encounter form instance.
@@ -884,6 +1147,373 @@ if (
         ?>
 
     </script>
+
+    <!-- @VH: Script and Styles changes [V10005][V10006] -->
+    <style type="text/css">
+        .configLink {
+            text-transform: none!important;
+            margin-right: 10px;
+        }
+        .global_copy_container, .sub_section_copy_container {
+            display: inline-block;
+            float: right;
+            font-weight: normal;
+        }
+
+        #global_request_data, .request_data {
+            display: none;
+        }
+    </style>
+    <!-- END -->
+
+    <!-- @VH: -->
+    <script type="text/javascript">
+        var selector_ele = null;
+
+        // @VH: Show loader on when copy data from predefined selection. [V10005]
+        function handleLoader(show = false) {
+            if(show === true) {
+                $('body').append('<div id="form_loader" style="top:0;left:0;position: fixed;width: 100%;height: 100%;background-color: rgba(255,255,255,0.5);z-index: 1000;display: grid;justify-content: center;align-items: center;"><div class="spinner-border spinner-border-lg" role="status"><span class="sr-only">Loading...</span></div></div>');
+            } else {
+                $('#form_loader').remove();
+            }
+        }
+
+        // @VH: Fetch and get predefined lbf data [V10005]
+        async function handleGetLBfSelector(grp = '') {
+            const result = await $.ajax({
+                type: "POST",
+                url: "<?php echo $GLOBALS['webroot']; ?>/interface/forms/LBF/ajax/predefined_lbf_selector_ajax.php",
+                datatype: "json",
+                data: { 'action' : 'get_selector', 'formname' : '<?php echo $formname; ?>', 'group_level' : grp}
+            });
+
+            if(result != '') {
+                return JSON.parse(result);
+            }
+
+            return [];
+        }
+
+        // @VH: Added predefined selection option for each and every section and options [V10005]  
+        async function preLbfSelectorOption(ele, defVal = '') {
+            const group_level = $(ele).attr('data-grouplevel');
+            const selectorData = await handleGetLBfSelector(group_level);
+
+            $(ele).find("option").remove(); 
+            $(ele).append($("<option></option>").attr("value", "").text('Predefined Selections'));
+            $(ele).append($("<option></option>").attr("value", "add_new").text('Add new'));
+
+            $.each(selectorData, function( ind, item ){
+                $(ele).append($("<option></option>").attr("value", item['id']).text(item['title'])); 
+            });
+
+            if(defVal != "") $(ele).val(defVal);
+            $(ele).change();
+        }
+
+        // @VH: Open selection popup for fill predefined form data [V10005]
+        function open_lbf_selection(id = '') {
+            var url = '<?php echo $GLOBALS['webroot']; ?>/interface/forms/LBF/php/predefined_lbf_selection.php?id='+id;
+            dlgopen(url, 'predefined_lbf_selector', 500, 200, '', 'Predefined LBF Selection');
+        }
+
+        // @VH: Set Predefined LBF Selection [V10005]
+        async function handleLBfSelectorRequest(action = '', param) {
+            let formData = new FormData(document.querySelector("form.form-inline"));
+            formData.append("action", action);
+            formData.append("formname", param['formname']);
+            formData.append("selection_name", param['name']);
+            formData.append("is_global", param['is_global']);
+            formData.append("group_level", param['group_level']);
+            formData.append("selector_id", param['selector_id']);
+
+            if(action != "DELETE" && name == '') {
+                return false;
+            }
+
+            const result = await $.ajax({
+                type: "POST",
+                url: "<?php echo $GLOBALS['webroot']; ?>/interface/forms/LBF/ajax/predefined_lbf_selector_ajax.php",
+                processData: false,
+                contentType: false,
+                data: formData
+            });
+
+            if(result != '') {
+                return JSON.parse(result);
+            }
+        }
+
+        // @VH: Set Predefined LBF Selection [V10005]
+        async function lbfSelectionProcess(action = '', param = {}) {
+            const id = selector_ele.value;
+            param['formname'] = '<?php echo $formname; ?>';
+            param['group_level'] = $(selector_ele).attr('data-grouplevel');
+            param['selector_id'] = (id && id != '' && id != 'add_new') ? id : "";
+
+            handleLoader(true);
+            let saveRes = await handleLBfSelectorRequest(action, param);
+            let newId = (saveRes['id']) ? saveRes['id'] : "";
+            await preLbfSelectorOption(selector_ele, newId);
+            handleLoader(false);
+        }
+
+        // @VH: Set Predefined LBF Selection [V10005]
+        async function setPredefinedLBFSelection(id = '', name = '', is_global = '0') {
+            const param = {
+                name : name,
+                is_global : is_global
+            }
+
+            if(id == "") {
+                lbfSelectionProcess("ADD_NEW", param);
+            } else {
+                lbfSelectionProcess("UPDATE", param); 
+            }    
+        }
+
+        // @VH: Predefined LBF Selections [V10005]
+        async function seclbfselectionHandle(action = '', group_level) {
+            selector_ele = document.querySelector('#predefined_lbf_selector_'+group_level);
+            const id = (selector_ele.value && selector_ele.value != '' && selector_ele.value != 'add_new') ? selector_ele.value : "";
+
+            if(action == "ADD_NEW") {
+                open_lbf_selection();
+            } else if(action == "UPDATE") {
+                open_lbf_selection(id);
+            } else if(action == "DELETE") {
+                if(confirm('<?php echo xls("Are you sure you want to delete this item?"); ?>')) {
+                    lbfSelectionProcess("DELETE");
+                }
+            }
+        }
+
+        // @VH: Predefined LBF Selections [V10005]
+        async function selectorChange(ele, group_level = '') {
+            const selVal = ele.value;
+
+            if(selVal === "" || selVal === "add_new") {
+                $('.sec_predefined_lbf_selector_container_'+group_level+' .sec_predefined_lbf_selector_actions').html('');
+            }
+
+            if(selVal === "") return false;
+            if(selVal === "add_new") {
+                seclbfselectionHandle("ADD_NEW", group_level);
+            } else {
+                handleLoader(true);
+
+                await fetchExtExam("", "", "<?php echo $pid; ?>", "lbf"+group_level, {"id" : selVal,  "formname" : "<?php echo $formname; ?>", "grp_level" : group_level});
+
+                $('.sec_predefined_lbf_selector_container_'+group_level+' .sec_predefined_lbf_selector_actions').html('<button type="button" class="btn btn-primary btn-sm" onclick="seclbfselectionHandle(\'UPDATE\', \''+group_level+'\')"><i class="fa fa-refresh" aria-hidden="true"></i></button> <button type="button" class="btn btn-danger btn-sm" onclick="seclbfselectionHandle(\'DELETE\', \''+group_level+'\')"><i class="fa fa-trash" aria-hidden="true"></i></button>');
+
+                let sectionCheckbox = $('input[name="form_cb_lbf'+group_level+'"]');
+                if(!sectionCheckbox.prop('checked')) {
+                    $('input[name="form_cb_lbf'+group_level+'"]').trigger('click');
+                }
+
+                handleLoader(false);
+            }
+        }
+
+        // @VH: On form load add predefined selection option for each and every section and options [V10005]
+        $(document).ready(async function() {
+            document.querySelectorAll('.sec_predefined_lbf_selector').forEach(async function(sel) {
+                await preLbfSelectorOption(sel);
+            });
+        });
+    </script>
+
+    <script type="text/javascript">
+        // @VH: This invokes the find-encounter popup. [V10006]
+        function add_doc_popup(section_id = '', formname = '', encounter = '', pid = '') {
+            var url = '<?php echo $GLOBALS['webroot']; ?>/interface/forms/LBF/php/lbf_select_encounter.php'+'?pid='+pid+'&section_id='+section_id+'&formname='+formname+'&encounter='+encounter;
+            let title = "<?php echo xlt('Select Encounter'); ?>";
+            dlgopen(url, 'selectEncounter', 600, 400, '', title);
+        }
+
+        // @VH: Copy whole form data from another encounter [V10006]
+        async function globalCopy(event, pid, formname, encounter, section_id) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            add_doc_popup(section_id, formname, encounter, pid);
+        }
+
+        // @VH: Fetch encounter selected encounter form data for copy form data from another encounter [V10006]
+        async function setEncounter(section_id, encounter_id, form_id, pid, c_action) {
+            await fetchExtExam(encounter_id, form_id, pid, section_id);
+        }
+
+        // @VH: Fetch encounter form data for copy form data from another encounter [V10006]
+        async function fetchExtExam(encounterId, id, pid, section_id = 'global', preSelectionData = null) {
+            let confirmBox = false;
+
+            if(encounterId != "" && id != "") {
+                var msg = "Load data from selected encounter form into this form? \\n\\n Current Data in this form will be overwritten.";
+
+                confirmBox = confirm(msg);
+
+                if(confirmBox != true) {
+                    return false;
+                }
+
+                if(section_id != 'global') {
+                    var inputVals = $('#'+section_id+'_request_data').val();
+                } else {
+                    var inputVals = $('#global_request_data').val();
+                }
+
+                var valObj = {};
+                if(inputVals != '') {
+                    valObj = JSON.parse(inputVals);
+                }
+
+                if(section_id == 'global') {
+                    valObj['section_id'] = 'global';
+                }
+
+                valObj['encounter_id'] = encounterId;
+                valObj['f_id'] = id;
+            } else if(preSelectionData != null) {
+                var valObj = {};
+                //valObj['section_id'] = section_id;
+                valObj['selector_id'] = preSelectionData['id'];
+                valObj['formname'] = preSelectionData['formname'];
+                confirmBox = true;
+            }
+
+            const result = await $.ajax({
+                type: "POST",
+                url: "<?php echo $GLOBALS['webroot']; ?>/interface/forms/LBF/ajax/fetch_lbf_form.php",
+                datatype: "json",
+                data: valObj
+            });
+
+            if(result != '' && confirmBox == true) {
+                var resultObj = JSON.parse(result);
+
+                if(section_id == 'global') {
+                    extexam[section_id](resultObj['formData'], resultObj['group_check_list']);
+                } else {
+                    extexam.global(resultObj['formData'], resultObj['group_check_list'], section_id);
+                }
+            }
+        }
+
+        var extexam = {};
+
+        extexam.global = function(data, list_data = [], sectionId = '') {
+            $.each(data, function(section, fields){
+                if(list_data['form_cb_'+section]) {
+                    if(list_data['form_cb_'+section] == 1) {
+                        $('input[name="'+'form_cb_'+section+'"]').prop('checked', true);
+                        $('#div_'+section).css("display", "block");
+                    } else {
+                        $('input[name="'+'form_cb_'+section+'"]').prop('checked', false);
+                        $('#div_'+section).css("display", "none");
+                    }
+                }
+
+                if(sectionId != '') {
+                    if(section == sectionId) {
+                        setFielValue(fields, section);
+                    }
+                } else {
+                    setFielValue(fields, section);
+                }   
+            });
+        }
+
+        var setFielValue = function(data, section) {
+            if(data && section) {
+                $.each(data, function(k, field){
+                    if(field['data_type'] == '21') {
+                        var chValues = field['currentvalue'].split('|');
+                        var eleStr = [];
+                        
+                        $('#div_'+section+' [name^="form_'+field['field_id']+'["]').prop( "checked", false );
+
+                        $.each(chValues, function(chk, chVal){
+                            eleStr.push('#div_'+section+' [name="form_'+field['field_id']+'['+chVal+']"]');
+                        });
+
+                        var eStr = eleStr.join(', ');
+                        var ele = $(eStr);
+                        setInputVal(ele, '1');
+                    } else if(field['data_type'] == '22') {
+                        var tlValues = field['currentvalue'].split('|');
+                        $.each(tlValues, function(tlk, tlVal){
+                            var tlVals = tlVal.split(':');
+
+                            var tlele = $('#div_'+section+' [name="form_'+field['field_id']+'['+tlVals[0]+']"]');
+                            setInputVal(tlele, tlVals[1]);
+                        });
+                    } else if(field['data_type'] == '25') {
+                        $('#div_'+section+' [name^="check_'+field['field_id']+'["]').prop( "checked", false );
+                        
+                        var tcheleStr = [];
+                        var tchValues = field['currentvalue'].split('|');
+                        
+                        $.each(tchValues, function(tchk, tchVal){
+                            var tchVals = tchVal.split(':');
+
+                            var chele = $('#div_'+section+' [name="check_'+field['field_id']+'['+tchVals[0]+']"]');
+                            setInputVal(chele, tchVals[1]);
+
+                            var tchele = $('#div_'+section+' [name="form_'+field['field_id']+'['+tchVals[0]+']"]');
+                            setInputVal(tchele, tchVals[2]);
+                        });
+
+                    } else if(field['data_type'] == '34') {
+                        $('#div_'+section+' #form_'+field['field_id']+'_div').html(field['currentvalue']);
+                        var ele1 = $('#div_'+section+' [name="form_'+field['field_id']+'"]');
+                        setInputVal(ele1, field['currentvalue']);
+                    } else if(field['data_type'] == '36') {
+                        var smValues = field['currentvalue'].split('|');
+                        var ele = $('#div_'+section+' [name="form_'+field['field_id']+'[]"]');
+                        setInputVal(ele, smValues);
+                    } else {
+                        var ele = $('#div_'+section+' [name="form_'+field['field_id']+'"]');
+                        setInputVal(ele, field['currentvalue']);
+                    }
+                });
+            }
+        }
+
+        var setInputVal = function(ele, value) {
+            //console.log(value);
+            if(ele.length > 0) {
+                if($(ele).is("input:text")) {
+                    ele.val(value);
+                } else if($(ele).is("select")) {
+                    $(ele).val(value);
+                    //$(ele).val(value).change();
+                } else if($(ele).is("select [multiple='multiple']")) {
+                    $(ele).val(value);
+                } else if($(ele).is("textarea")) {
+                    $(ele).val(value);
+                } else if($(ele).is("input:checkbox")) {
+                    $.each(ele, function(inx, c_ele){
+                        if($(c_ele).val() == value) {
+                            $(c_ele).prop( "checked", true );
+                        } else {
+                            $(c_ele).prop( "checked", false );
+                        }
+                    });
+                } else if($(ele).is("input:radio")) {
+                    $.each(ele, function(inx, c_ele){
+                        if($(c_ele).val() == value) {
+                            $(c_ele).prop( "checked", true );
+                        } else {
+                            $(c_ele).prop( "checked", false );
+                        }
+                    });
+                }
+            }
+        }
+    </script>
+    <!-- End -->
 </head>
 
 <body class="body_top"<?php if ($from_issue_form) {
@@ -966,6 +1596,11 @@ if (
                                 echo "</select>\n";
                             }
                             ?>
+
+                            <?php 
+                                // @VH: Show form top section for display global copy button [V10006]
+                                echo lbf_form_top_section($pid);
+                            ?>
                         </div>
                     </div>
                     <?php $cmsportal_login = $enrow['cmsportal_login'] ?? '';
@@ -1003,6 +1638,9 @@ if (
                 $form_is_graphable = false;
 
                 $condition_str = '';
+
+                // @VH: Process Before Save [V10001]
+                preProcessData($pid);
 
                 while ($frow = sqlFetchArray($fres)) {
                     $this_group = $frow['group_id'];
@@ -1086,6 +1724,14 @@ if (
                         } // End "P" option logic.
                     }
 
+                    // @VH: If field option type is Unused (Readonly) hide the field if value is not empty [2024073101]
+                    if(isset($frow['uor']) && $frow['uor'] == "4") {
+                        if (empty($currvalue)) {
+                            continue;
+                        }
+                    }
+                    // END
+
                     $this_levels = $this_group;
                     $i = 0;
                     $mincount = min(strlen($this_levels), strlen($group_levels));
@@ -1128,15 +1774,39 @@ if (
 
                         $display_style = $grouprow['grp_init_open'] ? 'block' : 'none';
 
+                        // @VH: Hide/Show group section [V10001]
+                        if (strlen($gname)) {
+                            if(isset($group_check_list['form_cb_'.$group_seq])) {
+                                if($group_check_list['form_cb_'.$group_seq] === 1) {
+                                    $display_style = 'block';
+                                } else {
+                                    $display_style = 'none';
+                                }
+                            }
+                        }
+                        // END
+
                         // If group name is blank, no checkbox or div.
                         if (strlen($gname)) {
                             // <label> was inheriting .justify-content-center from .form-inline,
                             // dunno why but we fix that here.
-                            echo "<br /><span><label class='mb-1 justify-content-start' role='button'><input class='mr-1' type='checkbox' name='form_cb_" . attr($group_seq) . "' value='1' " . "onclick='return divclick(this," . attr_js('div_' . $group_seq) . ");'";
+                            // @VH: Added Style changes for checkbox [V10007]
+                            echo "<br /><span style='display: grid;grid-template-columns: 1fr auto auto;'><label class='mb-1 justify-content-start' role='button'><input class='mr-1' type='checkbox' name='form_cb_" . attr($group_seq) . "' value='1' " . "onclick='return divclick(this," . attr_js('div_' . $group_seq) . ");'";
                             if ($display_style == 'block') {
                                 echo " checked";
                             }
-                            echo " /><strong>" . text(xl_layout_label($group_name)) . "</strong></label></span>\n";
+
+                            // @VH: [V10007]
+                            echo " /><strong>" . text(xl_layout_label($group_name)) . "</strong></label>\n";
+
+                            // @VH: Predeifned Section functionality [V10005]
+                            include("php/sec_predefined_lbf_selection.inc.php");
+                            // @VH: Include section copy [V10006]
+                            echo lbf_form_sub_section($pid);
+
+                            echo "</span>\n";
+                            // END
+
                             // table-responsive removed below because it added a scrollbar regardless of screen width.
                             echo "<div id='div_" . attr($group_seq) . "' class='section clearfix' style='display:" . attr($display_style) . ";'>\n";
                         }
@@ -1247,13 +1917,15 @@ if (
                             $titlecols = $CPR;
                             $tmp = '';
                         }
-                        $tmp .= ($frow['uor'] == 2) ? ' required' : ' font-weight-bold';
+                        // @VH: Added condition to make field required when uor value is Required (Section) [V10008]
+                        $tmp .= ($frow['uor'] == 2 || $frow['uor'] == 3) ? ' required' : ' font-weight-bold';
                         if ($graphable) {
                             $tmp .= ' graph';
                         }
                         if ($USING_BOOTSTRAP) {
                             $bs_cols = $titlecols * intval(12 / $CPR);
-                            echo "<div class='$BS_COL_CLASS-$bs_cols pt-1$tmp' ";
+                            // @VH: added class to fix layout issue [V10007]
+                            echo "<div class='$BS_COL_CLASS-$bs_cols col-md-3 pt-1$tmp' ";
                             // This ID is used by action conditions and also show_graph().
                             echo "id='label_id_" . attr($field_id) . "'";
                             echo ">";
@@ -1287,6 +1959,17 @@ if (
                         echo "&nbsp;";
                     }
 
+                    // @VH: Add Snippets buttin if field type is 3 (TextArea) [V10009]
+                    if($data_type == 3) {
+                        $frmdir = 'LBF';
+                        $use_break = TRUE;
+                        $field_prefix = 'form_';
+                        $field_name = $field_id;
+                        $form_module = $field_id;
+                        include(FORM_BUTTONS . 'btn_snippets.inc.php');
+                    }
+                    // END
+
                     // Note the labels are not repeated in the history columns.
 
                     // Handle starting of a new data cell.
@@ -1300,7 +1983,8 @@ if (
                         }
                         if ($USING_BOOTSTRAP) {
                             $bs_cols = $datacols * intval(12 / $CPR);
-                            echo "<div class='$BS_COL_CLASS-$bs_cols pt-1$tmp' ";
+                            // @VH: added class to fix layout issue [V10007]
+                            echo "<div class='$BS_COL_CLASS-$bs_cols col-md-5 pt-1$tmp' ";
                             // This ID is used by action conditions and also show_graph().
                             echo "id='value_id_" . attr($field_id) . "'";
                             echo ">";
@@ -1318,6 +2002,9 @@ if (
                         $cell_count += $datacols;
                     }
                     ++$item_count;
+
+                    // @VH: Get Option code list [2023062601]
+                    $billOptionCodeList = getFieldOptionList($frow, $billOptionCodeList);
 
                     // Skip current-value fields for the display-only case.
                     if (!$from_trend_form) {
@@ -1848,6 +2535,11 @@ if (
                 <!-- include support for the list-add selectbox feature -->
                 <?php require $GLOBALS['fileroot'] . "/library/options_listadd.inc.php"; ?>
 
+                <!-- @VH: Scripts -->
+                <script src="<?php echo $GLOBALS['webroot']; ?>/library/wmt-v2/wmtpopup.js" type="text/javascript"></script>
+                <script src="<?php echo $GLOBALS['webroot']; ?>/library/wmt-v2/wmt.forms.js" type="text/javascript"></script>
+                <!-- END -->
+
                 <script>
                     // Array of action conditions for the checkSkipConditions() function.
                     var skipArray = [
@@ -1907,6 +2599,9 @@ if (
                     /* post event to portal with current formid from save/edit action */
                     parent.postMessage({formid:<?php echo attr($formid) ?>}, window.location.origin);
                     <?php } ?>
+
+                    // @VH: Bill option code list [2023062601]
+                    let billOptionCodeList = JSON.parse('<?php echo json_encode($billOptionCodeList); ?>');
                 </script>
 
             </div>

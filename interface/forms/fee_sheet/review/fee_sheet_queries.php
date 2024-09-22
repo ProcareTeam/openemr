@@ -324,13 +324,16 @@ function select_encounters($pid, $encounter)
 {
     $retval = array();
     $parameters = array($pid,$encounter);
-    $sql = "SELECT DATE(date) as date,encounter " .
+    // @VH: To show provider and categories info into select encounter list item of feesheet review [2023090101]
+    $sql = "SELECT DATE(form_encounter.date) as date, openemr_postcalendar_categories.pc_catname, CONCAT(IF(LENGTH(u.fname),u.fname,NULL),', ', IF(LENGTH(u.lname),u.lname,NULL)) as user_name, form_encounter.encounter " .
          " FROM form_encounter " .
-         " WHERE pid=? and encounter!=? " .
+         " left join openemr_postcalendar_categories on form_encounter.pc_catid=openemr_postcalendar_categories.pc_catid " .
+         " left join users AS u ON form_encounter.provider_id = u.id " .
+         " WHERE form_encounter.pid=? and form_encounter.encounter!=? " .
          " ORDER BY date DESC";
     $results = sqlStatement($sql, $parameters);
     while ($res = sqlFetchArray($results)) {
-        $retval[] = new encounter_info($res['encounter'], $res['date']);
+        $retval[] = new encounter_info($res['encounter'], $res['date'], $res['pc_catname'], $res['user_name']);
     }
 
     return $retval;

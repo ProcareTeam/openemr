@@ -122,9 +122,11 @@ function styles_style_other() {
 // standard themes css compilation
 function styles_style_uni() {
     let isSuccess = true;
+    // @VH: added wmt-2
     return gulp.src(config.src.styles.style_uni)
         .pipe(gap.prependText('$compact-theme: false;\n'))
         .pipe(injector.replace('// bs4import', '@import "../../../public/assets/bootstrap/scss/bootstrap";'))
+        .pipe(gap.appendText('\n@import "../../../library/wmt-v2/wmtdefault";\n'))
         .pipe(sourcemaps.init())
         .pipe(sass().on('error', (err) => {
             log_error(isSuccess, err);
@@ -175,9 +177,11 @@ function styles_style_uni_compact() {
 // color themes css compilation
 function styles_style_color() {
     let isSuccess = true;
+    // @VH: added wmt-2
     return gulp.src(config.src.styles.style_color)
         .pipe(gap.prependText('$compact-theme: false;\n'))
         .pipe(injector.replace('// bs4import', '@import "../../../public/assets/bootstrap/scss/bootstrap";'))
+        .pipe(gap.appendText('\n@import "../../../library/wmt-v2/wmtdefault";\n'))
         .pipe(sourcemaps.init())
         .pipe(sass().on('error', (err) => {
             log_error(isSuccess, err);

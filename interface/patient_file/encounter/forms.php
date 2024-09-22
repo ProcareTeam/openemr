@@ -19,6 +19,7 @@ require_once("$srcdir/patient.inc.php");
 require_once("$srcdir/amc.php");
 require_once($GLOBALS['srcdir'] . '/ESign/Api.php');
 require_once("$srcdir/../controllers/C_Document.class.php");
+require_once("$srcdir/OemrAD/oemrad.globals.php");
 
 use ESign\Api;
 use OpenEMR\Common\Acl\AclMain;
@@ -30,6 +31,7 @@ use OpenEMR\Services\EncounterService;
 use OpenEMR\Services\UserService;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use OpenEMR\Events\Encounter\EncounterFormsListRenderEvent;
+use OpenEMR\OemrAd\Caselib;
 
 $expand_default = (int)$GLOBALS['expand_form'] ? 'show' : 'hide';
 $reviewMode = false;
@@ -64,8 +66,8 @@ if ($GLOBALS['kernel']->getEventDispatcher() instanceof EventDispatcher) {
 <head>
 
 <?php require $GLOBALS['srcdir'] . '/js/xl/dygraphs.js.php'; ?>
-
-<?php Header::setupHeader(['common','esign','dygraphs', 'utility']); ?>
+<!-- @VH: Added change to header ("oemr_ad") -->
+<?php Header::setupHeader(['common','esign','dygraphs', 'utility', 'oemr_ad']); ?>
 
 <?php
 $esignApi = new Api();
@@ -106,6 +108,84 @@ if (!empty($_GET['attachid'])) {
 }
 ?>
 
+<!-- @VH: Change -->
+<script>
+// @VH: Check Valid FeeSheet Code Status [2023011610]
+async function handleConfimBox_feeCodeLinked(encounter, pid) {
+    var bodyObj = { encounter :  encounter, pid : pid };
+    const result = await $.ajax({
+        type: "POST",
+        url:  top.webroot_url + '/interface/forms/fee_sheet/ajax/get_feesheet_code_status.php',
+        datatype: "json",
+        data: bodyObj
+    });
+
+    if(result != '') {
+        var resultObj = JSON.parse(result);
+        
+        //Check invalid ICD codes
+        if(resultObj && Array.isArray(resultObj['invalid_code']) && resultObj['invalid_code'].length > 0) {
+            alert('\"'+resultObj['invalid_code'].join(", ")+'\" ICD code is not a current code.  Please select a current ICD code');
+            return false;
+        }
+
+        //
+        if(resultObj && resultObj['feesheet_code_status'] === false) {
+            if(!confirm("Warning - At least one CPT/HCPCS is not linked to an ICD in the fee sheet.  Press \"Cancel\" to back and justify all CPT/HCPCS codes or Press \"Ok\" to sign the encounter")) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    return true;
+}
+
+
+// @VH: Handle care team provider. [V100054]
+async function handleCareTeamProvider(encounter, pid) {
+    var bodyObj = { encounter :  encounter, pid : pid};
+    const cs_result = await $.ajax({
+        type: "POST",
+        url:  top.webroot_url + '/interface/patient_file/encounter/ajax/check_cs_rp.php',
+        datatype: "json",
+        data: bodyObj
+    });
+
+    if(cs_result != '') {
+        var csResultObj = JSON.parse(cs_result);
+        if(csResultObj && csResultObj['status'] !== false) {
+            var rp_url = top.webroot_url + '/interface/patient_file/encounter/php/case_rp_view.php?pid=' + pid + '&encounter=' + encounter;
+            let rp_title = 'Care Team Providers';
+            let dialogObj = await dlgopen(rp_url, 'case_rp_view', 'modal-mlg', '', '', rp_title, {
+                sizeHeight: 'full'
+            });
+            
+            dialogLoader(dialogObj.modalwin);
+        }
+    }
+}
+
+// @VH: Check is encounter authorizedEncounter. [V100057]
+async function authorizedEncounter(encounter = '', case_id = '', start_date = '') {
+    if(case_id != '') {
+        var responce = await $.post({
+            type: "POST",
+            url: top.webroot_url + '/interface/forms/cases/ajax/authorized_case.php',
+            datatype: "json",
+            data: { "type" : "encounter", "case_id" : case_id, "start_date" : start_date, "encounter" : encounter }
+        });
+
+        var responceJSON = JSON.parse(responce);
+
+        if(responceJSON['status'] === false) {
+            alert(responceJSON['message'].join('\n\n'));
+        }
+    }
+}
+</script>
+<!-- End -->
 
 <?php
 // If google sign-in enable then add scripts.
@@ -120,7 +200,11 @@ $(function () {
     $(".esign-button-form").esign(
         formConfig,
         {
-            afterFormSuccess : function( response ) {
+            beforeFormSubmit : async function() {
+                /* @VH: - Added "beforeFormSubmit" function [2023011610] */
+                return await handleConfimBox_feeCodeLinked('<?php echo $encounter; ?>', '<?php echo $pid; ?>');
+            },
+            afterFormSuccess : async function( response ) {
                 if ( response.locked ) {
                     var editButtonId = "form-edit-button-"+response.formDir+"-"+response.formId;
                     $("#"+editButtonId).replaceWith( response.editButtonHtml );
@@ -130,6 +214,12 @@ $(function () {
                 $.post( formConfig.logViewAction, response, function( html ) {
                     $("#"+logId).replaceWith( html );
                 });
+
+                // @VH: Care Team provider [V100054]
+                <?php if(Caselib::getCtNotificationCategories($encounter) === true) { ?>
+                    await handleCareTeamProvider('<?php echo $encounter; ?>', '<?php echo $pid; ?>');
+                <?php } ?>
+                // End
             }
         }
     );
@@ -138,7 +228,11 @@ $(function () {
     $(".esign-button-encounter").esign(
         encounterConfig,
         {
-            afterFormSuccess : function( response ) {
+            beforeFormSubmit : async function() {
+                /* @VH: Added "beforeFormSubmit" function [2023011610] */
+                return await handleConfimBox_feeCodeLinked('<?php echo $encounter; ?>', '<?php echo $pid; ?>');
+            },
+            afterFormSuccess : async function( response ) {
                 // If the response indicates a locked encounter, replace all
                 // form edit buttons with a "disabled" button, and "disable" left
                 // nav visit form links
@@ -149,12 +243,21 @@ $(function () {
                     top.window.parent.left_nav.syncRadios();
                     // Disable the new-form capabilities in top nav of the encounter
                     $(".encounter-form-category-li").remove();
+
+                    // @VH: Remove esign button if it locked [V100055]
+                    $(".esign-button-encounter").remove();
                 }
 
                 var logId = "esign-signature-log-encounter-"+response.encounterId;
                 $.post( encounterConfig.logViewAction, response, function( html ) {
                     $("#"+logId).replaceWith( html );
                 });
+
+                // @VH: Care Team provider [V100054]
+                <?php if(Caselib::getCtNotificationCategories($encounter) === true) { ?>
+                    await handleCareTeamProvider('<?php echo $encounter; ?>', '<?php echo $pid; ?>');
+                <?php } ?>
+                // End 
             }
         }
     );
@@ -535,6 +638,12 @@ $eventDispatcher->addListener(EncounterMenuEvent::MENU_RENDER, function (Encount
     $menuArray = $menuEvent->getMenuData();
     $reg = getFormsByCategory();
     foreach ($reg as $item) {
+        // @VH: Don't show lbf form if lbf form associated. [V100056]
+        if($item['LBF'] === true && !empty($item['grp_rto_action'])) {
+            continue;
+        }
+        // End
+
         $tmp = explode('|', $item['aco_spec']);
         if (!empty($tmp[1])) {
             if (!AclMain::aclCheckCore($tmp[0], $tmp[1], '', 'write') && !AclMain::aclCheckCore($tmp[0], $tmp[1], '', 'addonly')) {
@@ -594,6 +703,17 @@ $encounter_date = date("Y-m-d", strtotime($dateres["date"]));
 $providerIDres = getProviderIdOfEncounter($encounter);
 $providerNameRes = getProviderName($providerIDres, false);
 
+// @VH: Check authorized encounter. [V100057]
+$case_id = Caselib::getAuthorizedCaseId($pid, $encounter, $encounter_date);
+if($case_id !== false && !empty($case_id)) {
+?>
+<script type="text/javascript">
+    jQuery(document).ready(async function($) { await authorizedEncounter('<?php echo $encounter; ?>', '<?php echo $case_id; ?>', '<?php echo $encounter_date; ?>'); }); 
+</script>
+<?php
+}
+// End
+
 // Check for group encounter
 if ($attendant_type == 'pid' && is_numeric($pid)) {
     $groupEncounter = false;
@@ -615,12 +735,14 @@ $menu = $eventDispatcher->dispatch($encounterMenuEvent, EncounterMenuEvent::MENU
 
 $twig = new TwigContainer(null, $GLOBALS['kernel']);
 $t = $twig->getTwig();
+// @VH: Is Deletable [V100058]
 echo $t->render('encounter/forms/navbar.html.twig', [
     'encounterDate' => oeFormatShortDate($encounter_date),
     'patientName' => $patientName,
     'isAdminSuper' => AclMain::aclCheckCore("admin", "super"),
     'enableFollowUpEncounters' => $GLOBALS['enable_follow_up_encounters'],
-    'menuArray' => $menu->getMenuData(),
+    'menuArray' => $encounterLocked === false ? $menu->getMenuData() : array(),
+    'isDeletable' => AclMain::aclCheckCore("encounters", "delete"),
 ]);
 ?>
 
@@ -661,8 +783,9 @@ echo $t->render('encounter/forms/navbar.html.twig', [
         <div style='margin-top: 8px;'>
             <?php
             // ESign for entire encounter
+            // @VH: Changes
             $esign = $esignApi->createEncounterESign($encounter);
-            if ($esign->isButtonViewable()) {
+            if ($esign->isButtonViewable() && $encounterLocked !== true) {
                 echo $esign->buttonHtml();
             }
             ?>
@@ -835,6 +958,16 @@ if (
         "FIND_IN_SET(formdir,'newpatient') DESC, form_name, date DESC"
     ))
 ) {
+
+    // @VH: Move order items to last
+    foreach ($result as $rk => $iter) {
+        if($iter['formdir'] == 'rto' || $iter['formdir'] == 'rto1') {
+            unset($result[$rk]);
+            $result[] = $iter;
+        }
+    }
+    // End
+
     echo "<div class='w-100' id='partable'>";
     $divnos = 1;
     foreach ($result as $iter) {
@@ -951,8 +1084,10 @@ if (
             "' onclick='top.restoreSession()'>" . xlt('Print') . "</a>";
         }
 
-        if (AclMain::aclCheckCore('admin', 'super')) {
-            if ($formdir != 'newpatient' && $formdir != 'newGroupEncounter') {
+        // @VH: Added acl_check.
+        if (AclMain::aclCheckCore('admin', 'super') || AclMain::aclCheckCore("encounters", "delete_form")) {
+            // @VH: Added formdir
+            if ($formdir != 'newpatient' && $formdir != 'newGroupEncounter' && $formdir != 'rto' && $formdir != 'rto1') {
                 // a link to delete the form from the encounter
                 echo "<a href='$rootdir/patient_file/encounter/delete_form.php?" .
                     "formname=" . attr_url($formdir) .

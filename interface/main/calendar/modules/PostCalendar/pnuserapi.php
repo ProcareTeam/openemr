@@ -17,6 +17,7 @@ use OpenEMR\Events\Appointments\CalendarFilterEvent;
 use OpenEMR\Events\Appointments\CalendarUserGetEventsFilter;
 use OpenEMR\Events\Core\ScriptFilterEvent;
 use OpenEMR\Events\Core\StyleFilterEvent;
+use OpenEMR\Common\Database\QueryUtils;
 
 if (!defined('__POSTCALENDAR__')) {
     @define('__POSTCALENDAR__', 'PostCalendar');
@@ -327,7 +328,26 @@ function postcalendar_userapi_buildView($args)
                 //==================================
                 //FACILITY FILTERING (CHEMED)
         $userService = new UserService();
-        if ($_SESSION['pc_facility']) {
+        // @VH: Provider group selection change added new condition. [V100034]
+        $provinfo = [];
+        if(isset($_SESSION['provider_group']) && !empty($_SESSION['provider_group']))
+        {
+            /*$user_group_provider = sqlStatement("select distinct id, username, lname, fname, authorized, info, facility, suffix from users where id in (". $_SESSION['provider_group'] . ") order by lname , fname");
+            $prov_group_info = [];
+            for ($iter = 0; $row = sqlFetchArray($user_group_provider); $iter++) {
+                $prov_group_info[] = $row;
+            }
+            if(count($prov_group_info)> 0)
+            {
+                $provinfo = $prov_group_info;
+            }*/
+            $query = "select id, username, lname, fname, authorized, info, facility, suffix from users where id in (". $_SESSION['provider_group'] . ") order by lname, fname";
+            
+            $records = QueryUtils::fetchRecords($query);
+            
+            $provinfo = $records;
+        }
+        elseif ($_SESSION['pc_facility']) {
             $provinfo = $userService->getUsersForCalendar($_SESSION['pc_facility']);
             if (!$provinfo) {
                 $provinfo = $userService->getUserForCalendar($_SESSION['authUserID']);
@@ -634,6 +654,7 @@ function &postcalendar_userapi_pcQueryEventsFA($args)
     $table      =  $pntable['postcalendar_events'];
     $cattable   =  $pntable['postcalendar_categories'];
 
+    // @VH: Added "alert_info" to query. [V100035]
     $sql = "SELECT DISTINCT a.pc_eid,  a.pc_informant, a.pc_catid, a.pc_title, " .
     "a.pc_time, a.pc_hometext, a.pc_eventDate, a.pc_duration, a.pc_endDate, " .
     "a.pc_startTime, a.pc_recurrtype, a.pc_recurrfreq, a.pc_recurrspec, " .
@@ -643,7 +664,7 @@ function &postcalendar_userapi_pcQueryEventsFA($args)
     "b.pc_catcolor, b.pc_catname, b.pc_catdesc, a.pc_pid, a.pc_aid, " .
     "concat(u.fname,' ',u.lname) as provider_name, " .
     "concat(pd.fname,' ',pd.lname) as patient_name, " .
-    "concat(u2.fname, ' ', u2.lname) as owner_name, pd.DOB as patient_dob, " .
+    "concat(u2.fname, ' ', u2.lname) as owner_name, pd.DOB as patient_dob, pd.alert_info, " .
     "a.pc_facility" .
     "FROM  $table AS a " .
     "LEFT JOIN $cattable AS b ON b.pc_catid = a.pc_catid " .
@@ -712,6 +733,7 @@ function &postcalendar_userapi_pcQueryEventsFA($args)
         if (isset($tmp)) {
             unset($tmp);
         } $tmp = array();
+        // @VH: Added "alert_info". [V100035]
         list($tmp['eid'],          $tmp['uname'],         $tmp['catid'],
          $tmp['title'],        $tmp['time'],          $tmp['hometext'],
          $tmp['eventDate'],    $tmp['duration'],      $tmp['endDate'],
@@ -722,7 +744,7 @@ function &postcalendar_userapi_pcQueryEventsFA($args)
          $tmp['sharing'],      $tmp['prefcatid'],     $tmp['catcolor'],
          $tmp['catname'],      $tmp['catdesc'],       $tmp['pid'],
          $tmp['aid'],          $tmp['provider_name'], $tmp['patient_name'],
-         $tmp['owner_name'],   $tmp['patient_dob'],   $tmp['facility'])   = $result->fields;
+         $tmp['owner_name'],   $tmp['patient_dob'],   $tmp['alert_info'],   $tmp['facility'])   = $result->fields;
 
         // grab the name of the topic
         $topicname = pcGetTopicName($tmp['topic']);
@@ -769,6 +791,8 @@ function &postcalendar_userapi_pcQueryEventsFA($args)
         $events[$i]['catdesc']     = $tmp['catdesc'];
         $events[$i]['pid']         = $tmp['pid'];
         $events[$i]['patient_name'] = $tmp['patient_name'];
+        // @VH: "alert_info" changes. [V100035]
+        $events[$i]['alert_info']  = $tmp['alert_info'];
         $events[$i]['provider_name'] = $tmp['provider_name'];
         $events[$i]['owner_name']  = $tmp['owner_name'];
         $events[$i]['patient_dob'] = $tmp['patient_dob'];
@@ -901,6 +925,7 @@ function &postcalendar_userapi_pcQueryEvents($args)
     $table      =  $pntable['postcalendar_events'];
     $cattable   =  $pntable['postcalendar_categories'];
 
+    // @VH: "alert_info" changes. [V100035]
     $sql = "SELECT DISTINCT a.pc_eid,  a.pc_informant, a.pc_catid, " .
     "a.pc_title, a.pc_time, a.pc_hometext, a.pc_eventDate, a.pc_duration, " .
     "a.pc_endDate, a.pc_startTime, a.pc_recurrtype, a.pc_recurrfreq, " .
@@ -911,7 +936,7 @@ function &postcalendar_userapi_pcQueryEvents($args)
     "concat(u.fname,' ',u.lname) as provider_name, " .
     "concat(pd.lname,', ',pd.fname) as patient_name, " .
     "concat(u2.fname, ' ', u2.lname) as owner_name, " .
-    "DOB as patient_dob, a.pc_facility, pd.pubpid, a.pc_gid, " .
+    "DOB as patient_dob, pd.alert_info, a.pc_facility, pd.pubpid, a.pc_gid, " .
     "tg.group_name, tg.group_type, tg.group_status " .
     "FROM $table AS a " .
     "LEFT JOIN $cattable AS b ON b.pc_catid = a.pc_catid " .
@@ -1042,6 +1067,7 @@ function &postcalendar_userapi_pcQueryEvents($args)
         if (isset($tmp)) {
             unset($tmp);
         } $tmp = array();
+        // @VH: "alert_info" changes [V100035]
         list($tmp['eid'],          $tmp['uname'],       $tmp['catid'],
          $tmp['title'],        $tmp['time'],        $tmp['hometext'],
          $tmp['eventDate'],    $tmp['duration'],    $tmp['endDate'],
@@ -1052,7 +1078,7 @@ function &postcalendar_userapi_pcQueryEvents($args)
          $tmp['sharing'],      $tmp['prefcatid'],   $tmp['catcolor'],
          $tmp['catname'],      $tmp['catdesc'],     $tmp['pid'],
          $tmp['apptstatus'],   $tmp['aid'],         $tmp['provider_name'],
-         $tmp['patient_name'], $tmp['owner_name'],  $tmp['patient_dob'],
+         $tmp['patient_name'], $tmp['owner_name'],  $tmp['patient_dob'],    $tmp['alert_info'],
          $tmp['facility'],     $tmp['pubpid'],      $tmp['gid'],
          $tmp['group_name'],   $tmp['group_type'],  $tmp['group_status']) = $result->fields;
 
@@ -1099,6 +1125,8 @@ function &postcalendar_userapi_pcQueryEvents($args)
         $events[$i]['apptstatus']  = $tmp['apptstatus'];
         $events[$i]['pubpid']      = $tmp['pubpid'];
         $events[$i]['patient_name'] = $tmp['patient_name'];
+        // @VH: "alert_info" changes [V100035]
+        $events[$i]['alert_info']  = $tmp['alert_info'];
         $events[$i]['provider_name'] = $tmp['provider_name'];
         $events[$i]['owner_name']  = $tmp['owner_name'];
         $events[$i]['patient_dob'] = $tmp['patient_dob'];

@@ -1740,6 +1740,9 @@ foreach ($sources as $key => $value) {
      <option value="0"><?php echo xlt('Unused'); ?></option>
      <option value="1" selected><?php echo xlt('Optional'); ?></option>
      <option value="2"><?php echo xlt('Required'); ?></option>
+     <!-- @VH: Added Options [V10008] -->
+     <option value="3"><?php echo xlt('Required (Section)'); ?></option>
+     <option value="4"><?php echo xlt('Unused (Readonly)'); ?></option>
     </select>
    </td>
    <td align='center'>
@@ -1786,7 +1789,8 @@ foreach ($sorted_datatypes as $key => $value) {
 </div>
 
 <script>
-/* Field modifier objects - heading towards context based.
+// @VH: Added options ('Email Verification', 'Mask PhoneNumber', 'Validate PhoneNumber').    
+/* Field modifier objects - heading towards context based. [V100075][V100076]
     Used by Select2 so rtl may be enabled*/
 <?php echo "var fldOptions = [";
 echo "{id: 'EP',text:" . xlj('Exclude in Portal') . "},
@@ -1821,7 +1825,11 @@ echo "{id: 'EP',text:" . xlj('Exclude in Portal') . "},
     ]},
     {id: '0',text:" . xlj('Read Only') . "},
     {id: '1',text:" . xlj('Write Once') . "},
-    {id: '2',text:" . xlj('Billing Code Descriptions') . "}];\n";
+    {id: '2',text:" . xlj('Billing Code Descriptions') . "},
+    {id: 'EMV',text:" . xlj('Email Verification') . "},
+    {id: 'MP',text:'" . xla('Mask PhoneNumber') . "'},
+    {id: 'MPV',text:'" . xla('Validate PhoneNumber') . "'},
+    {id: 'VAZ',text:'" . xla('Validate Zip') . "'}];\n";
 
 // Language direction for select2
 echo 'var langDirection = ' . js_escape($_SESSION['language_direction']) . ';';
@@ -1910,6 +1918,52 @@ function validateNewField(idpfx) {
 // jQuery stuff to make the page a little easier to use
 
 $(function () {
+    // @VH: Scripts changes 
+    // Set readonly option value for uor 4 [2024073101]
+    $('select[name^="fld["][name$="[uor]"]').change(function() {
+        if ($(this).val() == 4) {
+            let elementRow = $(this).parent().parent();
+
+            if (elementRow.prop('tagName').toLowerCase() == "tr" && elementRow.prop("id") != "") {
+
+                let selectOptionElement = $('select[id="' + elementRow.prop("id") + '[edit_options]"]');
+
+                let selectOptionElementValue = selectOptionElement.val() || [];
+
+                if (!selectOptionElementValue.includes('0')) {
+                    selectOptionElementValue.push('0');
+                }
+
+
+                if (selectOptionElementValue.includes('0')) {
+                    selectOptionElement.val(selectOptionElementValue).trigger('change');
+                }
+            }
+        }
+    });
+
+    $('select[name^="newuor"]').change(function() {
+        if ($(this).val() == 4) {
+            let elementRow = $(this).parent().parent();
+
+            if (elementRow.prop('tagName').toLowerCase() == "tr") {
+
+                let selectOptionElement = elementRow.find('select#newedit_options');
+
+                let selectOptionElementValue = selectOptionElement.val() || [];
+
+                if (!selectOptionElementValue.includes('0')) {
+                    selectOptionElementValue.push('0');
+                }
+
+
+                if (selectOptionElementValue.includes('0')) {
+                    selectOptionElement.val(selectOptionElementValue).trigger('change');
+                }
+            }
+        }
+    });
+    // End
 
     $(function () {
         $('.typeAddons').select2({

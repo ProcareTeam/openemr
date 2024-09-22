@@ -386,7 +386,8 @@ class RestConfig
             $resource === ("/fhir/metadata") ||
             $resource === ("/fhir/.well-known/smart-configuration") ||
             // skip list and single instance routes
-            0 === strpos("/fhir/OperationDefinition", $resource)
+            0 === strpos("/fhir/OperationDefinition", $resource) ||
+            in_array($resource, array("/api/zoom_webhook", "/api/patientform", "/api/formauthcheck"))
         ) {
             return true;
         } else {
