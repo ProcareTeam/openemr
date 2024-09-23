@@ -79,6 +79,7 @@ use Psr\Log\LoggerInterface;
 use RestConfig;
 use RuntimeException;
 use Twig\Environment;
+use OpenEMR\Events\Generic\AuthEvent;
 
 class AuthorizationController
 {
@@ -636,9 +637,10 @@ class AuthorizationController
             $expireInTime = $GLOBALS['kernel']->getEventDispatcher()->dispatch($authEvent, AuthEvent::EVENT_EXPIRETIME_NAME);
             // END
 
+            // @VH: Changed Expire Time
             $authServer->enableGrantType(
                 $grant,
-                new \DateInterval('PT1H') // access token
+                new \DateInterval(!empty($expireInTime->getExpireIn()) ? $expireInTime->getExpireIn() : 'PT1H') // access token
             );
         }
         if ($this->grantType === self::GRANT_TYPE_CLIENT_CREDENTIALS) {
