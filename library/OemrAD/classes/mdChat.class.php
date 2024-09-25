@@ -45,7 +45,7 @@ class Chat {
 	        $returnval[$iter]=$row;
 	    }
 
-	    return count($returnval) == 1 ? $returnval[0] : $returnval;
+	    return isset($returnval) && is_array($returnval) && count($returnval) == 1 ? $returnval[0] : $returnval;
 	}
 
 
