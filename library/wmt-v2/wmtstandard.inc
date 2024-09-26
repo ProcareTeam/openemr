@@ -538,7 +538,7 @@ function GetList($thisPid, $type, $enc='', $dt='', $mode='show_enc', $dt2='') {
 		}
 		if($type == 'allergy' || $type == 'medication') {
 			if($mode != 'show_all') $sql .= "AND (date(enddate) IS NULL OR ".
-					"date(enddate)='0000-00-00' OR date(enddate)='') ";
+					"date(enddate)='0000-00-00') ";
 		}
 		if($type == 'ultrasound' && $dt) {
 			$sql .= 'AND begdate > ? ';	

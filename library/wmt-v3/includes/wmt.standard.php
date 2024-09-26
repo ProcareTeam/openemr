@@ -402,7 +402,7 @@ function GetList($thisPid, $type, $enc='', $dt='', $mode='show_enc') {
 		}
 		if($type == 'allergy' || $type == 'medication') {
 			if($mode != 'show_all') $sql .= "AND (date(enddate) IS NULL OR ".
-					"date(enddate)='0000-00-00' OR date(enddate)='') ";
+					"date(enddate)='0000-00-00') ";
 		}
 		$sql .= "ORDER BY begdate";
 		$binds=array($thisPid, $list_type, $enc);
