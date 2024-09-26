@@ -12,7 +12,7 @@ Render the primary and secondary (if set) logos.
 <div class="{{ logo_container_class_list|default(['d-flex', logoPosition, 'justify-content-between', 'align-items-center', 'mb-5'])|join(' ')|attr }} {{ logo_flex_direction|default([])|join(' ')|attr }} {{ secondaryLogoPosition|attr }}">
     {% if displayPrimaryLogo %}
     <div class="{{ primary_logo_container_class_list|default(['flex-fill', primaryLogoWidth])|join(' ')|attr }}">
-        <img src="{{ primaryLogo|attr }}" class="img-fluid" alt="" style="mix-blend-mode: multiply; max-width:250px;">
+        <img src="{{ primaryLogo|attr }}" class="img-fluid" alt="" style="mix-blend-mode: multiply;">
     </div>
     {% endif %}
     {% if displaySecondaryLogo and secondaryLogo %}
