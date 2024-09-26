@@ -124,13 +124,13 @@ if(isset($_POST['form_to_lbf_sched_date']) && !empty($_POST['form_to_lbf_sched_d
 $form_user = '';
 //$form_status = 'p';
 $form_status = array('p');
-$form_action= '';
+$form_action= array();
 $form_ordered_by = '';
 $form_show_comments = '';
 $form_csvexport = '';
 $form_date_mode = $date_mode;
 
-$form_lbf_img_facility = '';
+$form_lbf_img_facility = array();
 
 if(!isset($_POST['form_no_date'])) {
 	$form_no_date = false;
@@ -215,7 +215,7 @@ if($form_no_date) {
 	$query .= "OR ($form_date_mode IS NULL OR $form_date_mode = '') ";
 }
 $query .= ') ';
-if ($form_ordered_by && $form_ordered_by != '~all~' && !in_array("", $form_ordered_by)) {
+if ($form_ordered_by && $form_ordered_by != '~all~' && is_array($form_ordered_by) && !in_array("", $form_ordered_by)) {
   $query .= "AND rto_ordered_by IN ('".implode("','",$form_ordered_by)."') ";
 	//$binds[] = $form_ordered_by;
 }

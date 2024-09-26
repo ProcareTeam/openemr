@@ -459,13 +459,13 @@ function GetList($thisPid, $type, $enc='', $dt='', $mode='show_enc', $dt2='') {
 	if($type == 'allergy' || $type == 'medication') {
   	$sql = "SELECT * FROM lists WHERE pid=? AND type=? ";
 		if($mode != 'show_all') $sql .= "AND (enddate IS NULL ".
-			"OR enddate = '0000-00-00' OR enddate = '') ";
+			"OR enddate = '0000-00-00') ";
 		if($type != 'allergy') $sql .= "AND activity = 1 ";
 		$sql .= "ORDER BY begdate";
 	}
 	if($type == 'med_history') {
   	$sql = "SELECT * FROM lists WHERE pid=? AND type=? AND (enddate IS NOT ".
-			"NULL AND enddate != '0000-00-00' AND enddate != '') AND activity = 1 ".
+			"NULL AND enddate != '0000-00-00') AND activity = 1 ".
 			"ORDER BY begdate";
 		$list_type = 'medication';
 	}
@@ -495,8 +495,7 @@ function GetList($thisPid, $type, $enc='', $dt='', $mode='show_enc', $dt2='') {
 		$sql .= "WHERE form_wmt_ll.pid=? ".
 				"AND form_wmt_ll.list_type=? AND form_wmt_ll.encounter_id=? ";
 		if($type == 'med_history') {
-			$sql .= "AND (enddate IS NOT NULL AND enddate != '0000-00-00' ".
-					"AND enddate != '') ";
+			$sql .= "AND (enddate IS NOT NULL AND enddate != '0000-00-00') ";
 		}
 		if($type == 'allergy' || $type == 'medication') {
 			if($mode != 'show_all') $sql .= "AND (enddate IS NULL OR ".

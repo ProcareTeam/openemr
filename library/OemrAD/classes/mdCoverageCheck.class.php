@@ -1025,8 +1025,8 @@ class CoverageCheck {
 		$query = "SELECT ins.*, ic.`id` AS ic_id, ic.`name` FROM insurance_data AS ins ";
 		$query .= "LEFT JOIN insurance_companies AS ic ON ins.`provider` = ic.`id` ";
 		$query .= "WHERE ins.`id` IN (".$ins_id.") AND ins.`provider` IS NOT NULL AND ins.`provider` > 0 ".
-				"AND ins.`date` IS NOT NULL AND ins.`date` != '0000-00-00' ".
-				"AND ins.`date` != ''";
+				"AND ins.`date` IS NOT NULL AND ins.`date` != '0000-00-00' ";
+				
 		$fres = sqlStatement($query);
 		$data = array();
 		while($row = sqlFetchArray($fres)) {

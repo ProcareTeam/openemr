@@ -498,13 +498,13 @@ function GetList($thisPid, $type, $enc='', $dt='', $mode='show_enc', $dt2='') {
 	if($type == 'allergy' || $type == 'medication') {
   	$sql = "SELECT li.*, date(li.begdate) as begdate, date(li.enddate) as enddate FROM lists as li WHERE pid=? AND type=? ";
 		if($mode != 'show_all') $sql .= "AND (date(enddate) IS NULL ".
-			"OR date(enddate) = '0000-00-00' OR date(enddate) = '') ";
+			"OR date(enddate) = '0000-00-00') ";
 		if($type != 'allergy') $sql .= "AND activity = 1 ";
 		$sql .= "ORDER BY begdate";
 	}
 	if($type == 'med_history') {
   	$sql = "SELECT li.*, date(li.begdate) as begdate, date(li.enddate) as enddate FROM lists as li WHERE pid=? AND type=? AND (date(enddate) IS NOT ".
-			"NULL AND date(enddate) != '0000-00-00' AND date(enddate) != '') AND activity = 1 ".
+			"NULL AND date(enddate) != '0000-00-00') AND activity = 1 ".
 			"ORDER BY begdate";
 		$list_type = 'medication';
 	}
@@ -534,8 +534,7 @@ function GetList($thisPid, $type, $enc='', $dt='', $mode='show_enc', $dt2='') {
 		$sql .= "WHERE form_wmt_ll.pid=? ".
 				"AND form_wmt_ll.list_type=? AND form_wmt_ll.encounter_id=? ";
 		if($type == 'med_history') {
-			$sql .= "AND (date(enddate) IS NOT NULL AND date(enddate) != '0000-00-00' ".
-					"AND date(enddate) != '') ";
+			$sql .= "AND (date(enddate) IS NOT NULL AND date(enddate) != '0000-00-00') ";
 		}
 		if($type == 'allergy' || $type == 'medication') {
 			if($mode != 'show_all') $sql .= "AND (date(enddate) IS NULL OR ".
@@ -765,7 +764,7 @@ function UserSelect($thisField, $no_blank=false, $filter='', $extra = array(), $
 	if(!$no_blank) {
   	echo "<option value=''";
 		if($multi) {
-    	if(in_array("", $thisField)) echo ' selected="selected"';
+    	if(is_array($thisField) && in_array("", $thisField)) echo ' selected="selected"';
 		} else {
     	if($thisField === "") echo " selected='selected'";
 		}
@@ -776,7 +775,7 @@ function UserSelect($thisField, $no_blank=false, $filter='', $extra = array(), $
 		foreach($extra as $val => $title) {
     	echo "<option value='$val'";
 		if($multi) {
-    	if(in_array($val, $thisField)) echo ' selected="selected"';
+    	if(is_array($thisField) && in_array($val, $thisField)) echo ' selected="selected"';
 		} else {
     	if($thisField === $val) echo " selected='selected'";
 		}
@@ -793,9 +792,9 @@ function UserSelect($thisField, $no_blank=false, $filter='', $extra = array(), $
 		}
 		if($multi) {
  			if($return_id) {
-    		if(in_array($rrow['id'],$thisField)) echo ' selected="selected"';
+    		if(is_array($thisField) && in_array($rrow['id'],$thisField)) echo ' selected="selected"';
 			} else {
-    		if(in_array($rrow['username'],$thisField)) echo ' selected="selected"';
+    		if(is_array($thisField) && in_array($rrow['username'],$thisField)) echo ' selected="selected"';
 			}
 		} else {
  			if($return_id) {

@@ -346,7 +346,7 @@ class Caselib {
 	}
 
 	public static function getInactiveCaseData() {
-		$result = sqlStatement("SELECT * FROM form_cases WHERE closed = ? AND (lb_date IS NULL OR lb_date = '' OR lb_date = '0000-00-00') AND (lb_notes IS NULL OR lb_notes = '' ) ", array(1));
+		$result = sqlStatement("SELECT * FROM form_cases WHERE closed = ? AND (lb_date IS NULL OR lb_date = '0000-00-00') AND (lb_notes IS NULL OR lb_notes = '' ) ", array(1));
 		$data = array();
 		while ($row = sqlFetchArray($result)) {
 			$data[] = $row;
