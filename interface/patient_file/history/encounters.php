@@ -532,7 +532,7 @@ function getCategoryPath($catId = '') {
 // END
 
 // @VH: Changed arguments [V100061]
-function generatePageElement($start, $pagesize, $billing, $issue, $text, $enh_clinical = 0, $linkid = '', $encpagestart = 0, $docpagestart = 0)
+function generatePageElement($start, $pagesize, $billing, $issue, $text, $enh_clinical = 0, $linkid = '')
 {
     if ($start < 0) {
         $start = 0;
@@ -540,15 +540,6 @@ function generatePageElement($start, $pagesize, $billing, $issue, $text, $enh_cl
     $url = "encounters.php?pagestart=" . attr_url($start) . "&pagesize=" . attr_url($pagesize);
     $url .= "&billing=" . attr_url($billing);
     $url .= "&issue=" . attr_url($issue);
-
-    // @VH: Change [V100061]
-    if ($encpagestart > 0) {
-        $url .= "&encpagestart=" . attr_url($encpagestart);
-    }
-
-    if ($docpagestart > 0) {
-        $url .= "&docpagestart=" . attr_url($docpagestart);
-    }
 
     if ($enh_clinical > 0) {
         $url .= "&enh_clinical=" . attr_url($enh_clinical);
@@ -723,22 +714,9 @@ window.onload = function() {
     }
 
     // @VH: Change [V100060]
-    $encpagestart = 0;
-    $docpagestart = 0;
-
-    if (isset($_GET['encpagestart'])) {
-        $encpagestart = $_GET['encpagestart'];
-    }
-
-    if (isset($_GET['docpagestart'])) {
-        $docpagestart = $_GET['docpagestart'];
-    }
-
     if ($selected_packet != "All" || $create_packet === 1) {
         $pagesize = 0;
     }
-
-    $maxPageSize = ($encpagestart + $docpagestart + $pagesize);
     // END
 
     $getStringForPage = "&pagesize=" . attr_url($pagesize) . "&pagestart=" . attr_url($pagestart);
@@ -769,7 +747,7 @@ window.onload = function() {
     <span class="float-right">
         <?php echo xlt('Results per page'); ?>:
         <!-- @VH: [V100060] -->
-        <select  class="form-control" id="selPagesize" billing="<?php echo attr($billing_view); ?>" issue="<?php echo attr($issue); ?>" pagestart="<?php echo attr($pagestart); ?>" enh_clinical="<?php echo attr($enh_clinical_view); ?>" encpagestart="<?php echo attr($encpagestart); ?>" docpagestart="<?php echo attr($docpagestart); ?>" <?php echo $selected_packet != "All" || $create_packet === 1 ? "disabled" : ""; ?>>
+        <select  class="form-control" id="selPagesize" billing="<?php echo attr($billing_view); ?>" issue="<?php echo attr($issue); ?>" pagestart="<?php echo attr($pagestart); ?>" enh_clinical="<?php echo attr($enh_clinical_view); ?>" <?php echo $selected_packet != "All" || $create_packet === 1 ? "disabled" : ""; ?>>
             <?php
             $pagesizes = array(5, 10, 15, 20, 25, 50, 0);
             for ($idx = 0, $idxMax = count($pagesizes); $idx < $idxMax; $idx++) {
@@ -795,7 +773,7 @@ window.onload = function() {
                 <div class="input-group mb-3">
                     <input type="text" name="search_text" class="form-control" value="<?php echo $searchText; ?>" placeholder="Search">
                     <div class="input-group-append">
-                        <button type="submit" class="btn btn-primary" formnovalidate><i class="fa fa-search" aria-hidden="true"  ></i></button>
+                        <button type="button" id="search_btn" class="btn btn-primary" formnovalidate><i class="fa fa-search" aria-hidden="true"  ></i></button>
                     </div>
                 </div>
             
@@ -884,9 +862,9 @@ window.onload = function() {
                         <!-- @VH: [V100061] -->
                         <?php if($enh_clinical_view === 1) { ?>
                         <?php if($sortdirection == "DESC") { ?>
-                            <button type="button" class="btn btn-sm" id="sortButton" billing="<?php echo attr($billing_view); ?>" issue="<?php echo attr($issue); ?>" pagestart="<?php echo attr($pagestart); ?>" enh_clinical="<?php echo attr($enh_clinical_view); ?>" sortdirection="ASC" encpagestart="<?php echo attr($encpagestart); ?>" docpagestart="<?php echo attr($docpagestart); ?>"><i class="fa fa-long-arrow-down" aria-hidden="true"></i></button>
+                            <button type="button" class="btn btn-sm" id="sortButton" billing="<?php echo attr($billing_view); ?>" issue="<?php echo attr($issue); ?>" pagestart="<?php echo attr($pagestart); ?>" enh_clinical="<?php echo attr($enh_clinical_view); ?>" sortdirection="ASC"><i class="fa fa-long-arrow-down" aria-hidden="true"></i></button>
                         <?php } else { ?>
-                            <button type="button" class="btn btn-sm" id="sortButton" billing="<?php echo attr($billing_view); ?>" issue="<?php echo attr($issue); ?>" pagestart="<?php echo attr($pagestart); ?>" enh_clinical="<?php echo attr($enh_clinical_view); ?>" sortdirection="DESC" encpagestart="<?php echo attr($encpagestart); ?>" docpagestart="<?php echo attr($docpagestart); ?>"><i class="fa fa-long-arrow-up" aria-hidden="true"></i></button>
+                            <button type="button" class="btn btn-sm" id="sortButton" billing="<?php echo attr($billing_view); ?>" issue="<?php echo attr($issue); ?>" pagestart="<?php echo attr($pagestart); ?>" enh_clinical="<?php echo attr($enh_clinical_view); ?>" sortdirection="DESC"><i class="fa fa-long-arrow-up" aria-hidden="true"></i></button>
                         <?php } ?>
                         <?php } ?>
                         <!-- END -->
@@ -951,11 +929,6 @@ window.onload = function() {
 
             <?php
             $drow = false;
-
-            // @VH: Changes [V100061]
-            $encpagesize = 0;
-            $docpagesize = 0;
-
             // @VH: Sort order [V100060]
             $lsQuery = "";
             $lQuery = "";
@@ -1038,9 +1011,9 @@ window.onload = function() {
                     $query .= "ORDER BY d.docdate " . $sortdirection . ", d.id " . $sortdirection;
                 }
 
-                if ($pagesize > 0) {
-                    $query .= " LIMIT " . escape_limit($docpagestart > 0 ? $docpagestart : $pagestart) . "," . escape_limit($pagesize);
-                }
+                //if ($pagesize > 0) {
+                //    $query .= " LIMIT " . escape_limit($pagestart) . "," . escape_limit($pagesize);
+                //}
                 // END
 
                 $dres = sqlStatement($query, $queryarr);
@@ -1169,11 +1142,14 @@ window.onload = function() {
             $countRes = sqlStatement($countQuery, $sqlBindArray);
             $count = sqlFetchArray($countRes);
             $numRes += $count['c'];
-
-
-            if ($pagesize > 0) {
-                $query .= " LIMIT " . escape_limit($encpagestart > 0 ? $encpagestart : $pagestart) . "," . escape_limit($pagesize);
+            if (!empty($docnumRes)) {
+                $numRes += $docnumRes;
             }
+
+
+            //if ($pagesize > 0) {
+            //    $query .= " LIMIT " . escape_limit($pagestart) . "," . escape_limit($pagesize);
+            //}
             $upper  = $pagestart + $pagesize;
             if (($upper > $numRes) || ($pagesize == 0)) {
                 $upper = $numRes;
@@ -1182,12 +1158,12 @@ window.onload = function() {
 
             if (($pagesize > 0) && ($pagestart > 0)) {
                 // @Vh: added param [V100061]
-                generatePageElement($pagestart - $pagesize, $pagesize, $billing_view, $issue, "&lArr;" . htmlspecialchars(xl("Prev"), ENT_NOQUOTES) . " ", $enh_clinical_view, "plink", ($encpagestart - ($_REQUEST['encpagesize'] ?? 0)), ($docpagestart - ($_REQUEST['docpagesize'] ?? 0)));
+                generatePageElement($pagestart - $pagesize, $pagesize, $billing_view, $issue, "&lArr;" . htmlspecialchars(xl("Prev"), ENT_NOQUOTES) . " ", $enh_clinical_view, "plink");
             }
             echo (($pagesize > 0) ? ($pagestart + 1) : "1") . "-" . $upper . " " . htmlspecialchars(xl('of'), ENT_NOQUOTES) . " " . $numRes;
 
             // @VH: Changed condition [V100061]
-            if (($pagesize > 0) && (($pagestart + $pagesize) < ($numRes + $docnumRes))) {
+            if (($pagesize > 0) && (($pagestart + $pagesize) < $numRes)) {
                 // @VH: added param [V100061]
                 generatePageElement($pagestart + $pagesize, $pagesize, $billing_view, $issue, " " . htmlspecialchars(xl("Next"), ENT_NOQUOTES) . "&rArr;", $enh_clinical_view, "nlink");
             }
@@ -1197,6 +1173,8 @@ window.onload = function() {
 
             // @VH: [V100061]
             $sequace_no = 10;
+            $vhcount = 0;
+
             while ($result4 = sqlFetchArray($res4)) {
                     // @VH: Visit history encounter item [V100061]
                     $visit_history_encounter_item = array();
@@ -1258,13 +1236,11 @@ window.onload = function() {
                     // This generates document lines as appropriate for the date order.
                 // @VH: changed condition [V100061]
                 while ($drow && (($packetHasSeq === false && $raw_encounter_date && $drow['docdate'] > $raw_encounter_date) || ($packetHasSeq === true && isset($drow['seq']) && $drow['seq'] < $raw_encounter_seq) )) {
-                         showDocument($drow);
-
                     // @VH: code [V100061]
                     // Visit history document item
                     global $visit_history_document_item;
 
-                    if (($pagesize > 0 && ($encpagestart + $docpagestart) < $maxPageSize) || $pagesize == 0) {
+                    if (($pagesize > 0 && (($pagestart + 1) <= $vhcount && $vhcount <= ($pagestart + $pagesize)) ) || $pagesize == 0) {
                         // @VH: Show enh billing view [V100061]
                         if($enh_clinical_view === 1) {
                             $is_from_packet = 0;
@@ -1281,11 +1257,10 @@ window.onload = function() {
                         } else {
                             showDocument($drow);
                         }
+                    }
 
-                        if ($pagesize > 0) {
-                            $docpagesize++;
-                            $docpagestart++;
-                        }
+                    if ($pagesize > 0) {
+                        $vhcount++;
                     }
 
                     // Assign visit history document items 
@@ -1299,11 +1274,9 @@ window.onload = function() {
 
                 // @VH: page size [V100061]
                 if ($pagesize > 0) {
-                    if (($encpagestart + $docpagestart) >= $maxPageSize) {
+                    $vhcount++;
+                    if ($vhcount <= $pagestart || (($pagestart + $pagesize) + 1) <= $vhcount) {
                         continue;
-                    } else {
-                        $encpagesize++;
-                        $encpagestart++;
                     }
                 }
                 // END
@@ -1962,7 +1935,7 @@ window.onload = function() {
                 // @VH: Visit history document item [V100061]
                 global $visit_history_document_item;
 
-                if (($pagesize > 0 && ($encpagestart + $docpagestart) < $maxPageSize) || $pagesize == 0) { 
+                if (($pagesize > 0 && (($pagestart + 1) <= $vhcount && $vhcount <= ($pagestart + $pagesize)) ) || $pagesize == 0) { 
                     // @VH: Show ext billing view [V100061]
                     if($enh_clinical_view === 1) {
                         $is_from_packet = 0;
@@ -1979,11 +1952,10 @@ window.onload = function() {
                     } else {
                         showDocument($drow);
                     }
+                }
 
-                    if ($pagesize > 0) {
-                        $docpagesize++;
-                        $docpagestart++;
-                    }
+                if ($pagesize > 0) {
+                    $vhcount++;
                 }
 
                 // Assign visit history document items 
@@ -1998,7 +1970,6 @@ window.onload = function() {
 
         </table>
     </div>
-
 </div> <!-- end 'encounters' large outer DIV -->
 <!-- @VH: form end -->
 </form>
@@ -2063,19 +2034,6 @@ $(function () {
 
         document.querySelector("#action_mode").value = "";
     }
-
-    <?php if ($encpagestart || $docpagestart) { ?>
-    const nlinkElement = document.getElementById('nlink');
-    if (nlinkElement) {
-        var nhref = nlinkElement.getAttribute('href');
-
-        // Append new query string
-        var updatedHref = nhref + (nhref.includes('?') ? '&' : '?') + "encpagestart=" + <?php echo js_escape($encpagestart) ?> + "&docpagestart=" + <?php echo js_escape($docpagestart) ?> + "&docpagesize=" + <?php echo js_escape($docpagesize) ?> + "&encpagesize=" + <?php echo js_escape($encpagesize) ?>;
-
-        // Update the href attribute with the modified URL
-        nlinkElement.setAttribute('href', updatedHref);
-    }
-    <?php } ?>
 
     // @VH: Update Seq [V100061]
     $("#updateSeqBtn").on("click", async function(evt) {
@@ -2232,6 +2190,12 @@ $(function () {
                 $("#document_squ_no_" + encValue).attr('disabled','disabled');
             }
         }
+    });
+
+    $('#search_btn').click(function() {
+        $('#selPagesize').val(0);
+        document.forms[0].action += "&pagestart=0&pagesize=0";
+        document.forms[0].submit();
     });
     // END
 });
