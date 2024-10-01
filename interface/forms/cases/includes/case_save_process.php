@@ -285,6 +285,22 @@ if($frmn == "form_cases") {
             }
         }
     }
+
+    // Update case status when payer is dropped pi.
+    if($frmn == "form_cases" && ($mode == "save" || $mode == "updatenotes")) {
+        if (isset($_POST['ins_data_id1']) && !empty($_POST['ins_data_id1'])) {
+            $insData = sqlQuery("SELECT ic.name from insurance_data id left join insurance_companies ic on ic.id = id.provider where id.id  = ? LIMIT 1", array($_POST['ins_data_id1']));
+
+            $colddata = !empty($oldCaseData) ? $oldCaseData : array('ins_data_id1' => '');
+            if (!empty($colddata) && isset($colddata['ins_data_id1'])) {
+                if ($colddata['ins_data_id1'] != $_POST['ins_data_id1']) {
+                    if (!empty($insData) && isset($insData['name']) && $insData['name'] == "Dropped PI" && !empty($id)) {
+                        sqlStatement("UPDATE form_cases SET `closed` = 1 WHERE `closed` = 0 AND `id` = ?", array($id));
+                    }
+                }
+            }
+        }
+    }
 }
 
 function getActionItemDeff($data = array(), $data1 = array()) {

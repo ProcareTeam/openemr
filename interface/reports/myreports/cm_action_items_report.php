@@ -57,6 +57,14 @@ $columnList = array(
 		)
 	),
 	array(
+		"name" => "primary_payer",
+		"title" => "Primary Payer",
+		"data" => array(
+            "defaultValue" => getHtmlString('<i class="defaultValueText">Empty</i>'),
+            "width" => "150"
+		)
+	),
+	array(
 		"name" => "owner",
 		"title" => "Owner",
 		"data" => array(
@@ -153,7 +161,9 @@ function generateQuery($data = array(), $isSearch = false) {
 
 	$pi_case_join = " left join vh_pi_case_management_details vpcmd on vpcmd.case_id = fc.id and vpcmd.field_name = 'case_manager' and vpcmd.field_index = 0 left join users u1 on u1.id = vpcmd.field_value";
 
-	$sql .= $pi_case_join;
+	$ins_case_join = " left join insurance_data id on id.id = fc.ins_data_id1 left join insurance_companies ic on ic.id = id.provider";
+
+	$sql .= $pi_case_join . $ins_case_join;
 
 	if(!empty($where_qry)) {
 		$sql .= " WHERE $where_qry";
@@ -190,6 +200,10 @@ function prepareDataTableData($row_item = array(), $columns = array()) {
 			} else if($cItem['name'] == "patient_name") {
 				$fieldHtml = "<a href=\"#!\" onclick=\"goParentPid('".$row_item['pid']."');\">". $row_item[$cItem['name']] . "</a>";
 				$rowData[$cItem['name']] = (isset($row_item[$cItem['name']]) && !empty($row_item[$cItem['name']])) ? getHtmlString($fieldHtml) : "-";
+				continue;
+			} else if($cItem['name'] == "primary_payer") {
+				$fieldHtml = htmlspecialchars($row_item['primary_payer'], ENT_QUOTES);
+				$rowData[$cItem['name']] = (isset($fieldHtml) && $fieldHtml != "") ? $fieldHtml : "";
 				continue;
 			} else if($cItem['name'] == "owner") { 
 				$fieldHtml = htmlspecialchars($row_item['owner_lname'], ENT_QUOTES);
@@ -255,7 +269,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 	// $totalRecordwithFilter  = $records['allcount'];
 
 	$result = sqlStatement(generateQuery(array(
-		"select" => "fc.id as case_id, fc.pid, fc.date, CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), ' (', pd.pubpid ,')') as patient_name, u.fname as owner_fname, u.mname as owner_mname, u.lname as owner_lname, vaid.status, vaid.created_datetime, vaid.action_item, vpcmd.field_value as cs_manager, u1.fname as cm_fname, u1.mname as cm_mname, u1.lname as cm_lname ",
+		"select" => "fc.id as case_id, fc.pid, fc.date, CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), ' (', pd.pubpid ,')') as patient_name, u.fname as owner_fname, u.mname as owner_mname, u.lname as owner_lname, vaid.status, vaid.created_datetime, vaid.action_item, vpcmd.field_value as cs_manager, u1.fname as cm_fname, u1.mname as cm_mname, u1.lname as cm_lname, ic.name as primary_payer ",
 		"where" => $searchQuery,
 		"order" => $columnName,
 		"order_type" => $columnSortOrder,
