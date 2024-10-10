@@ -407,11 +407,13 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
         $appointments = array();
         while($frow = sqlFetchArray($fres)) {
-            $zoom_row = sqlQuery("SELECT e.*, u.fname, u.mname, u.lname, za.`m_id` as `zm_id`, za.`start_url` as `zm_start_url`, za.`join_url` as `zm_join_url`, za.`password` as `zm_password`, za.`host_email` as `zm_host_email`  " .
-              "FROM openemr_postcalendar_events AS e " .
-              "LEFT JOIN `zoom_appointment_events` as za ON za.`pc_eid` = e.`pc_eid` " .
-              "LEFT OUTER JOIN users AS u ON u.id = e.pc_informant " .
-              "WHERE e.pc_eid = ?", array($frow['pc_eid']));
+            // $zoom_row = sqlQuery("SELECT e.*, u.fname, u.mname, u.lname, za.`m_id` as `zm_id`, za.`start_url` as `zm_start_url`, za.`join_url` as `zm_join_url`, za.`password` as `zm_password`, za.`host_email` as `zm_host_email`  " .
+            //   "FROM openemr_postcalendar_events AS e " .
+            //   "LEFT JOIN `zoom_appointment_events` as za ON za.`pc_eid` = e.`pc_eid` " .
+            //   "LEFT OUTER JOIN users AS u ON u.id = e.pc_informant " .
+            //   "WHERE e.pc_eid = ?", array($frow['pc_eid']));
+            
+            $zoom_row = sqlQuery("SELECT za.`m_id` as `zm_id`, za.`start_url` as `zm_start_url`, za.`join_url` as `zm_join_url`, za.`password` as `zm_password`, za.`host_email` as `zm_host_email` FROM `zoom_appointment_events` za WHERE za.`pc_eid` = ?", array($frow['pc_eid']));
 
             $frow['zm_id'] = isset($zoom_row['zm_id']) ? $zoom_row['zm_id'] : "";
             $frow['zm_start_url'] = isset($zoom_row['zm_start_url']) ? $zoom_row['zm_start_url'] : "";
@@ -539,7 +541,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     $date_squash = str_replace("-", "", $date_appt);
 
                     $ptname = $appointment['lname'] . ', ' . $appointment['fname'] . ' ' . $appointment['mname'];
-                    // OEMR - Change
+                    // @VH - Change
                     $patientName = $appointment['fname'] . ' ' . $appointment['lname'];
                     $ptname_short = $appointment['fname'][0] . " " . $appointment['lname'][0];
                     $appt_enc = $appointment['encounter'];
@@ -702,7 +704,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
 } //end of second !$_REQUEST['flb_table']
 
-// OEMR - Pagination
+// @VH - Pagination
 generatePagination($page_details, $pageno);
 
 if (!($_REQUEST['flb_table'] ?? null)) { ?> 
@@ -770,7 +772,7 @@ function myLocalJS()
 
             var startRequestTime = Date.now();
             top.restoreSession();
-            // OEMR - added page_no
+            // @VH - added page_no
             var posting = $.post('../patient_tracker/telemedicine_waiting_room.php', {
                 flb_table: '1',
                 form_from_date: $("#form_from_date").val(),
@@ -822,7 +824,7 @@ function myLocalJS()
          * It is called on initial load, on refresh and 'onchange/onkeyup' of a Telemedicine Waiting Room parameter.
          */
         function refineMe() {
-            // OEMR - Return
+            // @VH - Return
             return true;
 
             var apptcatV = $("#form_apptcat").val();
@@ -954,7 +956,7 @@ function myLocalJS()
                 parsetime = (parsetime[0] * 60) + (parsetime[1] * 1) * 1000;
                 if (auto_refresh) clearInteral(auto_refresh);
                 auto_refresh = setInterval(function () {
-                    // OEMR - Wrap with in condition
+                    // @VH- Wrap with in condition
                     if(getActiveTab() == "flb1") {
                         refreshMe(true) // this will run after every parsetime seconds
                     }
