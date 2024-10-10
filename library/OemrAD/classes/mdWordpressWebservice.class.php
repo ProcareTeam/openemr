@@ -863,7 +863,12 @@ class WordpressWebservice {
 			return false;
 		}
 
-		$headerData = array('Content-Type: application/json');
+		// Determine the protocol (http or https)
+		$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+		$headerData = array(
+			'Origin: ' . $protocol . $_SERVER['HTTP_HOST'],
+			'Content-Type: application/json'
+		);
 
 		$ch = curl_init();
 
