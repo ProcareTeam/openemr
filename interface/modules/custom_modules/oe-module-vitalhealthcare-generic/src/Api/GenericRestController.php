@@ -791,6 +791,8 @@ class GenericRestController
 
             if (isset($searchParams['PageSize'])) {
                 $_GET['pagesize'] = $searchParams['PageSize'];
+            } else {
+                $_GET['pagesize'] = 0;
             }
 
             if (isset($searchParams['SortDirection'])) {
