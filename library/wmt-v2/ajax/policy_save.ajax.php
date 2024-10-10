@@ -12,7 +12,7 @@ foreach ($_POST as $key => $val) {
 }
 
 if(isset($_POST['pid'])) $pid = $_POST['pid'];
-// OEMR - Change
+// @VH - Change
 if(isset($_POST['updateallpayer'])) $updateallpayer = $_POST['updateallpayer'];
 
 $patient = wmtPatData::getPidPatient($pid);

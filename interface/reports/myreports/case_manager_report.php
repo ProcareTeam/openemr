@@ -1986,7 +1986,7 @@ $insurancei = getInsuranceProvidersExtra();
 	    });
 	});
 
-	// OEMR - Iframe image load
+	// @VH - Iframe image load
 	function iframeLoaded(ele) {
 	    if(ele) {
 	        let iframe = ele.contentWindow.document.body;

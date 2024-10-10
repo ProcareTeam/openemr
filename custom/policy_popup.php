@@ -15,7 +15,7 @@ include_once($GLOBALS['srcdir'].'/wmt-v2/wmtstandard.inc');
 use OpenEMR\Core\Header;
 use OpenEMR\Common\Acl\AclMain;
 
-// OEMR - Change
+// @VH - Change
 $updateallpayer = true;
 
 $pid = $_SESSION['pid'];
@@ -120,7 +120,7 @@ var somethingChanged = false;
 $(document).ready(function(){
     tabbify();
 
-    // OEMR - Change
+    // @VH - Change
     $(document).on('click', ".medium_modal", function(e) {
         e.preventDefault();e.stopPropagation();
         let title = '<?php echo xla('Insurance Search/Add/Select'); ?>';
@@ -277,7 +277,7 @@ function validate() {
  $('#save-notification').show();
 
  var f = document.demographics_form;
- // OEMR - Get payer count
+ // @VH - Get payer count
  var pcount = f.ipayercount.value != '' ? f.ipayercount.value : 1; 
 
  // Check payer for update
@@ -544,14 +544,14 @@ if (! $GLOBALS['simplified_demographics']) {
 
     <?php
 
-    // OEMR - Add address blank
+    // @VH - Add address blank
     if(!empty($insurance_info)) {
         array_unshift($insurance_info , array());
         unset($insurance_info[0]);
     }
     $insurance_info[] = array('id' => '');
 
-    // OEMR - Change
+    // @VH- Change
     for ($i = 1; $i <= count($insurance_info); $i++) {
         $result3 = $insurance_info[$i];
         ?>

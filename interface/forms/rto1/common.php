@@ -388,7 +388,7 @@ if($dt['rto_num'] && $dt['rto_frame'])
 
 $client_id = $GLOBALS['wmt::client_id'];
 
-// OEMR - Change
+// @VH - Change
 if($mode == "delrto") {
 	$cnt = trim($_GET['itemID']);
 	$rto_id = isset($dt['rto_id_'.$cnt]) ? $dt['rto_id_'.$cnt] : '';
@@ -447,7 +447,7 @@ if($mode == 'new') {
 		$dt['rto_ordered_by_'.$cnt],false,$dt['rto_repeat_'.$cnt],
 		$dt['rto_stop_date_'.$cnt], $dt['rto_case_'.$cnt], $dt['rto_stat_'.$cnt], $dt['rto_encounter_'.$cnt]);
 
-	// OEMR - Change
+	// @VH - Change
 	rtoBeforeSave($pid);
 
 	unset($rto_data_bup);

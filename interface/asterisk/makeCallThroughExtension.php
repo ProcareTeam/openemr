@@ -2,7 +2,7 @@
 use OpenEMR\Common\Crypto\CryptoGen;
 require_once("../globals.php"); 
 
-// OEMR - Asterisk Change
+// @VH - Asterisk Change
 ?>
 <script type="text/javascript" src="<?php echo $GLOBALS['webroot']; ?>/library/dialog.js"></script>
 <?php
@@ -31,7 +31,7 @@ $socket = fsockopen($am_host,"5038", $errno, $errstr, $timeout);
 if (!$socket) {
     echo "Error connecting to Asterisk Manager Interface: $errstr ($errno)";
     
-    // OEMR - Asterisk Change
+    // @VH - Asterisk Change
     echo "<html>\n<body>\n<script>\nwindow.setTimeout(\"dlgclose()\", 5000);\n</script>\n</body>\n</html>\n";
     // End
 
@@ -42,7 +42,7 @@ $response = readManagerResponse();
 if (strpos($response, 'Authentication accepted') === false) {
     echo "Error logging in to Asterisk Manager Interface.";
     
-    // OEMR - Asterisk Change
+    // @VH - Asterisk Change
     echo "<html>\n<body>\n<script>\nwindow.setTimeout(\"dlgclose()\", 5000);\n</script>\n</body>\n</html>\n";
     // End
 
@@ -53,14 +53,14 @@ $response = readManagerResponse();
 if (strpos($response, 'Success') === false) {
     echo "Error making the call: $response";
 
-    // OEMR - Asterisk Change
+    // @VH - Asterisk Change
     echo "<html>\n<body>\n<script>\nwindow.setTimeout(\"dlgclose()\", 5000);\n</script>\n</body>\n</html>\n";
     // End
 }
 else {
     echo "Transferring ".$number." number to Extension";
 
-    // OEMR - Asterisk Change
+    // @VH - Asterisk Change
     echo "<html>\n<body>\n<script>\nwindow.setTimeout(\"dlgclose()\", 5000);\n</script>\n</body>\n</html>\n";
     // End
 }

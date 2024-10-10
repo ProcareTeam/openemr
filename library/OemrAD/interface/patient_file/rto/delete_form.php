@@ -53,7 +53,7 @@ $returnurl = 'forms.php';
 
 if ($_POST['confirm']) {
     if ($_POST['id'] != "*" && $_POST['id'] != '') {
-        // OEMR - Change
+        // @VH - Change
         delete_rto_form($pid);
     }
     // log the event

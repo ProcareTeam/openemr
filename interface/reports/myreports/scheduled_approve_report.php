@@ -7,7 +7,7 @@ error_reporting(E_ALL ^ E_NOTICE);
 ini_set('error_reporting', E_ALL ^ E_NOTICE);
 ini_set('display_errors',1);
 
-// OEMR SIGN ON NOT REQUIRED
+// @VH SIGN ON NOT REQUIRED
 $ignoreAuth = true;
 
 if(defined('STDIN')) {

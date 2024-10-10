@@ -74,13 +74,13 @@
                 ?>
                 <script type="text/javascript">console.log("Working")</script>
                 <?php
-                // OEMR - Asterisk Change
+                // @VH - Asterisk Change
                 $callerdetails1[] = $channelData;
                 //End
             }
         }
     }
-    // OEMR - Asterisk Change
+    // @VH - Asterisk Change
     $callerdetails = array_unique($callerdetails1);
     // End 
 
@@ -110,7 +110,7 @@
                         $row3 = sqlStatement("select TIMESTAMP(ope.pc_eventDate, ope.pc_startTime) as event_date_time, ope.pc_aid as provider_id, u.fname as provider_fname, u.mname as provider_mname, u.lname as provider_lname, CONCAT(CONCAT_WS(' ', IF(LENGTH(u.fname),u.fname,NULL), IF(LENGTH(u.lname),u.lname,NULL))) as provider_full_name, opc.pc_catname, lo.title as reason  from openemr_postcalendar_events ope left join openemr_postcalendar_categories opc on opc.pc_catid = ope.pc_catid left join users u on u.id = ope.pc_aid left join list_options lo on lo.list_id = 'apptstat' and lo.option_id = ope.pc_apptstatus where ope.pc_pid = ? and TIMESTAMP(ope.pc_eventDate, ope.pc_startTime) > now() order by TIMESTAMP(ope.pc_eventDate, ope.pc_startTime)",array($frow3['pid']));
                         $row4 = sqlStatement("select id.*, ic.name from insurance_data id left join insurance_companies ic on ic.id = id.provider where id.pid = ? and id.provider != ''",array($frow3['pid']));
                         
-                        // OEMR - Asterisk Change
+                        // @VH - Asterisk Change
                         $row5 = sqlStatement("select DISTINCT id, pid from form_cases where pid = ?",array($frow3['pid']));
                         // $row5 = sqlStatement("select DISTINCT pid, rto_case from form_rto where pid = ? and rto_case IS NOT NULL AND rto_case != '' order by rto_case",array($frow3['pid']));
                         $row6 = sqlStatement("select * from form_rto where pid = ? and rto_status not in ('x', 'sc85') order by id",array($frow3['pid']));
@@ -132,7 +132,7 @@
                             $getPayersAssociatedWithPatient[] = $frow4;
                         }
 
-                        // OEMR - Asterisk Change
+                        // @VH - Asterisk Change
                         while ($frow5 = sqlFetchArray($row5)) { 
                             // print_r($frow5);
                             $getRehabPlan[] = $frow5;

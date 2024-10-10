@@ -138,7 +138,7 @@ if($mode == 'new') {
 			$dt['rto_ordered_by'],false,$dt['rto_repeat'],
 			$dt['rto_stop_date'], $dt['rto_case'], $dt['rto_stat'], $dt['rto_encounter']);
 
-		// OEMR - Change
+		// @VH - Change
 		rtoBeforeSave($pid);
 
 		unset($rto_data_bup);

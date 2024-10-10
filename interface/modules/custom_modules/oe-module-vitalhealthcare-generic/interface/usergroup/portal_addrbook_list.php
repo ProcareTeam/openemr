@@ -28,7 +28,7 @@ $popup = empty($_GET['popup']) ? 0 : 1;
 $use_as_select = empty($_GET['select']) ? 0 : 1;
 /* End */
 
-// OEMR - Added acl rule for search addresses
+// @VH - Added acl rule for search addresses
 if (!AclMain::aclCheckCore('admin', 'practice') && !AclMain::aclCheckCore('lists', 'addresses') && !AclMain::aclCheckCore('admin', 'addresses')) {
     echo (new TwigContainer(null, $GLOBALS['kernel']))->getTwig()->render('core/unauthorized.html.twig', ['pageTitle' => xl("Address Book")]);
     exit;

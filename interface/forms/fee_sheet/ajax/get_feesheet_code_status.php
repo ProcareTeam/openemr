@@ -83,7 +83,7 @@ function validateCPTCode($encounter, $pid) {
 	return $validationStatus;
 }
 
-// OEMR - Get ICD10BilingCodes
+// @VH - Get ICD10BilingCodes
 function getICD10BilingCodes($codes = array()) {
     $results = array();
     if(empty($codes) || !is_array($codes)) return $results;

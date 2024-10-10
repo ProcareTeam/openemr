@@ -469,11 +469,11 @@ if(!empty($page_action)) {
 		}
 
 		function setpatient(pid, lname, fname, dob = '', alert_info = '', p_data = {}) {
-		    // OEMRAD - nickNameVal changes.
+		    // @VH - nickNameVal changes.
 		    var nickNameVal = (p_data.hasOwnProperty('nickname33') && p_data['nickname33'] != "" && p_data['nickname33'] != null) ? ' "'+p_data['nickname33']+'" ' : '';
 
 		    var f = document.forms[0];
-		    // OEMRAD - Added nickname value to patient name.
+		    // @VH - Added nickname value to patient name.
 		    f.form_patient.value = lname + ', ' + fname  + nickNameVal;
 		    f.form_pid.value = pid;
 		}

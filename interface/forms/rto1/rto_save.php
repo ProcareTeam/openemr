@@ -26,7 +26,7 @@ while($cnt <= $dt['tmp_rto_cnt']) {
 		$dt['rto_target_date_'.$cnt],$dt['rto_ordered_by_'.$cnt],false,
 		$dt['rto_repeat_'.$cnt],$dt['rto_stop_date_'.$cnt], $dt['rto_case_'.$cnt], $dt['rto_stat_'.$cnt], $dt['rto_encounter_'.$cnt]);
 	
-	// OEMR - Change
+	// @VH - Change
 	rtoBeforeSave($pid);
 
 	$cnt++;

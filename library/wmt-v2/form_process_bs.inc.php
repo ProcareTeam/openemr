@@ -40,7 +40,7 @@ if($form_mode == 'update') {
 	}
 } else if($form_mode == 'updatenotes') {
 	
-	// OEMRAD - Change 
+	// @VH - Change 
 	include($GLOBALS['incdir'].'/forms/cases/includes/case_save_process.php');
 
 	$dt = sqlQuery("SELECT * FROM $frmn WHERE id=?",array($id));
@@ -98,7 +98,7 @@ if($form_mode == 'update') {
 		if(substr($k,-3) == '_dt' || substr($k,-4) == '_dob' ||
 			(substr($k,-5) == '_date')) {
 			
-			// OEMRAD - Check and convert date.
+			// @VH - Check and convert date.
 			$df = DateTime::createFromFormat('Y-m-d', $var);
 			if(!$df || ($df && $df->format('Y-m-d') !== $var)) {
 				$var = DateToYYYYMMDD($var);
@@ -206,7 +206,7 @@ if($form_mode == 'update') {
 
 	}
 
-	// OEMRAD - Change 
+	// @VH - Change 
 	include($GLOBALS['incdir'].'/forms/cases/includes/case_save_process.php');
 
   if($continue) { 

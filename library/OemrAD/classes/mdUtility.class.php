@@ -324,7 +324,7 @@ class Utility {
 		return addslashes(htmlspecialchars($text));
 	}
 
-	// OEMR - ICS File Change
+	// @VH - ICS File Change
 	public static function generateICSFileLink($icsLinkData = array()) {
 		
 		$s3bucketkey = $GLOBALS['S3_BUCKET_KEY'];
@@ -336,7 +336,7 @@ class Utility {
 		$dowloadics = $GLOBALS['ics_attachment'];
 		$ics_file_link = "";
 
-		// OEMR - ICS File Change to generate signed URL
+		// @VH - ICS File Change to generate signed URL
 		try {
 
 		if($dowloadics == "1") {

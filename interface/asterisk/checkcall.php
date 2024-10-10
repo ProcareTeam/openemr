@@ -60,7 +60,7 @@ foreach ($channels as $channel) {
     }
     if (isset($channelData['Channel'])) {
         if($channelData['ChannelStateDesc'] == 'Up' && $channelData['CallerIDNum'] == $userData['extension']) {
-            // OEMR - Asterisk Change
+            // @VH - Asterisk Change
             $callerdetails1[] = $channelData;
             //End
         }

@@ -40,7 +40,7 @@ if (isset($_POST['submit'])) {
 		}
 
 		if (!isset($_POST['portal_access']) || $_POST['portal_access'] == "0") {
-			// OEMR - WordPress user delete
+			// @VH - WordPress user delete
     		WordpressWebservice::handleInSyncPrepare($userId, "DELETE");
 		}
 
@@ -55,7 +55,7 @@ if (isset($_POST['submit'])) {
 		}
 
 		if (isset($_POST['portal_access']) && $_POST['portal_access'] == "1") {
-			// OEMR - WordPress user update
+			// @VH - WordPress user update
     		WordpressWebservice::handleInSyncPrepare($userId, "UPDATE");
 		}
 	}
