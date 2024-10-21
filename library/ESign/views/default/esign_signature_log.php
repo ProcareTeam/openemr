@@ -42,7 +42,13 @@ use OpenEMR\Common\Logging\EventAuditLogger;
             );
         } */ ?>
         
-        <?php foreach ($this->signatures as $count => $signature) { ?>
+        <?php foreach ($this->signatures as $count => $signature) { 
+
+            // @VH: added credentials details to report
+            $credentialsDetails = sqlQuery("SELECT u.vh_credentials from users u where id = ? ;", array($signature->getUid()));
+            $vh_credentials = !empty($credentialsDetails) && !empty($credentialsDetails['vh_credentials']) ? " - " . $credentialsDetails['vh_credentials'] : "";
+
+        ?>
         <div class="esign-log-row esign-log-row-container <?php echo text($signature->getClass()); ?>">
             
             <?php if ($signature->getAmendment()) { ?>
@@ -54,7 +60,7 @@ use OpenEMR\Common\Logging\EventAuditLogger;
             <div class="esign-log-row">
                 <div class="esign-log-element span3"><span><?php echo text($signature->getFirstName()); ?></span></div> 
                 <div class="esign-log-element span3"><span><?php echo text($signature->getLastName()); ?></span></div>
-                <div class="esign-log-element span3"><span><?php echo text($signature->getSuffix()); ?></span></div>
+                <div class="esign-log-element span4"><span><?php echo text($signature->getSuffix()); ?> <?php echo $vh_credentials; ?></span></div>
                 <div class="esign-log-element span3"><span><?php echo text($signature->getValedictory()); ?></span></div>
                 <div class="esign-log-element span3"><span><?php echo text($signature->getDatetime()); ?></span></div>
             </div>
