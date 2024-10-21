@@ -108,15 +108,20 @@ function generatePagination($page_details, $pageno) {
 }
 
 //Get Esign Class
-function getESignClass($eid = null) {
+function getESignClass($eSignData = array(), $eid = null) {
     //global $appointments_signatures_data;
     $esign_class = 'not_locked';
 
-    if(!empty($eid)) {
-        $eData = fetch_appt_signatures_data_byId($eid);
+    if(!empty($eid) && !empty($eSignData)) {
+        //$eData = fetch_appt_signatures_data_byId($eid);
 
-        if($eData !== false && isset($eData['is_lock']) && $eData['is_lock'] == '1') {
-            $esign_class = 'locked';
+        foreach ($eSignData as $eData) {
+            if ($eData['encounter'] == $eid) {
+                if($eData !== false && isset($eData['is_lock']) && $eData['is_lock'] == '1') {
+                    $esign_class = 'locked';
+                    break;
+                }
+            }
         }
         // if(isset($appointments_signatures_data['TID_'.$eid]) && $appointments_signatures_data['TID_'.$eid]['is_lock'] == '1') {
         //     $esign_class = 'locked';
@@ -126,18 +131,19 @@ function getESignClass($eid = null) {
     return $esign_class;
 }
 
-function fetch_appt_signatures_data_byId($eid) {
-    if(!empty($eid)) {
-        $eSql = "SELECT FE.encounter, E.id, E.tid, E.table, E.uid, U.fname, U.lname, E.datetime, E.is_lock, E.amendment, E.hash, E.signature_hash 
-                FROM form_encounter FE 
-                LEFT JOIN esign_signatures E ON (case when E.`table` ='form_encounter' then FE.encounter = E.tid else  FE.id = E.tid END)
-                LEFT JOIN users U ON E.uid = U.id 
-                WHERE FE.encounter = ? 
-                ORDER BY E.datetime ASC";
-        $result = sqlQuery($eSql, array($eid));
-        return $result;
+function fetch_appt_signatures_data_byId($eids) {
+    $result = array();
+
+    if(!empty($eids)) {
+        $eSql = "SELECT FE.encounter, E.id, E.tid, E.table, E.uid, E.datetime, E.is_lock, E.amendment, E.hash, E.signature_hash FROM form_encounter FE JOIN esign_signatures E ON (case when E.`table` ='form_encounter' then FE.encounter = E.tid else FE.id = E.tid END) WHERE FE.encounter IN (". implode(",", $eids) .") ORDER BY E.datetime ASC";
+
+        //$result = sqlQuery($eSql, array());
+        $lres = sqlStatement($eSql, array());
+        while ($lrow = sqlFetchArray($lres)) {
+            $result[] = $lrow;
+        }
     }
-    return false;
+    return $result;
 }
 
 function zoomGetInMeetingUser($meeting_id = "") {
@@ -406,13 +412,14 @@ if (!($_REQUEST['flb_table'] ?? null)) {
         $fres = sqlStatement($sql1, array());
 
         $appointments = array();
+        $appt_encounters = array();
         while($frow = sqlFetchArray($fres)) {
             // $zoom_row = sqlQuery("SELECT e.*, u.fname, u.mname, u.lname, za.`m_id` as `zm_id`, za.`start_url` as `zm_start_url`, za.`join_url` as `zm_join_url`, za.`password` as `zm_password`, za.`host_email` as `zm_host_email`  " .
             //   "FROM openemr_postcalendar_events AS e " .
-            //   "LEFT JOIN `zoom_appointment_events` as za ON za.`pc_eid` = e.`pc_eid` " .
-            //   "LEFT OUTER JOIN users AS u ON u.id = e.pc_informant " .
+            //   " JOIN `zoom_appointment_events` as za ON za.`pc_eid` = e.`pc_eid` " .
+            //   " JOIN users AS u ON u.id = e.pc_informant " .
             //   "WHERE e.pc_eid = ?", array($frow['pc_eid']));
-            
+
             $zoom_row = sqlQuery("SELECT za.`m_id` as `zm_id`, za.`start_url` as `zm_start_url`, za.`join_url` as `zm_join_url`, za.`password` as `zm_password`, za.`host_email` as `zm_host_email` FROM `zoom_appointment_events` za WHERE za.`pc_eid` = ?", array($frow['pc_eid']));
 
             $frow['zm_id'] = isset($zoom_row['zm_id']) ? $zoom_row['zm_id'] : "";
@@ -431,7 +438,17 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                 }
             }
 
+            $row_appt_enc = $frow['encounter'];
+            if ($row_appt_enc != 0) {
+                $appt_encounters[] = $row_appt_enc;
+            }
+
             $appointments[] = $frow;
+        }
+
+        $eSignData = array();
+        if (!empty($appt_encounters)) {
+            $eSignData = fetch_appt_signatures_data_byId($appt_encounters);
         }
 
         $totalEvents = sqlQuery($sql2, array());
@@ -602,7 +619,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <td class="detail text-center" name="kiosk_hide">
                             <!-- OEMR - Change -->
                             <?php if ($appt_enc != 0) { ?>
-                                <a href="#" class="<?php echo getESignClass(text($appt_enc)); ?>" onclick='handleGoToEncounter("<?php echo $appt_pid; ?>", "<?php echo text($appointment['pubpid']); ?>", "<?php echo htmlspecialchars($patientName, ENT_QUOTES); ?>", "<?php echo text($appt_enc); ?>", "<?php echo xl('DOB') . ': ' . addslashes(oeFormatShortDate($patientData['DOB_YMD'])) . ' ' . xl('Age') . ': ' . getPatientAge($patientData['DOB_YMD']) ?>")'><?php echo text($appt_enc); ?></a>
+                                <a href="#" class="<?php echo getESignClass($eSignData, text($appt_enc)); ?>" onclick='handleGoToEncounter("<?php echo $appt_pid; ?>", "<?php echo text($appointment['pubpid']); ?>", "<?php echo htmlspecialchars($patientName, ENT_QUOTES); ?>", "<?php echo text($appt_enc); ?>", "<?php echo xl('DOB') . ': ' . addslashes(oeFormatShortDate($patientData['DOB_YMD'])) . ' ' . xl('Age') . ': ' . getPatientAge($patientData['DOB_YMD']) ?>")'><?php echo text($appt_enc); ?></a>
                             <?php } ?>
                             <!-- End -->
                         </td>
