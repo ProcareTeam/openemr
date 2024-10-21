@@ -72,7 +72,12 @@ class FacilityEditController
             <div class="col-6">
                 <div class="form-row my-2">
                     <div class="col-12">
-                        <label for="inmoment_location" class="col-form-label col-form-label-sm"><?php echo xlt('Inmoment Location'); ?></label>
+                        <label for="inmoment_location" class="col-form-label col-form-label-sm"><?php echo xlt('Inmoment Location'); ?></label> <i class="fa fa-question-circle fa-lg" aria-hidden="true" data-toggle="tooltip" data-placement="top" title="Pro-Care Round Rock' then 'RoundRock'
+'Pro-Care South Lamar' then 'SouthLamar'
+'Pro-Care Crownpoint' then 'Crownpoint'
+'Pro-Care Huebner' then 'Huebner'
+'Pro-Care New Braunfels' then 'NewBraunfels'
+'Telemedicine Offsite' then 'Telemed' else 'AustinCentral"></i>
                     </div>
                     <div class="col">
                         <input type="text" class="form-control form-control-sm" name="inmoment_location" value="<?php echo $fData['vh_inmoment_location'] ?? ""; ?>">
