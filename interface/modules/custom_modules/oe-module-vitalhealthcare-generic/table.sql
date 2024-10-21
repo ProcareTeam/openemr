@@ -2,6 +2,10 @@
 ALTER TABLE `users` ADD COLUMN `allowed_to_booked_online` tinyint default 0;
 #EndIf
 
+#IfMissingColumn users vh_credentials
+ALTER TABLE `users` ADD COLUMN `vh_credentials` varchar(255) default NULL;
+#EndIf
+
 #IfMissingColumn users user_services
 #ALTER TABLE `users` ADD COLUMN `user_services` text default NULL;
 #EndIf

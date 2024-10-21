@@ -189,6 +189,24 @@ class wmtPrintVisit{
 			}
 		}
 
+		// @VH: added credentials details to report
+		if (!empty($this->signed_by)) {
+			$this->signed_by .= "&nbsp;&nbsp;";
+
+			// Get ESign Date
+			$esignDate = sqlQuery("SELECT `datetime` from esign_signatures es where tid = ? order by `datetime` asc limit 1;", array($data['encounter']));
+			$credentialsDetails = sqlQuery("SELECT u.vh_credentials from users u where id = ? ;", array($this->provider_id));
+
+			if (!empty($credentialsDetails) && !empty($credentialsDetails['vh_credentials'])) {
+				$this->signed_by .= "-&nbsp;&nbsp;" . $credentialsDetails['vh_credentials'] . "&nbsp;&nbsp;";
+			}
+
+			if (!empty($esignDate) && !empty($esignDate['datetime'])) {
+				$this->signed_by .= "-&nbsp;&nbsp;" . $esignDate['datetime'] . "&nbsp;&nbsp;";
+			}
+		}
+		// END
+
 		// Get the most recent Vitals
 		if($vital_mode == 'recent') {
 			$vitals = wmtVitals::getVitalsByPatient($data['pid'], date('Y-m-d'));

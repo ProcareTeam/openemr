@@ -97,12 +97,26 @@ class UserEditController
             </tr> -->
 
             <tr>
+                <td>
+                    <span class=text><?php echo xlt('Credentials'); ?>: </span>
+                </td>
+                <td>
+                    <input type="text" name="vh_credentials" class="form-control" value='<?php echo $uData['vh_credentials'] ?? ""; ?>' style="width:150px" />
+                </td>
+                <td>
+                </td>
+                <td>
+                </td>
+            </tr>
+
+            <tr>
                 <td colspan="4">
                     <div class="mb-4 mt-4">
                         <span class="text"><b><?php echo xlt('Wordpress Integration'); ?></b></span>
                         <hr class="m-1 mb-2" />
                         <span class=text><?php echo xlt('Allowed to be booked online'); ?>: </span><input type="checkbox" name="allowed_to_booked_online" value='1' <?php echo $uData['allowed_to_booked_online'] == "1" ? 'checked="checked"' : '' ?> />
                     </div>
+                    <hr class="m-1 mb-2" />
                 </td>
             </tr>
             </tbody>
@@ -130,13 +144,14 @@ class UserEditController
     // Save user data
     public function saveUserData($data, $id) {
         $allowed_to_booked = isset($data['allowed_to_booked_online']) ? $data['allowed_to_booked_online'] : 0;
+        $vh_credentials = isset($data['vh_credentials']) ? $data['vh_credentials'] : "";
         //$user_services_arr = isset($data['user_services']) ? $data['user_services'] : array();
         //$user_services = is_array($user_services_arr) ? implode("|", $user_services_arr) : "";
         //$specialization = isset($data['specialization']) ? $data['specialization'] : "";
         //$calendar_interval = isset($data['calendar_interval']) ? $data['calendar_interval'] : "";
 
         if(!empty($id)) {
-           sqlStatement("UPDATE users SET allowed_to_booked_online=? WHERE id= ? ", array($allowed_to_booked, $id)); 
+           sqlStatement("UPDATE users SET allowed_to_booked_online=?, vh_credentials=? WHERE id= ? ", array($allowed_to_booked, $vh_credentials, $id)); 
         }
     }
 }
