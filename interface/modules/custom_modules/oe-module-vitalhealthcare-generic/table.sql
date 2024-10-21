@@ -243,3 +243,20 @@ CREATE TABLE `vh_assign_patients` (
 );
 #EndIf
 
+#IfNotTable vh_pistorage_preference
+CREATE TABLE `vh_pistorage_preference` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(21) DEFAULT NULL,
+  `pharmacy` varchar(255) DEFAULT NULL,
+  `behavioral_health` varchar(255) DEFAULT NULL,
+  `chiropractic_care` varchar(255) DEFAULT NULL,
+  `communication` varchar(255) DEFAULT NULL,
+  `imaging` varchar(255) DEFAULT NULL,
+  `neurology` varchar(255) DEFAULT NULL,
+  `ortho` varchar(255) DEFAULT NULL,
+  `pain_management` varchar(255) DEFAULT NULL,
+  `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+

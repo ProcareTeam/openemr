@@ -60,6 +60,44 @@ function invalue($name)
     return "'$fld'";
 }
 
+// @VH: Save Pi Storage preference values
+function savepistoragepreference($userid)
+{
+    if (empty($userid)) {
+        return;
+    }
+
+    $form_pharmacy = invalue('form_pharmacy');
+    $form_behavioral_health = invalue('form_behavioral_health');
+    $form_chiropractic_care = invalue('form_chiropractic_care');
+    $form_communication = invalue('form_communication');
+    $form_imaging = invalue('form_imaging');
+    $form_neurology = invalue('form_neurology');
+    $form_ortho = invalue('form_ortho');
+    $form_pain_management = invalue('form_pain_management');
+
+    $pistorage_preference_sql_row = sqlQuery("SELECT count(`id`) as total_count FROM `vh_pistorage_preference` WHERE `user_id` = ? ", array(trim($userid)));
+
+    if (!empty($pistorage_preference_sql_row) && $pistorage_preference_sql_row['total_count'] > 0) {
+        // Update record
+        sqlStatement("UPDATE vh_pistorage_preference SET pharmacy = " . $form_pharmacy . ", behavioral_health = " . $form_behavioral_health . ", chiropractic_care = " . $form_chiropractic_care . ", communication = " . $form_communication . ", imaging = " . $form_imaging . ", neurology = " . $form_neurology . ", ortho = " . $form_ortho . ", pain_management = " . $form_pain_management . " WHERE user_id = ? ", array($userid));
+    } else {
+        // Insert record
+        $pistorageid = sqlInsert("INSERT INTO vh_pistorage_preference (user_id, pharmacy, behavioral_health, chiropractic_care, communication, imaging, neurology, ortho, pain_management) VALUES (" . $userid . ", " . $form_pharmacy . ", " . $form_behavioral_health . ", " . $form_chiropractic_care . ", " . $form_communication . ", " . $form_imaging . ", " . $form_neurology . ", " . $form_ortho . ", " . $form_pain_management . ")");
+    }
+}
+
+// @VH: Delete Pi Storage preference values
+function deletepistoragepreference($userid)
+{
+    if (empty($userid)) {
+        return;
+    }
+
+    // delete storage preference
+    sqlStatement("DELETE FROM vh_pistorage_preference WHERE user_id = ? ", array($userid));
+}
+
 ?>
 <html>
 <head>
@@ -344,6 +382,9 @@ if (!empty($_POST['form_save'])) {
         "WHERE id = '" . add_escape_custom($userid) . "'";
         sqlStatement($query);
 
+        // @VH: Save Pi Storage preference values
+        savepistoragepreference($userid);
+
         // @VH: Hubspot Handle update [V100082]
         HubspotSync::handleInSyncPrepare($userid, "UPDATE");
         
@@ -407,6 +448,9 @@ if (!empty($_POST['form_save'])) {
         invalue('form_care_team_communication')    . " " .
         ")");
 
+        // @VH: Save Pi Storage preference values
+        savepistoragepreference($userid);
+
         // @VH: Hubspot Handle Update [V100082]
         HubspotSync::handleInSyncPrepare($userid, "INSERT");
 
@@ -418,6 +462,16 @@ if (!empty($_POST['form_save'])) {
     EmailVerificationLib::updateEmailVerification($_POST); 
 } elseif (!empty($_POST['form_delete'])) {
     if ($userid) {
+
+        // OEMR - Hubspot Handle Update [V100082]
+        HubspotSync::handleInSyncPrepare($userid, "DELETE");
+
+        // OEMR - WordPress user delete [V100082]
+        WordpressWebservice::handleInSyncPrepare($userid, "DELETE");
+
+        // @VH: Delete Pi Storage preference values
+        deletepistoragepreference($userid);
+
        // Be careful not to delete internal users.
         sqlStatement("DELETE FROM users WHERE id = ? AND username = ''", array($userid));
     }
@@ -777,7 +831,69 @@ if ($type) { // note this only happens when its new
     <textarea rows='3' cols='40' name='form_notes' wrap='virtual' class='form-control inputtext w-100'><?php echo text($row['notes'] ?? '') ?></textarea>
 </div>
 
+<!-- @VH: Storage of preferences section function  -->
+<?php
+    $pistorage_preference_sql_row = sqlQuery("SELECT * FROM `vh_pistorage_preference` WHERE `user_id` = ? ", array(trim($userid)));
+    if (empty($pistorage_preference_sql_row)) $pistorage_preference_sql_row = array();
+?>
+<span class="text"><b><?php echo xla('Storage of preferences'); ?></b></span>
+<hr class="m-1 mb-2">
+
+<div class="form-row my-1">
+    <div class="col-6">
+        <label for="form_pharmacy" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Pharmacy'); ?>:</label>
+        <input type="text" size="40" name="form_pharmacy" maxlength="250" value="<?php echo $pistorage_preference_sql_row['pharmacy'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+    </div>
+
+    <div class="col-6">
+        <label for="form_behavioral_health" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Behavioral Health - procare or atty choice'); ?>:</label>
+        <input type="text" size="40" name="form_behavioral_health" maxlength="250" value="<?php echo $pistorage_preference_sql_row['behavioral_health'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+    </div>
+</div>
+
+<div class="form-row my-1">
+    <div class="col-6">
+        <label for="form_chiropractic_care" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Chiropractic care'); ?>:</label>
+        <select name="form_chiropractic_care" id="form_chiropractic_care" class="form-control form-control-sm" title="">
+            <option value="yes" <?php echo $pistorage_preference_sql_row['chiropractic_care'] && $pistorage_preference_sql_row['chiropractic_care'] == "yes" ? "selected" : ""; ?> ><?php echo xlt('Yes'); ?></option>
+            <option value="no" <?php echo $pistorage_preference_sql_row['chiropractic_care'] && $pistorage_preference_sql_row['chiropractic_care'] == "no" ? "selected" : ""; ?>><?php echo xlt('No'); ?></option>
+        </select>
+    </div>
+
+    <div class="col-6">
+        <label for="form_communication" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Communication'); ?>:</label>
+        <select name="form_communication" id="form_communication" class="form-control form-control-sm" title="">
+            <option value="email" <?php echo $pistorage_preference_sql_row['communication'] && $pistorage_preference_sql_row['communication'] == "email" ? "selected" : ""; ?> ><?php echo xlt('Email'); ?></option>
+            <option value="phone_call" <?php echo $pistorage_preference_sql_row['communication'] && $pistorage_preference_sql_row['communication'] == "phone_call" ? "selected" : ""; ?>><?php echo xlt('Phone call'); ?></option>
+        </select>
+    </div>
+</div>
+
+<div class="form-row my-1">
+    <div class="col-6">
+        <label for="form_imaging" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Imaging - Procare LOP, Longhorn, AHI, other'); ?>:</label>
+        <input type="text" size="40" name="form_imaging" maxlength="250" value="<?php echo $pistorage_preference_sql_row['imaging'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+    </div>
+    <div class="col-6">
+        <label for="form_neurology" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Neurology - Procare or atty choice'); ?>:</label>
+        <input type="text" size="40" name="form_neurology" maxlength="250" value="<?php echo $pistorage_preference_sql_row['neurology'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+    </div>
+</div>
+
+<div class="form-row my-1">
+    <div class="col-6">
+        <label for="form_ortho" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Ortho - Procare or atty choice'); ?>:</label>
+        <input type="text" size="40" name="form_ortho" maxlength="250" value="<?php echo $pistorage_preference_sql_row['ortho'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+    </div>
+    <div class="col-6">
+        <label for="form_pain_management" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Pain Management - Procare or atty choice'); ?>:</label>
+        <input type="text" size="40" name="form_pain_management" maxlength="250" value="<?php echo $pistorage_preference_sql_row['pain_management'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+    </div>
+</div>
+
 <br />
+<br/>
+<!-- END -->
 
 <!-- @VH: Added duplicate save button to check validation before submit form data [V100081][V100080] -->
 <input type='button' class='btn btn-primary' id='form_save_btn' onclick="validateForm()" value='<?php echo xla('Save'); ?>' />
