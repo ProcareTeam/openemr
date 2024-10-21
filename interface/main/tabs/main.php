@@ -415,6 +415,10 @@ if (!empty($GLOBALS['kernel']->getEventDispatcher())) {
                         <button type="button" id="search_globals" class="btn btn-sm btn-secondary <?php echo $search_globals_class ?>" title='<?php echo xla("Search for patient by entering whole or part of any demographics field information"); ?>' data-bind="event: {mousedown: viewPtFinder.bind( $data, '<?php echo xla("The search field cannot be empty. Please enter a search term") ?>', '<?php echo attr($search_any_type); ?>')}"><i class="fa fa-search">&nbsp;</i></button>
                     </div>
                 </div>
+
+                <!-- @VH: Save Selected Patient History -->
+                <?php require_once("templates/selected_patient_history_template.php"); ?>
+                
             </form>
             <span id="userData" data-bind="template: {name: 'user-data-template', data: application_data}"></span>
         </nav>

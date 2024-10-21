@@ -84,7 +84,45 @@ if (isset($_GET['set_pid'])) {
         $encounter = (int)$_GET['set_encounterid'];
         SessionUtil::setSession('encounter', $encounter);
     }
+
+    // @VH: Save Selected Patient History
+    saveselectedpatienthistory($_GET['set_pid']);
 }
+
+// @VH: Save Selected Patient History
+function saveselectedpatienthistory($pid) {
+    if (!empty($_SESSION['authUserID'])) {
+        $patient_histroy_row = sqlQuery("SELECT * from vh_recentpatients_history vrh where user_id = ? LIMIT 1", array($_SESSION['authUserID']));
+
+        $selected_pateint_history = array();
+        if (!empty($patient_histroy_row)) {
+            $selected_pateint_history = json_decode($patient_histroy_row['patient_list'], true);
+
+            if (!in_array($pid, $selected_pateint_history)) {
+                $selected_pateint_history[] = $pid;
+            } else {
+                // Check if the element exists in the array
+                if (($key = array_search($pid, $selected_pateint_history)) !== false) {
+                    unset($selected_pateint_history[$key]);
+                }
+                $selected_pateint_history[] = $pid;
+                $selected_pateint_history = array_values($selected_pateint_history);
+            }
+
+            $selected_pateint_history = array_slice($selected_pateint_history, -10);
+
+            // UPDATE
+            sqlQuery("UPDATE vh_recentpatients_history SET patient_list = ? WHERE user_id = ? ", array(json_encode($selected_pateint_history), $_SESSION['authUserID']));
+        } else {
+            // INSERT
+            $selected_pateint_history[] = $pid;
+            if (!empty($selected_pateint_history)) {
+                sqlInsert("INSERT INTO vh_recentpatients_history (user_id, patient_list) VALUES (?, ?)", array($_SESSION['authUserID'], json_encode($selected_pateint_history)));
+            }
+        }
+    }
+}
+// END
 
 // Note: it would eventually be a good idea to move this into
 // it's own module that people can remove / add if they don't
@@ -1621,6 +1659,12 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
 
         $(window).on('load', function () {
             setMyPatient();
+
+            // @VH: Fetch Selected Patient History
+            if (parent != null) {
+                parent.fetchSelectedPatientHistory();
+            }
+            // END
         });
     </script>
 

@@ -260,3 +260,12 @@ CREATE TABLE `vh_pistorage_preference` (
 );
 #EndIf
 
+#IfNotTable vh_pistorage_preference
+CREATE TABLE `vh_recentpatients_history` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(21) DEFAULT NULL,
+  `patient_list` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+
