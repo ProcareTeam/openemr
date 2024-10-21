@@ -102,6 +102,9 @@ class ApiController
         $portalRestApiController = new PortalRestController();    
         $event->addToFHIRRouteMap('GET /fhir/AssignedPatients', [$portalRestApiController, 'getAssignedPatients']);
 
+        $genericApiController = new GenericRestController();
+        $event->addToRouteMap('GET /api/patient/:pid/case/:case/appointment', [$genericApiController, 'getAllForPatientCase']);
+
         /**
          * Events must ALWAYS be returned
          */

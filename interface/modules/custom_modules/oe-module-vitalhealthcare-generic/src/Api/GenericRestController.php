@@ -1612,6 +1612,14 @@ class GenericRestController
         return $responseBody;
     }
 
+    public function getAllForPatientCase($pid, $case) {
+        $processingResult = new ProcessingResult();
+        $appointmentService = new AppointmentService();
+
+        $serviceResult = $appointmentService->getAppointmentsForPatient($pid, $case);
+        return RestControllerHelper::responseHandler($serviceResult, null, 200);
+    }
+
     public function generateLeaderData($searchParams) {
         global $ad_client_id;
 

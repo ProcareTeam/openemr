@@ -189,7 +189,7 @@ class AppointmentService extends BaseService
         return $processingResult;
     }
 
-    public function getAppointmentsForPatient($pid)
+    public function getAppointmentsForPatient($pid, $case = '')
     {
         $sqlBindArray = array();
 
@@ -228,6 +228,13 @@ class AppointmentService extends BaseService
             $sql .= " WHERE pd.pid = ?";
             array_push($sqlBindArray, $pid);
         }
+
+        // @VH: Added case filter condition to fetch appointment based on patient case
+        if (!empty($case)) {
+            $sql .= " AND pce.pc_case = ?";
+            array_push($sqlBindArray, $case);
+        }
+        // END
 
         $records = QueryUtils::fetchRecords($sql, $sqlBindArray);
         $finalRecords = [];
