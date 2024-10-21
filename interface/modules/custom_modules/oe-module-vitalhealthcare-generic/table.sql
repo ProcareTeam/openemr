@@ -14,6 +14,10 @@ ALTER TABLE `users` ADD COLUMN `allowed_to_booked_online` tinyint default 0;
 ALTER TABLE `facility` ADD COLUMN `allowed_to_booked_online` tinyint default 0;
 #EndIf
 
+#IfMissingColumn facility vh_inmoment_location
+ALTER TABLE `facility` ADD COLUMN `vh_inmoment_location` varchar(255) default NULL;
+#EndIf
+
 #IfMissingColumn users calendar_interval
 #ALTER TABLE `users` ADD COLUMN `calendar_interval` varchar(10) default NULL;
 #EndIf

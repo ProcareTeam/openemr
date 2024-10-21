@@ -68,6 +68,20 @@ class FacilityEditController
 
         ?>
 
+        <div class="row">
+            <div class="col-6">
+                <div class="form-row my-2">
+                    <div class="col-12">
+                        <label for="inmoment_location" class="col-form-label col-form-label-sm"><?php echo xlt('Inmoment Location'); ?></label>
+                    </div>
+                    <div class="col">
+                        <input type="text" class="form-control form-control-sm" name="inmoment_location" value="<?php echo $fData['vh_inmoment_location'] ?? ""; ?>">
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+            </div>
+        </div>
         <div class="form-row">
             <div class="col-sm-12 col-md-7">
                 <div class="border p-2 bg-light d-flex">
@@ -114,9 +128,10 @@ class FacilityEditController
     // Save user data
     public function saveFacilityData($data, $id) {
         $allowed_to_booked = isset($_POST['allowed_to_booked_online']) ? $_POST['allowed_to_booked_online'] : 0;
+        $inmoment_location = isset($_POST['inmoment_location']) ? $_POST['inmoment_location'] : "";
 
         if(!empty($id)) {
-           sqlStatement("UPDATE facility SET allowed_to_booked_online=? WHERE id= ? ", array($allowed_to_booked, $id)); 
+           sqlStatement("UPDATE facility SET allowed_to_booked_online=?, vh_inmoment_location=? WHERE id= ? ", array($allowed_to_booked, $inmoment_location, $id)); 
         }
     }
 }
