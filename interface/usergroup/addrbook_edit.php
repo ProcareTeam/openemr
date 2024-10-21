@@ -836,18 +836,18 @@ if ($type) { // note this only happens when its new
     $pistorage_preference_sql_row = sqlQuery("SELECT * FROM `vh_pistorage_preference` WHERE `user_id` = ? ", array(trim($userid)));
     if (empty($pistorage_preference_sql_row)) $pistorage_preference_sql_row = array();
 ?>
-<span class="text"><b><?php echo xla('Storage of preferences'); ?></b></span>
+<span class="text"><b><?php echo xla('Preferences'); ?></b></span>
 <hr class="m-1 mb-2">
 
 <div class="form-row my-1">
     <div class="col-6">
         <label for="form_pharmacy" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Pharmacy'); ?>:</label>
-        <input type="text" size="40" name="form_pharmacy" maxlength="250" value="<?php echo $pistorage_preference_sql_row['pharmacy'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+        <input type="text" name="form_pharmacy" maxlength="250" value="<?php echo $pistorage_preference_sql_row['pharmacy'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
     </div>
 
     <div class="col-6">
         <label for="form_behavioral_health" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Behavioral Health - procare or atty choice'); ?>:</label>
-        <input type="text" size="40" name="form_behavioral_health" maxlength="250" value="<?php echo $pistorage_preference_sql_row['behavioral_health'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+        <input type="text" name="form_behavioral_health" maxlength="250" value="<?php echo $pistorage_preference_sql_row['behavioral_health'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
     </div>
 </div>
 
@@ -872,22 +872,22 @@ if ($type) { // note this only happens when its new
 <div class="form-row my-1">
     <div class="col-6">
         <label for="form_imaging" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Imaging - Procare LOP, Longhorn, AHI, other'); ?>:</label>
-        <input type="text" size="40" name="form_imaging" maxlength="250" value="<?php echo $pistorage_preference_sql_row['imaging'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+        <input type="text" name="form_imaging" maxlength="250" value="<?php echo $pistorage_preference_sql_row['imaging'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
     </div>
     <div class="col-6">
         <label for="form_neurology" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Neurology - Procare or atty choice'); ?>:</label>
-        <input type="text" size="40" name="form_neurology" maxlength="250" value="<?php echo $pistorage_preference_sql_row['neurology'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+        <input type="text" name="form_neurology" maxlength="250" value="<?php echo $pistorage_preference_sql_row['neurology'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
     </div>
 </div>
 
 <div class="form-row my-1">
     <div class="col-6">
         <label for="form_ortho" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Ortho - Procare or atty choice'); ?>:</label>
-        <input type="text" size="40" name="form_ortho" maxlength="250" value="<?php echo $pistorage_preference_sql_row['ortho'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+        <input type="text" name="form_ortho" maxlength="250" value="<?php echo $pistorage_preference_sql_row['ortho'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
     </div>
     <div class="col-6">
         <label for="form_pain_management" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Pain Management - Procare or atty choice'); ?>:</label>
-        <input type="text" size="40" name="form_pain_management" maxlength="250" value="<?php echo $pistorage_preference_sql_row['pain_management'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
+        <input type="text" name="form_pain_management" maxlength="250" value="<?php echo $pistorage_preference_sql_row['pain_management'] ?? ""; ?>" class="form-control form-control-sm inputtext w-100">
     </div>
 </div>
 

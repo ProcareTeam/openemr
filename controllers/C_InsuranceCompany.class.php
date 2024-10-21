@@ -52,6 +52,22 @@ class C_InsuranceCompany extends Controller
             }
         }
         $this->assign("insurancecompany_list", $insurancecompanyList);
+
+        if (!empty($id)) {
+            $pistorage_preference_sql_row = sqlQuery("SELECT * FROM `vh_pistorage_preference` WHERE `insurance_companies_id` = ? ", array($id));
+        }
+        $pistorage_preference_sql_row = !empty($pistorage_preference_sql_row) ? $pistorage_preference_sql_row : array();
+
+        $this->assign("form_pharmacy", $pistorage_preference_sql_row["pharmacy"] ?? "");
+        $this->assign("form_behavioral_health", $pistorage_preference_sql_row["behavioral_health"] ?? "");
+        $this->assign("form_chiropractic_care", $pistorage_preference_sql_row["chiropractic_care"] ?? "");
+        $this->assign("form_communication", $pistorage_preference_sql_row["communication"] ?? "");
+        $this->assign("form_imaging", $pistorage_preference_sql_row["imaging"] ?? "");
+        $this->assign("form_neurology", $pistorage_preference_sql_row["neurology"] ?? "");
+        $this->assign("form_ortho", $pistorage_preference_sql_row["ortho"] ?? "");
+        $this->assign("form_pain_management", $pistorage_preference_sql_row["pain_management"] ?? "");
+        $this->assign("chiropractic_care_list", array("yes" => "Yes", "no" => "No"));
+        $this->assign("communication_list", array("email" => "Email", "phone_call" => "Phone call"));
         // End
 
         return $this->fetch($GLOBALS['template_dir'] . "insurance_companies/" . $this->template_mod . "_edit.html");
@@ -122,6 +138,29 @@ class C_InsuranceCompany extends Controller
 
         $this->icompanies[0]->persist();
         $this->icompanies[0]->populate();
+
+        // @VH: Save pistorage preference for insurance
+        if (!empty($this->icompanies[0]) && isset($this->icompanies[0]->id) && !empty($this->icompanies[0]->id)) {
+            $form_pharmacy = $_POST['form_pharmacy'] ?? "";
+            $form_behavioral_health = $_POST['form_behavioral_health'] ?? "";
+            $form_chiropractic_care = $_POST['form_chiropractic_care'] ?? "";
+            $form_communication = $_POST['form_communication'] ?? "";
+            $form_imaging = $_POST['form_imaging'] ?? "";
+            $form_neurology = $_POST['form_neurology'] ?? "";
+            $form_ortho = $_POST['form_ortho'] ?? "";
+            $form_pain_management = $_POST['form_pain_management'] ?? "";
+
+            $pistorage_preference_sql_row = sqlQuery("SELECT count(`id`) as total_count FROM `vh_pistorage_preference` WHERE `insurance_companies_id` = ? ", array(trim($this->icompanies[0]->id)));
+
+            if (!empty($pistorage_preference_sql_row) && $pistorage_preference_sql_row['total_count'] > 0) {
+                // Update record
+                sqlStatement("UPDATE vh_pistorage_preference SET pharmacy = '" . $form_pharmacy . "', behavioral_health = '" . $form_behavioral_health . "', chiropractic_care = '" . $form_chiropractic_care . "', communication = '" . $form_communication . "', imaging = '" . $form_imaging . "', neurology = '" . $form_neurology . "', ortho = '" . $form_ortho . "', pain_management = '" . $form_pain_management . "' WHERE insurance_companies_id = ? ", array($this->icompanies[0]->id));
+            } else {
+                // Insert record
+                $pistorageid = sqlInsert("INSERT INTO vh_pistorage_preference (insurance_companies_id, pharmacy, behavioral_health, chiropractic_care, communication, imaging, neurology, ortho, pain_management) VALUES ('" . $this->icompanies[0]->id . "', '" . $form_pharmacy . "', '" . $form_behavioral_health . "', '" . $form_chiropractic_care . "', '" . $form_communication . "', '" . $form_imaging . "', '" . $form_neurology . "', '" . $form_ortho . "', '" . $form_pain_management . "')");
+            }
+        }
+        // END
 
         $_POST['process'] = "";
         header('Location:' . $GLOBALS['webroot'] . "/controller.php?" . "practice_settings&insurance_company&action=list");//Z&H

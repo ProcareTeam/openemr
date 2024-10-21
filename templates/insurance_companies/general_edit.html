@@ -159,6 +159,72 @@
                >{xlt t="Search/Add/Edit"}</a>
         </div>
     </div>
+
+    <div>
+        <br/>
+        <span><b>{xlt t='Preferences'}</b></span>
+        <hr/>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_pharmacy" class="col-form-label col-sm-2">{xlt t='Pharmacy'}</label>
+        <div class="col-sm-8">
+            <input type="text" id="form_pharmacy" name="form_pharmacy" class="form-control" aria-describedby="nameHelpBox" value="{$form_pharmacy|attr}" onKeyDown="PreventIt(event)">
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_behavioral_health" class="col-form-label col-sm-2">{xlt t='Behavioral Health - procare or atty choice'}</label>
+        <div class="col-sm-8">
+            <input type="text" id="form_behavioral_health" name="form_behavioral_health" class="form-control" aria-describedby="nameHelpBox" value="{$form_behavioral_health|attr}" onKeyDown="PreventIt(event)">
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_chiropractic_care" class="col-form-label col-sm-2">{xlt t='Chiropractic care'}</label>
+        <div class="col-sm-8">
+            <select id="form_chiropractic_care" name="form_chiropractic_care" class="form-control">
+                {html_options options=$chiropractic_care_list selected=$form_chiropractic_care}
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_communication" class="col-form-label col-sm-2">{xlt t='Communication'}</label>
+        <div class="col-sm-8">
+            <select id="form_communication" name="form_communication" class="form-control">
+                {html_options options=$communication_list selected=$form_communication}
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_imaging" class="col-form-label col-sm-2">{xlt t='Imaging - Procare LOP, Longhorn, AHI, other'}</label>
+        <div class="col-sm-8">
+            <input type="text" id="form_imaging" name="form_imaging" class="form-control" aria-describedby="nameHelpBox" value="{$form_imaging|attr}" onKeyDown="PreventIt(event)">
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_neurology" class="col-form-label col-sm-2">{xlt t='Neurology - Procare or atty choice'}</label>
+        <div class="col-sm-8">
+            <input type="text" id="form_neurology" name="form_neurology" class="form-control" aria-describedby="nameHelpBox" value="{$form_neurology|attr}" onKeyDown="PreventIt(event)">
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_ortho" class="col-form-label col-sm-2">{xlt t='Ortho - Procare or atty choice'}</label>
+        <div class="col-sm-8">
+            <input type="text" id="form_ortho" name="form_ortho" class="form-control" aria-describedby="nameHelpBox" value="{$form_ortho|attr}" onKeyDown="PreventIt(event)">
+        </div>
+    </div>
+
+    <div class="form-row my-sm-2">
+        <label for="form_pain_management" class="col-form-label col-sm-2">{xlt t='Pain Management - Procare or atty choice'}</label>
+        <div class="col-sm-8">
+            <input type="text" id="form_pain_management" name="form_pain_management" class="form-control" aria-describedby="nameHelpBox" value="{$form_pain_management|attr}" onKeyDown="PreventIt(event)">
+        </div>
+    </div>
     <!-- END -->
 
     <div class="btn-group offset-sm-2">

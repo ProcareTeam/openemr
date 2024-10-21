@@ -273,3 +273,7 @@ CREATE TABLE `vh_recentpatients_history` (
 );
 #EndIf
 
+#IfMissingColumn users vh_credentials
+ALTER TABLE `vh_pistorage_preference` ADD COLUMN `insurance_companies_id` bigint(21) DEFAULT NULL AFTER `user_id`;
+#EndIf
+
