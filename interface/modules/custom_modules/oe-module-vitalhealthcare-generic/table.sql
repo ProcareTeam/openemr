@@ -277,3 +277,7 @@ CREATE TABLE `vh_recentpatients_history` (
 ALTER TABLE `vh_pistorage_preference` ADD COLUMN `insurance_companies_id` bigint(21) DEFAULT NULL AFTER `user_id`;
 #EndIf
 
+#IfMissingColumn form_encounter vh_first_esign_datetime
+ALTER TABLE `form_encounter` ADD COLUMN `vh_first_esign_datetime` datetime default NULL;
+#EndIf
+

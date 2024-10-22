@@ -194,15 +194,26 @@ class wmtPrintVisit{
 			$this->signed_by .= "&nbsp;&nbsp;";
 
 			// Get ESign Date
-			$esignDate = sqlQuery("SELECT `datetime` from esign_signatures es where tid = ? order by `datetime` asc limit 1;", array($data['encounter']));
+			$esignDate = sqlQuery("SELECT `datetime` from esign_signatures es where tid = ? AND `table` = 'form_encounter' order by `datetime` asc limit 1;", array($data['encounter']));
 			$credentialsDetails = sqlQuery("SELECT u.vh_credentials from users u where id = ? ;", array($this->provider_id));
+
+			$vhFirstESignDateTimeData = sqlQuery("SELECT vh_first_esign_datetime from form_encounter where encounter  = ?", array($data['encounter']));
+
+			$esigndatetime = "";
+			if (!empty($esignDate) && !empty($esignDate['datetime'])) {
+				$esigndatetime = $esignDate['datetime'];
+			}
+
+			if (!empty($esignDate) && !empty($vhFirstESignDateTimeData) && !empty($vhFirstESignDateTimeData['vh_first_esign_datetime'])) {
+				$esigndatetime = $vhFirstESignDateTimeData['vh_first_esign_datetime'];
+			}
 
 			if (!empty($credentialsDetails) && !empty($credentialsDetails['vh_credentials'])) {
 				$this->signed_by .= "-&nbsp;&nbsp;" . $credentialsDetails['vh_credentials'] . "&nbsp;&nbsp;";
 			}
 
-			if (!empty($esignDate) && !empty($esignDate['datetime'])) {
-				$this->signed_by .= "-&nbsp;&nbsp;" . $esignDate['datetime'] . "&nbsp;&nbsp;";
+			if (!empty($esigndatetime)) {
+				$this->signed_by .= "-&nbsp;&nbsp;" . $esigndatetime . "&nbsp;&nbsp;";
 			}
 		}
 		// END

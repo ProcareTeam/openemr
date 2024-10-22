@@ -69,6 +69,33 @@ if(isset($_GET['approve'])) {
 			$frm_id = trim($_POST['approve_id_'.$item]);
 			$frmdir = trim($_POST['form_formdir_'.$item]);
 
+			$frmdir1 = trim($_POST['approve_form_'.$item]);
+
+			// @VH: Set first esign date when unsigned
+			if ($frmdir1 == "newpatient") {
+				$currEsignData = sqlQuery("SELECT tid from esign_signatures es WHERE es.id = ? LIMIT 1", array($frm_id));
+
+				if (!empty($currEsignData) && !empty($currEsignData['tid'])) {
+					$recentEsignData = array();
+		      $fres = sqlStatement("SELECT es.id, es.datetime from esign_signatures es where tid = ? AND `table` = 'form_encounter' order by `datetime` asc;", array($currEsignData['tid']));
+		      while ($frow = sqlFetchArray($fres)) {
+		        $recentEsignData[] = $frow;
+		      }
+
+		      $isFirstESignDateTimeExist = sqlQuery("SELECT count(encounter) as total_count from form_encounter where encounter  = ? and vh_first_esign_datetime is null", array($currEsignData['tid']));
+
+          if (!empty($recentEsignData) && count($recentEsignData) == 1 && !empty($isFirstESignDateTimeExist) && $isFirstESignDateTimeExist['total_count'] > 0) {
+              // Save First Esign Date
+              if (isset($recentEsignData[0]) && isset($recentEsignData[0]['datetime'])) {
+                  // @VH: Update first esign date.
+                  sqlQuery("UPDATE `form_encounter` SET `vh_first_esign_datetime` = ? WHERE encounter = ? ", array($recentEsignData[0]['datetime'], $currEsignData['tid']));
+              }
+          }
+				}
+
+    	}
+    	// END
+
 			$sql = "DELETE FROM esign_signatures WHERE id = ?";
 			sqlStatement($sql, array($frm_id));
 		}

@@ -124,6 +124,26 @@ class Encounter_Controller extends Abstract_Controller
             $message = (isset($gMessage) && !empty($gMessage)) ? $gMessage : xlt("The password you entered is invalid");
         }
 
+        // @VH: Save initial date
+        if ($status == self::STATUS_SUCCESS && !empty($encounterId)) {
+
+            $recentEsignData = array();
+            $fres = sqlStatement("SELECT es.id, es.datetime from esign_signatures es where tid = ? AND `table` = 'form_encounter' order by `datetime` asc;", array($encounterId));
+            while ($frow = sqlFetchArray($fres)) {
+                $recentEsignData[] = $frow;
+            }
+
+            $isFirstESignDateTimeExist = sqlQuery("SELECT count(encounter) as total_count from form_encounter where encounter  = ? and vh_first_esign_datetime is null", array($encounterId));
+
+            if (!empty($recentEsignData) && count($recentEsignData) == 1 && !empty($isFirstESignDateTimeExist) && $isFirstESignDateTimeExist['total_count'] > 0) {
+                // Save First Esign Date
+                if (isset($recentEsignData[0]) && isset($recentEsignData[0]['datetime'])) {
+                    // @VH: Update first esign date.
+                    sqlQuery("UPDATE `form_encounter` SET `vh_first_esign_datetime` = ? WHERE encounter = ? ", array($recentEsignData[0]['datetime'], $encounterId));
+                }
+            }
+        }
+
         $response = new Response($status, $message);
         $response->encounterId = $encounterId;
         $response->locked = $lock;
