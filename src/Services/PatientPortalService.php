@@ -52,10 +52,12 @@ class PatientPortalService
             "Select `pid`, `email`, `email_direct` From `patient_data` Where `pid` = ?",
             array($pid)
         );
-        $portal = sqlQuery(
-            "Select `pid`, `portal_username` From `patient_access_onsite` Where `pid` = ?",
-            array($patient['pid'])
-        );
+
+        // @VH: Made comment to check is patient has access of paitent portal
+        // $portal = sqlQuery(
+        //     "Select `pid`, `portal_username` From `patient_access_onsite` Where `pid` = ?",
+        //     array($patient['pid'])
+        // );
 
         $patient['valid'] = !empty($portal['portal_username']) && ((int)$pid === (int)$portal['pid']);
 
