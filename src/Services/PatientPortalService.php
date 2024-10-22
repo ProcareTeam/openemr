@@ -59,7 +59,9 @@ class PatientPortalService
         //     array($patient['pid'])
         // );
 
-        $patient['valid'] = !empty($portal['portal_username']) && ((int)$pid === (int)$portal['pid']);
+        //$patient['valid'] = !empty($portal['portal_username']) && ((int)$pid === (int)$portal['pid']);
+
+        $patient['valid'] = !empty($patient) ? true : false;
 
         return $patient;
     }
