@@ -1220,6 +1220,10 @@ window.onload = function() {
                     $authPostCalendarCategory = true;
                 }
 
+                // @VH: added signed text [V100061]
+                $eData = fetch_appt_signatures_data_byId($result4['encounter']);
+                $signedText = !empty($eData) && isset($eData['is_lock']) && $eData['is_lock'] == "1" ? '' : ' <span style="font-size: 20px;color: red;font-weight: bold;">*</span>';
+
                 if (!empty($result4["reason"])) {
                     // @VH: added signed text [V100061]
                     $reason_string .= text($result4["reason"]) . $signedText . "<br />\n";
