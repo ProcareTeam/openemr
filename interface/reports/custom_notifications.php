@@ -472,6 +472,8 @@ function ct_dropdown_facility(
 
     global $facilityService;
 
+    $selected = !empty($selected) ? $selected : array();
+
     $have_selected = false;
     $fres = $facilityService->getAllFacility();
 
@@ -746,7 +748,7 @@ function ct_dropdown_facility(
                   "authorized = 1 $provider_facility_filter ORDER BY lname, fname"; //(CHEMED) facility filter
 
                 $ures = sqlStatement($query);
-                $select1 = (empty($_POST['form_provider']) || in_array("ALL", $_POST['form_provider'])) ? "selected" : "";
+                $select1 = (empty($_POST['form_provider']) || in_array("ALL", ($_POST['form_provider'] ?? array()) )) ? "selected" : "";
 
                 echo "   <select name='form_provider[]' class='form-control' multiple='multiple'>\n";
                 echo "    <option value='ALL' ".$select1.">-- " . xlt('All') . " --\n";
@@ -754,7 +756,7 @@ function ct_dropdown_facility(
                 while ($urow = sqlFetchArray($ures)) {
                     $provid = $urow['id'];
                     echo "    <option value='" . attr($provid) . "'";
-                    if (in_array($provid, $_POST['form_provider'])) {
+                    if (in_array($provid, ($_POST['form_provider'] ?? array()) )) {
                         echo " selected";
                     }
 
@@ -788,11 +790,11 @@ function ct_dropdown_facility(
                                     <select id="form_apptcat" name="form_apptcat[]" class="form-control" multiple='multiple'>
                                         <?php
                                             $categories=fetchAppointmentCategories();
-                                            $select2 = (empty($_POST['form_apptcat']) || in_array("ALL", $_POST['form_apptcat'])) ? "selected" : "";
+                                            $select2 = (empty($_POST['form_apptcat']) || in_array("ALL", ($_POST['form_apptcat'] ?? array() ) )) ? "selected" : "";
                                             echo "<option value='ALL' ".$select2.">".xlt("All")."</option>";
                                         while ($cat=sqlFetchArray($categories)) {
                                             echo "<option value='".attr($cat['id'])."'";
-                                            if (in_array($cat['id'], $_POST['form_apptcat'])) {
+                                            if (in_array($cat['id'], ($_POST['form_apptcat'] ?? array()) )) {
                                                 echo " selected='true' ";
                                             }
 
