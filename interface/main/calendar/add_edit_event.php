@@ -271,6 +271,19 @@ function DOBandEncounter($pc_eid)
                 $info_msg .= " $encounter";
             }
 
+            // @VH: Replaced function with todaysEncounterEventCheck and pass bypass param. if form_todaysEncounterIf value false then return existing encounter other wise create new encounter. [V100024]
+            if(!$_POST['form_case'] || $_POST['form_case'] == '0') {
+                $_POST['form_case'] = mostRecentCase($_POST['form_pid']);
+            }
+            if($_POST['form_case']) {
+                sqlInsert('INSERT INTO case_appointment_link SET '.
+                'pc_eid = ?, encounter = ?, pid = ?, enc_case = ?  ON DUPLICATE KEY ' .
+                'UPDATE encounter = ?, pid = ?, enc_case = ?', 
+                array($created_eid, $encounter, $_POST['form_pid'], $_POST['form_case'],
+                    $encounter, $_POST['form_pid'], $_POST['form_case']));
+                        // addMiscBilling($encounter, $_POST['form_pid'], $_POST['form_case']);
+            }
+
             # Capture the appt status and room number for patient tracker. This will map the encounter to it also.
             if (isset($GLOBALS['temporary-eid-for-manage-tracker']) || !empty($_GET['eid'])) {
                 // Note that the temporary-eid-for-manage-tracker is used to capture the eid for new appointments and when separate a recurring
