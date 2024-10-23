@@ -461,8 +461,8 @@ function jsLineItemValidation(f) {
 
         // @VH: Validation checks and alerts
         $s .= "
- var has_fees = false;
- var needs_justified = false;
+ //var has_fees = false;
+ //var needs_justified = false;
 
   // @VH: Check for valid ICD10 Code [2023042801]
   var icd10cs = [];
@@ -526,7 +526,7 @@ function jsLineItemValidation(f) {
     }
   }
   // END
-
+  
   // @VH: To show alert message for CPT and HCPCS code [2023012801]
   if(!has_fees && !f.bn_save_stay.clicked) {
    alert('There Are No Billable Codes On This Fee Sheet Yet');
