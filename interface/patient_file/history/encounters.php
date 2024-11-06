@@ -995,7 +995,7 @@ window.onload = function() {
                 // Filter encounter based on case
                 if (isset($_REQUEST['case']) && !empty($_REQUEST['case'])) {
                     //$from .= " AND ( cal.enc_case = ? OR cal.enc_case = '' ) ";
-                    $from .= " AND ( (cal.pc_eid > 0 AND EXISTS ( SELECT 1 from openemr_postcalendar_events ope WHERE ope.pc_eid = cal.pc_eid AND ope.pc_case = ? limit 1)) OR (cal.pc_eid = 0 AND (cal.enc_case = ? OR cal.enc_case = '' )) ) ";
+                    $from .= " AND ((cal.pc_eid > 0 AND (CASE WHEN (SELECT ope.pc_case from openemr_postcalendar_events ope WHERE ope.pc_eid = cal.pc_eid) > 0 THEN (SELECT ope.pc_case from openemr_postcalendar_events ope WHERE ope.pc_eid = cal.pc_eid limit 1) ELSE cal.enc_case END) = ?) OR (cal.pc_eid = 0 AND (cal.enc_case = ? OR cal.enc_case = '' ))) ";
                     $sqlBindArray[] = $_REQUEST['case'];
                     $sqlBindArray[] = $_REQUEST['case'];
                 }
