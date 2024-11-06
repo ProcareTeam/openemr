@@ -180,7 +180,7 @@ if (isset($_REQUEST['ajax'])) {
 			    	<th width="120"><?php echo xlt('Modality'); ?></th>
 			    	<th width="250"><?php echo xlt('Ref Doctor'); ?></th>
 			    	<th><?php echo xlt('Study Desc'); ?></th>
-			    	<th width="450"><?php echo xlt('Body Part'); ?></th>
+			    	<!-- <th width="450"><?php //echo xlt('Body Part'); ?></th> -->
 			    	<th></th>
 		    	</tr>
 		    </thead>
