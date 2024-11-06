@@ -124,6 +124,25 @@ class Demographicslib {
 					$_SESSION['authUserID']
 				));
 			}
+
+			// Save pre patient notes log
+			$form_prepatient_notes = isset($_POST['form_pre_patient_notes']) ? trim($_POST['form_pre_patient_notes']) : "";
+			$prepatientresultData = self::fetchPrePatientNotesLogs($pid, 1);
+			$form_current_prepatient_notes = !empty($prepatientresultData) && isset($prepatientresultData[0]['new_value']) ? $prepatientresultData[0]['new_value'] : ""; 
+
+			if($form_prepatient_notes !== $form_current_prepatient_notes) {
+				$sql = "INSERT INTO `form_value_logs` ( field_id, form_name, new_value, old_value, pid, username ) VALUES (?, ?, ?, ?, ?, ?) ";
+				sqlInsert($sql, array(
+					"pre_patient_notes",
+					"DEM",
+					$form_prepatient_notes,
+					$form_current_prepatient_notes,
+					$pid,
+					$_SESSION['authUserID']
+				));
+			}
+			// END
+
 		}
 
 		if(!empty($mode) && $mode == 'new') {
@@ -141,6 +160,37 @@ class Demographicslib {
 					$_SESSION['authUserID']
 				));
 			}
+
+			// Save pre patient notes log
+			$form_prepatient_notes = isset($_POST['form_pre_patient_notes']) ? trim($_POST['form_pre_patient_notes']) : "";
+			if(!empty($form_prepatient_notes)) {
+				$sql = "INSERT INTO `form_value_logs` ( field_id, form_name, new_value, old_value, pid, username ) VALUES (?, ?, ?, ?, ?, ?) ";
+				sqlInsert($sql, array(
+					"pre_patient_notes",
+					"DEM",
+					$form_prepatient_notes,
+					"",
+					$pid,
+					$_SESSION['authUserID']
+				));
+			}
+			// END
 		}
+	}
+
+	public static function fetchPrePatientNotesLogs($pid, $limit = '') {
+		$sql = "SELECT fl.*, u.username as user_name  FROM form_value_logs As fl LEFT JOIN users As u ON u.id = fl.username WHERE fl.field_id = ? AND fl.form_name = ? AND fl.pid = ? ORDER BY date DESC ";
+
+		if(!empty($limit)) {
+			$sql .= ' LIMIT '.$limit;
+		}
+
+		$lres=sqlStatement($sql, array("pre_patient_notes", "DEM", $pid));
+  		$result = array();
+
+  		while ($lrow = sqlFetchArray($lres)) {
+  			$result[] = $lrow;
+  		}
+  		return $result;
 	}
 }

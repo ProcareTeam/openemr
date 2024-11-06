@@ -292,6 +292,37 @@ if (
 
     $my_form_id = $formid ? $formid : $newid;
 
+    // @VH: Set previous form data before delete ldb form data for reset furture after form data set
+    $prevData = array();
+    $oldFieldData = array();
+
+    // @VH: Changes
+    if ($formid) { // delete existing form data
+
+        $prevres = sqlStatement("SELECT * FROM lbf_data WHERE form_id = ? ", array($formid));
+        while ($prevrow = sqlFetchArray($prevres)) {
+            $prevData[] = $prevrow;
+            $oldFieldData[$prevrow['field_id']] = $prevrow['field_value'];
+        }
+
+        //$query = "DELETE FROM lbf_data WHERE form_id = ? ";
+        //sqlStatement($query, array($formid));
+    }
+
+    //@VH: Update Deleted Status
+    sqlStatement(
+        "UPDATE form_order_layout SET deleted = 0 WHERE formdir = ? AND form_id = ? AND deleted = 1",
+        array($formname, $my_form_id)
+    );
+    // End
+
+    //Update Deleted Status
+    /* OEMR - Changes */
+    sqlStatement(
+        "UPDATE form_order_layout SET deleted = 0 WHERE formdir = ? AND form_id = ? AND deleted = 1",
+        array($formname, $my_form_id)
+    );
+
     // If there is an issue ID, update it in the forms table entry.
     if (isset($_POST['form_issue_id'])) {
         // @VH: Replaced table
@@ -309,6 +340,35 @@ if (
             array($_POST['form_provider_id'], $formname, $my_form_id)
         );
     }
+
+    // @VH: Save previous readonly and unused field data
+    if (!empty($formid)) {
+        $ehres = sqlStatement("SELECT * FROM layout_options " .
+            "WHERE form_id = ? AND field_id != '' AND (uor = 0 || edit_options LIKE '%0%' ) " .
+            "ORDER BY group_id, seq", array($formname));
+
+        while ($ehrow = sqlFetchArray($ehres)) {
+            $field_id = $ehrow['field_id'];
+            $data_type = $ehrow['data_type'];
+
+            if (!empty($field_id)) {
+                foreach ($prevData as $prevFieldItems) {
+                    if (isset($prevFieldItems['field_id']) && !empty($prevFieldItems['field_id']) && !empty($prevFieldItems['field_value'])) {
+
+                        if ($prevFieldItems['field_id'] == $ehrow['field_id'] && !empty($prevFieldItems['field_value'])) {
+
+                            sqlStatement(
+                                "INSERT INTO lbf_data " .
+                                "( form_id, field_id, field_value ) VALUES ( ?, ?, ? )",
+                                array($formid, $ehrow['field_id'], $prevFieldItems['field_value'])
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // End
 
     $newhistorydata = array();
     $sets = "";
@@ -329,6 +389,9 @@ if (
         }
     }
     // END
+
+    // @VH: Current field values
+    $currFieldData = array();
 
     while ($frow = sqlFetchArray($fres)) {
         $field_id = $frow['field_id'];
@@ -410,6 +473,9 @@ if (
                 $query = "REPLACE INTO lbf_data SET field_value = ?, " .
                     "form_id = ?, field_id = ?";
                 sqlStatement($query, array($value, $formid, $field_id));
+
+                // @VH: Assign
+                $currFieldData[$field_id] = $value;
             }
         } else { // new form
             if ($value !== '') {
@@ -418,6 +484,10 @@ if (
                     "( form_id, field_id, field_value ) VALUES ( ?, ?, ? )",
                     array($newid, $field_id, $value)
                 );
+
+                // @VH: Assign
+
+                $currFieldData[$field_id] = $value;
             }
         }
     } // end while save
@@ -454,6 +524,39 @@ if (
     if (!$formid) {
         $formid = $newid;
     }
+
+    if (!empty($formid) && !empty($formname)) {
+        // @VH: Change Filter Field
+        // TEST: 'LBF_chiro_rehab' => 'Complaint2',
+        $fieldList = array(
+            'LBF_external_referral' => 'EXTREF9898876',
+            'LBF_imagingorder' => 'img1_20',
+            'LBF_internal_referral' => 'typeintref198',
+            'LBFsurgeryorder' => 'SO10'
+        );
+        foreach($fieldList as $itemformname => $fieldid) {
+            if ($itemformname == $formname) {
+            if (isset($currFieldData[$fieldid])) {
+                $oldV = $oldFieldData[$fieldid] ?? '';
+                $newV = $currFieldData[$fieldid] ?? '';
+                $isNeedToLog = ($newV !== $oldV) ? true : false;
+                if($isNeedToLog === true) {
+                    $sql = "INSERT INTO `form_value_logs` ( field_id, form_name, new_value, old_value, pid, form_id, username ) VALUES (?, ?, ?, ?, ?, ?, ?) ";
+                    sqlInsert($sql, array(
+                        $fieldid,
+                        "form_rto|" . $formname,
+                        $newV,
+                        $oldV,
+                        $pid,
+                        $formid,
+                        $_SESSION['authUserID']
+                    ));
+                }
+            }
+            }
+        }
+    }
+
 
     if (!$alertmsg && !$from_issue_form && empty($_POST['bn_save_continue'])) {
         // Support custom behavior at save time, such as going to another form.

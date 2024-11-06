@@ -85,7 +85,7 @@ if (!$GLOBALS['omit_employers']) {
 
 // @VH: Save Changes [V100050][V100051]
 EmailVerificationLib::updateEmailVerification($_POST);
-Demographicslib::dem_after_save();
+Demographicslib::dem_after_save('new');
 // End
 
 if (!empty($addressFieldsToSave)) {

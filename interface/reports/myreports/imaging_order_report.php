@@ -581,6 +581,14 @@ if($form_csvexport) {
    	<?php if ($form_orderby == "create") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Create Date'); ?></a></th>
   	<th><a href="nojs.php" onclick="return dosort('due')"
    	<?php if ($form_orderby == "due") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Due Date'); ?></a></th>
+
+    <th width="120">
+      <?php echo xl('Notes Created At'); ?>
+    </th>
+    <th width="120">
+      <?php echo xl('Notes Updated At'); ?>
+    </th>
+
   	<th><a href="nojs.php" onclick="return dosort('patient')"
    	<?php if ($form_orderby == "patient") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Patient'); ?></a></th>
   	<th><a href="nojs.php" onclick="return dosort('pubpid')"
@@ -599,6 +607,14 @@ if($form_csvexport) {
     <?php if ($form_orderby == "user") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Responsible'); ?></a></th>
     <th><a href="nojs.php" onclick="return dosort('create')"
     <?php if ($form_orderby == "create") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Created'); ?></a></th>
+
+    <th width="120">
+      <?php echo xl('Notes Created At'); ?>
+    </th>
+    <th width="120">
+      <?php echo xl('Notes Updated At'); ?>
+    </th>
+
     <th><a href="nojs.php" onclick="return dosort('patient')"
     <?php if ($form_orderby == "patient") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Patient'); ?></a></th>
     <th><?php echo xl('Type'); ?></th>
@@ -609,6 +625,9 @@ if($form_csvexport) {
 	} // END OF REFRESH INCLUDE
 } // END OF NOT CSV EXPORT
 if ($res) {
+  // @VH:
+  $total_records = 0;
+
  	$lastusername = '';
  	$doc_encounters = 0;
 	$sql = 'SELECT * FROM form_encounter WHERE pid=? ORDER BY date DESC LIMIT 1';
@@ -631,6 +650,52 @@ if ($res) {
     $patientPubpid = $patientData['pubpid'];
 
     $clickFun = "handleGoToOrder('".$id."', '".$pubpid."', '".$patientPubpid."', '".$patientName."', '".$patientDOB."')";
+
+    $total_records++;
+    ob_start();
+    $isLBFFormAssociated = getImagingOrdersSummary($row['id'], $row['pid'], $row);;
+    $imagingorderssummary = ob_get_clean();
+    $notes_created_at = "";
+    $notes_updated_at = "";
+    if ($isLBFFormAssociated === true) {
+        // @VH: Change Filter Field
+        // TEST: 'LBF_chiro_rehab' => 'Complaint2',
+        $fieldList = array(
+            'LBF_external_referral' => 'EXTREF9898876',
+            'LBF_imagingorder' => 'img1_20',
+            'LBF_internal_referral' => 'typeintref198',
+            'LBFsurgeryorder' => 'SO10'
+        );
+        $prepareCondition = array();
+        foreach($fieldList as $itemformname => $fieldid) {
+          $prepareCondition[] = "WHEN fol.formdir = '". $itemformname ."' then fvl.field_id = '". $fieldid ."'";
+        }
+        if (!empty($prepareCondition)) {
+          $prepareCondition = " AND (CASE " . implode(" ", $prepareCondition) . " ELSE 1=2 END) ";
+        } else {
+          $prepareCondition = "";
+        }
+        //$created_updated_data = sqlQuery("SELECT a1.field_id, a1.created_date, a2.updated_date FROM (SELECT fvl.field_id, MIN(fvl.`date`) as created_date from `form_value_logs` as fvl join `form_order_layout` as fol on fvl.form_id = fol.form_id where fvl.pid = ? " . $prepareCondition . " and fol.rto_id = ? group by fvl.field_id) as a1 JOIN (SELECT fvl.field_id, MAX(fvl.`date`) as updated_date  from `form_value_logs` as fvl join `form_order_layout` as fol on fvl.form_id = fol.form_id where fvl.pid = ? " . $prepareCondition . " and fol.rto_id = ? group by fvl.field_id) as a2 on a1.field_id = a2.field_id", array($pubpid, $id, $pubpid, $id));
+        $created_updated_data = sqlQuery("select MAX(fvl.`date`) as updated_date,min(fvl.`date`) created_date from form_value_logs fvl,form_order_layout fol where fvl.form_id=fol.form_id and fvl.pid =? AND  fol.rto_id=? " . $prepareCondition, array($pubpid, $id));
+          if (!empty($created_updated_data)) {
+              if (isset($created_updated_data['created_date'])) {
+                  $notes_created_at = attr(oeFormatDateTime($created_updated_data['created_date']));
+              }
+              if (isset($created_updated_data['updated_date'])) {
+                  $notes_updated_at = attr(oeFormatDateTime($created_updated_data['updated_date']));
+              }
+          }
+    } else {
+       if (!empty($row['rto_notes'])) {
+          $created_updated_data = sqlQuery("select (SELECT `date` as updated_datetime from form_value_logs where pid = ? and field_id = 'rto_notes' and form_name = 'form_rto' and form_id = ? order by id desc limit 1) as updated_datetime, (SELECT `date` as created_datetime from form_value_logs where pid = ? and field_id = 'rto_notes' and form_name = 'form_rto' and form_id = ?  order by id asc limit 1) as created_datetime limit 1", array($row['pid'], $id, $row['pid'], $id));
+          if (!empty($created_updated_data)) {
+              if (isset($created_updated_data['updated_datetime'])) {
+                  $notes_created_at = attr(oeFormatDateTime($created_updated_data['created_datetime']));
+                  $notes_updated_at = attr(oeFormatDateTime($created_updated_data['updated_datetime']));
+              }
+          }
+        }
+    }
 
 		if(!$dolv) $dolv = '--';
 		$bgcolor = ($bgcolor == "D6EAF8") ? "FBFCFC" : "D6EAF8";
@@ -660,6 +725,10 @@ if ($res) {
    	<?php echo oeFormatShortDate(substr($row['rto_date'], 0, 10)) ?>&nbsp;</a></td>
   	<td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
    	<?php echo oeFormatShortDate(substr($row['rto_target_date'], 0, 10)) ?>&nbsp;</a></td>
+
+    <td><?php echo $notes_created_at; ?></td>
+    <td><?php echo $notes_updated_at; ?></td>
+
   	<td><a href="javascript:goParentPid('<?php echo $row['pid']; ?>');"><?php echo $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname']; ?>&nbsp;</a></td>
   	<td><?php echo $row['pubpid']; ?>&nbsp;</td>
   	<td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
@@ -677,6 +746,10 @@ if ($res) {
     <td><?php echo $username; ?>&nbsp;</td>
     <td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
     <?php echo oeFormatShortDate(substr($row['rto_date'], 0, 10)) ?>&nbsp;</a></td>
+
+    <td><?php echo $notes_created_at; ?></td>
+    <td><?php echo $notes_updated_at; ?></td>
+
     <td><a href="javascript:goParentPid('<?php echo $row['pid']; ?>');"><?php echo $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname']; ?>&nbsp;</a></td>
     <td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
     <?php echo $action; ?>&nbsp;</a></td>
@@ -689,7 +762,7 @@ if ($res) {
      	<tr>
       	<td>&nbsp;</td>
       	<td colspan="8"><div><?php 
-          getImagingOrdersSummary($row['id'], $row['pid'], $row);
+          echo $imagingorderssummary;
         ?></div></td>
      	</tr>		
 	<?php
@@ -706,6 +779,12 @@ if(!$form_csvexport) {
 	<div class='text'>
  	<?php echo xl('Please input search criteria above, and click Submit to view results.'); ?>
 	</div>
+
+  <div style="float:right;">
+    <span><b><i><?php echo xlt('Total Records') . ": "; ?><?php echo $total_records;  ?></i></b></span>
+  </div>
+  <br>
+  <br>
 
 	<input type="hidden" name="form_orderby" value="<?php echo $form_orderby ?>" />
 	<input type='hidden' name='form_refresh' id='form_refresh' value=''/>

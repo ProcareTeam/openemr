@@ -223,6 +223,31 @@ $pre_patient_status = isset($_POST['form_pre_patient_status']) ? $_POST['form_pr
 
 <?php
 if (!empty($_POST['form_refresh'])) {
+
+    // $query = sqlStatement("select pid, CONCAT(CONCAT_WS(' ', IF(LENGTH(fname),fname,NULL)), ' (', pubpid ,')') as patient_name, 
+    // pre_patient_status, pre_patient_destination, pre_patient_notes, phone_cell, email from patient_data 
+    // where date BETWEEN NOW() - INTERVAL 30 DAY AND NOW() AND pre_patient_destination = ? AND pre_patient_status = ?", array($pre_patient_destination, $pre_patient_status));
+    
+    $sqlBindArray = array();
+    if($_POST['form_from_date']) {
+        $where = "created >= ? AND created <= ? ";
+        array_push($sqlBindArray, $form_from_date. ' 00:00:00', $form_to_date.' 23:59:59');
+    }
+    if ($_POST['pre_patient_destination']) {
+        if ($_POST['pre_patient_destination'] && !in_array("", $_POST['pre_patient_destination'])) {
+            $where .= "AND pre_patient_destination IN ('".implode("','",$_POST['pre_patient_destination'])."') ";
+          }
+    }
+
+    if ($_POST['form_pre_patient_status']) {
+        if ($_POST['form_pre_patient_status'] && !in_array("", $_POST['form_pre_patient_status'])) {
+            $where .= "AND pre_patient_status IN ('".implode("','",$_POST['form_pre_patient_status'])."') ";
+        }
+    }
+    $query = "select pid, CONCAT(CONCAT_WS(' ', IF(LENGTH(fname),fname,NULL), IF(LENGTH(lname),lname,NULL)), ' (', pubpid ,')') as patient_name, 
+    pre_patient_status, pre_patient_destination, pre_patient_notes, phone_cell, email from patient_data " .
+    "WHERE 1=1 and $where ";
+
     ?>
 
 <div id="report_results">
@@ -231,7 +256,9 @@ if (!empty($_POST['form_refresh'])) {
 <th> <?php echo xlt('Patient Name'); ?> </th>
 <th> <?php echo xlt('Pre-Patient Destination'); ?> </th>
 <th> <?php echo xlt('Pre-Patient Status'); ?> </th>
-<th> <?php echo xlt('Pre-patient Notes'); ?> </th>
+<th width="150"> <?php echo xlt('Pre-patient Notes'); ?> </th>
+<th width="100"> <?php echo xlt('Notes Create At'); ?> </th>
+<th width="100"> <?php echo xlt('Notes Updated At'); ?> </th>
 <th> <?php echo xlt('Phone Number'); ?> </th>
 <th> <?php echo xlt('Email'); ?> </th>
 <th> <?php echo xlt('Cases'); ?> </th>
@@ -278,6 +305,19 @@ if (!empty($_POST['form_refresh'])) {
                 }
             }
 
+            $notes_created_at = "";
+            $notes_updated_at = "";
+            if (!empty($row['pre_patient_notes'])) {
+                //$created_updated_data = sqlQuery("select (SELECT `date` as updated_datetime from form_value_logs where pid = ? and field_id = 'pre_patient_notes' and form_name = 'DEM' order by id desc limit 1) as updated_datetime, (SELECT `date` as created_datetime from form_value_logs where pid = ? and field_id = 'pre_patient_notes' and form_name = 'DEM'  order by id asc limit 1) as created_datetime limit 1", array($row['pid'], $row['pid']));
+                $created_updated_data = sqlQuery("SELECT MAX(fvl.`date`) as updated_datetime, MIN(fvl.`date`) created_datetime from form_value_logs fvl where fvl.pid = ? and fvl.field_id = 'pre_patient_notes' and form_name = 'DEM'", array($row['pid']));
+                if (!empty($created_updated_data)) {
+                    if (isset($created_updated_data['updated_datetime'])) {
+                        $notes_created_at = attr(oeFormatDateTime($created_updated_data['created_datetime']));
+                        $notes_updated_at = attr(oeFormatDateTime($created_updated_data['updated_datetime']));
+                    }
+                }
+            }
+
             ?>
     <tr>
     <td>
@@ -302,6 +342,12 @@ if (!empty($_POST['form_refresh'])) {
     </td>
     <td>
         <?php echo text($row['pre_patient_notes']); ?>
+    </td>
+    <td>
+        <?php echo $notes_created_at; ?>
+    </td>
+    <td>
+        <?php echo $notes_updated_at; ?>
     </td>
     <td>
         <?php echo "<a href=\"#\" onclick= dlgopen('".$GLOBALS['webroot']."/interface/asterisk/makeCallThroughExtension.php?phone_number=".$row['phone_cell']."') >".$row['phone_cell']."</a>"; ?>
@@ -403,6 +449,14 @@ if (!empty($_POST['form_refresh'])) {
 </tbody>
 </table>
 </div> <!-- end of results -->
+
+<div style="float:right;">
+    <span><b><i><?php echo xlt('Total Records') . ": "; ?><?php echo !empty($totalCountData) && $totalCountData['count'] > 0 ? $totalCountData['count'] : 0;  ?></i></b></span>
+</div>
+</br>
+</br>
+</br>
+
 <?php } else { ?>
 <div class='text'>
     <?php echo xlt('Please input search criteria above, and click Submit to view results.'); ?>

@@ -287,8 +287,11 @@ function getRTOSummary($rto_id, $pid, $rto_data = array()) {
 	$form_title = isset($layoutData['grp_title']) ? $layoutData['grp_title'] : '';
 	$form_dir = isset($layoutData['grp_form_id']) ? $layoutData['grp_form_id'] : '';
 
+	$isLBFFormAssociated = false;
+
 	if(!empty($layoutData) && !empty($layoutData['grp_form_id']) && !empty($rtoData)) {
 		$lformname = $layoutData['grp_form_id'];
+		$isLBFFormAssociated = true;
 		?>
 		<div class="summeryContainer">
 		<?php
@@ -310,6 +313,7 @@ function getRTOSummary($rto_id, $pid, $rto_data = array()) {
 		echo htmlspecialchars($rto_data['rto_notes'],ENT_QUOTES);
 	}
 
+	return $isLBFFormAssociated;
 }
 
 function getImagingOrdersSummary($rto_id, $pid, $rto_data = array()) {
@@ -325,8 +329,10 @@ function getImagingOrdersSummary($rto_id, $pid, $rto_data = array()) {
 	<input type="checkbox" class="read-more-state" id="order-note-<?php echo $rto_id; ?>" />
 	
 	<?php
+	$isLBFFormAssociated = false;
 	if(!empty($layoutData) && !empty($layoutData['grp_form_id']) && !empty($rtoData)) {
 		$lformname = $layoutData['grp_form_id'];
+		$isLBFFormAssociated = true;
 		?>
 		<div class="content summeryContainer" data-toggle="tooltip" title="">
 		<?php
@@ -360,6 +366,7 @@ function getImagingOrdersSummary($rto_id, $pid, $rto_data = array()) {
 	</div>
 	<?php
 
+	return $isLBFFormAssociated;
 }
 
 /* Log data*/

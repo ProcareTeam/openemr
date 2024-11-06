@@ -396,10 +396,16 @@ if($form_csvexport) {
   <table><thead class="thead-light">
     <th><a href="nojs.php" onclick="return dosort('user')"
     <?php if ($form_orderby == "user") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Responsible User'); ?></a></th>
-    <th><a href="nojs.php" onclick="return dosort('create')"
+    <th width="120"><a href="nojs.php" onclick="return dosort('create')"
     <?php if ($form_orderby == "create") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Create Date'); ?></a></th>
-    <th><a href="nojs.php" onclick="return dosort('due')"
+    <th width="120"><a href="nojs.php" onclick="return dosort('due')"
     <?php if ($form_orderby == "due") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Due Date'); ?></a></th>
+    <th width="120">
+      <?php echo xl('Notes Created At'); ?>
+    </th>
+    <th width="120">
+      <?php echo xl('Notes Updated At'); ?>
+    </th>
     <th><a href="nojs.php" onclick="return dosort('patient')"
     <?php if ($form_orderby == "patient") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Patient'); ?></a></th>
     <th><a href="nojs.php" onclick="return dosort('pubpid')"
@@ -417,6 +423,8 @@ if($form_csvexport) {
 if ($res) {
   $lastusername = '';
   $doc_encounters = 0;
+  $total_records = 0;
+
   $sql = 'SELECT * FROM form_encounter WHERE pid=? ORDER BY date DESC LIMIT 1';
   while ($row = sqlFetchArray($res)) {
     $username = 'Not Assigned';
@@ -437,6 +445,53 @@ if ($res) {
     $patientPubpid = $patientData['pubpid'];
 
     $clickFun = "handleGoToOrder('".$id."', '".$pubpid."', '".$patientPubpid."', '".$patientName."', '".$patientDOB."')";
+
+
+    $total_records++;
+    ob_start();
+    $isLBFFormAssociated = getRTOSummary($row['id'], $row['pid'], $row);
+    $rtosummary = ob_get_clean();
+    $notes_created_at = "";
+    $notes_updated_at = "";
+    if ($isLBFFormAssociated === true) {
+        // @VH: Change Filter Field
+        // TEST: 'LBF_chiro_rehab' => 'Complaint2',
+        $fieldList = array(
+            'LBF_external_referral' => 'EXTREF9898876',
+            'LBF_imagingorder' => 'img1_20',
+            'LBF_internal_referral' => 'typeintref198',
+            'LBFsurgeryorder' => 'SO10'
+        );
+        $prepareCondition = array();
+        foreach($fieldList as $itemformname => $fieldid) {
+          $prepareCondition[] = "WHEN fol.formdir = '". $itemformname ."' then fvl.field_id = '". $fieldid ."'";
+        }
+        if (!empty($prepareCondition)) {
+          $prepareCondition = " AND (CASE " . implode(" ", $prepareCondition) . " ELSE 1=2 END) ";
+        } else {
+          $prepareCondition = "";
+        }
+        $created_updated_data = sqlQuery("select MAX(fvl.`date`) as updated_date,min(fvl.`date`) created_date from form_value_logs fvl,form_order_layout fol where fvl.form_id=fol.form_id and fvl.pid =? AND  fol.rto_id=? " . $prepareCondition, array($pubpid, $id));
+
+          if (!empty($created_updated_data)) {
+              if (isset($created_updated_data['created_date'])) {
+                  $notes_created_at = attr(oeFormatDateTime($created_updated_data['created_date']));
+              }
+              if (isset($created_updated_data['updated_date'])) {
+                  $notes_updated_at = attr(oeFormatDateTime($created_updated_data['updated_date']));
+              }
+          }
+    } else {
+       if (!empty($row['rto_notes'])) {
+          $created_updated_data = sqlQuery("select (SELECT `date` as updated_datetime from form_value_logs where pid = ? and field_id = 'rto_notes' and form_name = 'form_rto' and form_id = ? order by id desc limit 1) as updated_datetime, (SELECT `date` as created_datetime from form_value_logs where pid = ? and field_id = 'rto_notes' and form_name = 'form_rto' and form_id = ?  order by id asc limit 1) as created_datetime limit 1", array($row['pid'], $id, $row['pid'], $id));
+          if (!empty($created_updated_data)) {
+              if (isset($created_updated_data['updated_datetime'])) {
+                  $notes_created_at = attr(oeFormatDateTime($created_updated_data['created_datetime']));
+                  $notes_updated_at = attr(oeFormatDateTime($created_updated_data['updated_datetime']));
+              }
+          }
+        }
+    }
 
     if(!$dolv) $dolv = '--';
     $bgcolor = ($bgcolor == "D6EAF8") ? "FBFCFC" : "D6EAF8";
@@ -465,6 +520,8 @@ if ($res) {
     <?php echo oeFormatShortDate(substr($row['rto_date'], 0, 10)) ?>&nbsp;</a></td>
     <td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
     <?php echo oeFormatShortDate(substr($row['rto_target_date'], 0, 10)) ?>&nbsp;</a></td>
+    <td><?php echo $notes_created_at; ?></td>
+    <td><?php echo $notes_updated_at; ?></td>
     <td><a href="javascript:goParentPid('<?php echo $row['pid']; ?>');" class="<?php echo $row['rto_stat'] === "1" ? "redText" : ""; ?>"><span data-toggle="tooltip" class="tooltip_text" title=""><?php echo $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname']; ?>&nbsp;<div class="hidden_content" style="display:none;">Stat</div></span></a></td>
     <td><?php echo $row['pubpid']; ?>&nbsp;</td>
     <td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
@@ -481,7 +538,7 @@ if ($res) {
       <tr>
         <td>&nbsp;</td>
         <td colspan="8"><?php 
-          getRTOSummary($row['id'], $row['pid'], $row);
+          echo $rtosummary;
         ?></td>
       </tr>   
   <?php
@@ -495,6 +552,13 @@ if(!$form_csvexport) {
 ?>
   </tbody>
   </table></div>  <!-- END OF RESULTS -->
+
+  <div style="float:right;">
+    <span><b><i><?php echo xlt('Total Records') . ": "; ?><?php echo $total_records;  ?></i></b></span>
+  </div>
+  <br>
+  <br>
+  
   <div class='text'>
   <?php echo xl('Please input search criteria above, and click Submit to view results.'); ?>
   </div>
