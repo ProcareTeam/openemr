@@ -410,7 +410,7 @@ class Utility {
 					  'Key'    => $S3filename
 					]);
 		  
-					$ics_file_link =  $s3->createPresignedRequest($cmd, '+168 hours')->getUri()->__toString();
+					$ics_file_link =  $s3->createPresignedRequest($cmd, '+6 days')->getUri()->__toString();
 			}
 		}
 
