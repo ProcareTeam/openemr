@@ -131,6 +131,52 @@ function getBillingCodes($pid, $enc, $type='') {
   return $items;
 }
 
+function setCPTCode($pid, $enc, $frmdir, $visit, $codeval) {
+	$justify = "";
+	if(!$pid || !$enc) return '';
+	if($max_to_justify = checkSettingMode('wmt::auto_justify','',$frmdir)) {
+		$dr = 0;
+		if(is_object($visit)) $dr = $visit->provider_id;
+		$diag = GetProblemsWithDiags($pid, 'enc', $enc, 'ICD', true);
+
+
+		foreach($diag as $prev) {
+			$codes = explode(';',$prev['diagnosis']);
+			list($type, $code) = explode(':', $codes[0]);
+			if($type && $code) {
+				$justify .= $type .'|' . $code . ':';
+			}
+		}
+
+		$bill_id = 0;
+
+		if (!empty($codeval)) {
+			list($reqtype, $reqcode) = explode(':', $codeval);
+			if (!empty($reqtype) && !empty($reqcode)) {
+				$bill_id = billingExists($reqtype, $reqcode, $pid, $enc);
+				// MAKE SURE THE DIAG WE ARE USING IS IN THE BILLING TABLE
+				if(!$bill_id) {
+					$desc = lookup_code_descriptions($reqtype.':'.$reqcode);
+					$bill_id = \OpenEMR\Billing\BillingUtilities::addBilling($enc, $reqtype, $reqcode, $desc, $pid, 1, $dr);
+				}
+			}
+		}
+
+		if (!empty($bill_id)) {
+					$lines = getBillingCodes($pid, $enc, " AND billing.id = '". $bill_id ."' ");
+					if (!empty($lines) && count($lines) == 1) {
+						foreach($lines as $item) {
+							unset($line);
+							$line = array();
+							$line['type'] = $item['code_type'];
+							$line['justify'] = $justify;
+							updateBillingItem($item['id'], -1, $line);
+						}
+					}
+		}
+	}
+}
+
 function autoJustify($pid, $enc, $frmdir, $visit) {
 	$justify = '';
 	if(!$pid || !$enc) return '';

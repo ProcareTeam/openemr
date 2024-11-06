@@ -879,6 +879,13 @@ if($form_mode == 'update') {
 	}
 
 	$justify = autoJustify($pid, $encounter, $frmdir, $visit);
+
+	if (isset($_REQUEST['tmp_form_justify_all']) && isset($_REQUEST['tmp_form_justify_code'])) {
+		if (!empty($_REQUEST['tmp_form_justify_all']) && !empty($_REQUEST['tmp_form_justify_code'])) {
+			setCPTCode($pid, $encounter, $frmdir, $visit, $_REQUEST['tmp_form_justify_code']);
+		}
+	}
+
 	$draw_display = FALSE;
 	// NOW PROCESS ALL THE COMMENTS
 	// foreach($notes as $key => $nt) {
@@ -2619,18 +2626,42 @@ foreach($fh_defaults as $who => $what) {
 <?php } ?>
 <table width="100%" border="0">
   <tr>
-   	<td><a href="javascript:<?php echo $pop_form ? '' : 'top.restoreSession(); '; ?>document.forms[0].submit();" tabindex="-1" class="css_button"><span>Save Data</span></a> </td>
-   	<td><a href="javascript: submit_print_form('<?php echo $base_action; ?>','<?php echo $wrap_mode; ?>','','<?php echo $id; ?>');" tabindex="-1" class="css_button" <?php echo $pop_form ? "" : "onclick='top.restoreSession();'"; ?> ><span>Printable Form</span></a></td>
+   	<td><a href="javascript:<?php echo $pop_form ? '' : 'top.restoreSession(); '; ?>document.forms[0].submit();" tabindex="-1" class="css_button"><span>Save Data</span></a> 
+   		<div style="display: inline-block; margin-left: 10px;">
+    		<span>Justify All</span>
+    		<input type="checkbox" name="tmp_form_justify_all" value="1">
+    	</div>
+    	<div style="display: inline-block; margin-left: 10px;">
+    		<select name="tmp_form_justify_code" class="form-control">
+    			<option value="">Please Select</option>
+    			<?php
+    				$rlist= sqlStatement("SELECT * FROM list_options WHERE list_id =? ORDER BY seq", array("extended_exam_em_code"));
+    				while ($rrow= sqlFetchArray($rlist)) {
+    					?>
+    					<option value="<?php echo $rrow['option_id'] ?>"><?php echo $rrow['title'] ?></option>
+    					<?php
+    				}
+    			?>
+    		</select>
+    	</div>
+   	</td>
+   	<td><a href="javascript: submit_print_form('<?php echo $base_action; ?>','<?php echo $wrap_mode; ?>','','<?php echo $id; ?>');" tabindex="-1" class="css_button" <?php echo $pop_form ? "" : "onclick='top.restoreSession();'"; ?> style="display: none;" ><span>Printable Form</span></a></td>
 
-    <td class="wmtLabel">Form Status:&nbsp;
+    <td class="wmtLabel">
+    	<div style="display: none;">
+    	Form Status:&nbsp;
       <select name="form_complete" id="form_complete" class="wmtInput1" onChange="VerifyApproveForm('form_complete','<?php echo $approve_popup; ?>');">
         <?php ApprovalSelect($dt['form_complete'],'Form_Status',$id,'i',$approval['allowed']); ?>
       </select>
+      </div>
     </td>
-    <td class="wmtLabel">Form Priority:&nbsp;
+    <td class="wmtLabel">
+    	<div style="display: none;">
+    	Form Priority:&nbsp;
       <select name="form_priority" id="form_priority" class="wmtInput1">
         <?php FlagListSel($dt['form_priority'],'Form_Priority',$id,'n'); ?>
       </select>
+    	</div>
     </td>
 
     <td><div style="float: right; padding-right: 10px;"><a href="<?php echo (($pop_form)?'javascript:window.close();':$GLOBALS['form_exit_url']); ?>" class="css_button" tabindex="-1" onclick="return cancelClicked()" ><span>Cancel</span></a></div></td>
