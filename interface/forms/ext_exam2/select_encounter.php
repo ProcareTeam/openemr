@@ -15,19 +15,29 @@ $tmp_barId = isset($_REQUEST['tmp_barId']) ? $_REQUEST['tmp_barId'] : "";
 $frmdir = isset($_REQUEST['frmdir']) ? $_REQUEST['frmdir'] : "";
 $encounter = isset($_REQUEST['encounter']) ? $_REQUEST['encounter'] : "";
 
-function fetch_appt_signatures_data_byId($eid) {
-    if(!empty($eid)) {
+function fetch_appt_signatures_data_byId($eids) {
+	$result = array();
+
+    if(!empty($eids)) {
         //$eSql = "SELECT FE.encounter, E.id, E.tid, E.table, E.uid, U.fname, U.lname, E.datetime, E.is_lock, E.amendment, E.hash, E.signature_hash FROM form_encounter FE LEFT JOIN esign_signatures E ON (case when E.`table` ='form_encounter' then FE.encounter = E.tid else  FE.id = E.tid END) LEFT JOIN users U ON E.uid = U.id WHERE FE.encounter = ? ORDER BY E.datetime ASC";
-        $eSql = "SELECT E.is_lock FROM `esign_signatures` E where E.tid = ? and E.`table`='form_encounter' ORDER BY E.datetime ASC";
-        $result = sqlQuery($eSql, array($eid));
-        return $result;
+        //$eSql = "SELECT E.is_lock FROM `esign_signatures` E where E.tid = ? and E.`table`='form_encounter' ORDER BY E.datetime ASC";
+        $eSql = "SELECT FE.encounter, E.id, E.tid, E.table, E.uid, E.datetime, E.is_lock, E.amendment, E.hash, E.signature_hash FROM form_encounter FE JOIN esign_signatures E ON (case when E.`table` ='form_encounter' then FE.encounter = E.tid else FE.id = E.tid END) WHERE FE.encounter IN (". implode(",", $eids) .") ORDER BY E.datetime ASC";
+        //$result = sqlQuery($eSql, array($eid));
+        //return $result;
+
+        $lres = sqlStatement($eSql, array());
+        while ($lrow = sqlFetchArray($lres)) {
+            $result[] = $lrow;
+        }
     }
-    return false;
+
+    return $result;
 }
 
-$result4 = sqlStatement("SELECT fe.encounter,fe.date,openemr_postcalendar_categories.pc_catname, us.fname, us.mname, us.lname FROM form_encounter AS fe left join openemr_postcalendar_categories on fe.pc_catid=openemr_postcalendar_categories.pc_catid left join users AS us on fe.	provider_id = us.id join forms f on fe.encounter=f.encounter and f.deleted=0  WHERE fe.pid = ? AND fe.encounter != ? order by fe.date desc", array($pid, $encounter));
+$result4 = sqlStatement("SELECT fe.encounter,fe.date,openemr_postcalendar_categories.pc_catname, us.fname, us.mname, us.lname FROM form_encounter AS fe left join openemr_postcalendar_categories on fe.pc_catid=openemr_postcalendar_categories.pc_catid left join users AS us on fe.	provider_id = us.id WHERE fe.pid = ? AND fe.encounter != ? order by fe.date desc", array($pid, $encounter));
 
 $enounterList = array();
+$appt_encounters = array();
 while ($rowresult4 = sqlFetchArray($result4)) {
 	$encounter = isset($rowresult4['encounter']) ? $rowresult4['encounter'] : '';
 	$id = '';
@@ -41,17 +51,26 @@ while ($rowresult4 = sqlFetchArray($result4)) {
 		}
 	}
 
-	$eData = fetch_appt_signatures_data_byId($encounter);
-    if($eData !== false && isset($eData['is_lock']) && $eData['is_lock'] == '1') {
-        $rowresult4['signed'] = true;
-    } else {
-    	$rowresult4['signed'] = false;
-    }
+	// $eData = fetch_appt_signatures_data_byId($encounter);
+    // if($eData !== false && isset($eData['is_lock']) && $eData['is_lock'] == '1') {
+    //     $rowresult4['signed'] = true;
+    // } else {
+    // 	$rowresult4['signed'] = false;
+    // }
 
 	if(!empty($id)) {
+		if ($encounter != 0) {
+	        $appt_encounters[] = $encounter;
+	    }
+
 		$rowresult4['form_id'] = $id;
 		$enounterList[] = $rowresult4;
 	}
+}
+
+$eSignData = array();
+if (!empty($appt_encounters)) {
+    $eSignData = fetch_appt_signatures_data_byId($appt_encounters);
 }
 
 ?>
@@ -77,6 +96,7 @@ while ($rowresult4 = sqlFetchArray($result4)) {
 	<div class="encounterContainer">
 		<ul>
 			<?php 
+			    if (!empty($enounterList)) {
 				foreach ($enounterList as $i => $item) {
 					$edate = isset($item['date']) ? date($dateFormat, strtotime($item['date'])) : '';
 					$cCat = isset($item['pc_catname']) ? $item['pc_catname'] : '';
@@ -85,7 +105,19 @@ while ($rowresult4 = sqlFetchArray($result4)) {
 						$pName = ' - '.$pName;
 					}
 
-					$signed = $item['signed'] === true ? 'Signed' : 'Unsigned';
+					$encounter_id = isset($item['encounter']) ? $item['encounter'] : '';
+					$signed = 'Unsigned';
+					foreach ($eSignData as $eData) {
+			            if ($eData['encounter'] == $encounter_id) {
+			                if($eData !== false && isset($eData['is_lock']) && $eData['is_lock'] == '1') {
+			                    $signed = 'Signed';
+			                    break;
+			                }
+			            }
+			        }
+
+
+					//$signed = $item['signed'] === true ? 'Signed' : 'Unsigned';
 					if(!empty($signed)) {
 						$signed = ' - <i>'.$signed.'</i>';
 					}
@@ -101,6 +133,11 @@ while ($rowresult4 = sqlFetchArray($result4)) {
 						<!-- <input type="checkbox" id="<?php //echo 'reps_'.$encounter_id.'_'.$form_id; ?>" name="<?php //echo 'reps_'.$encounter_id.'_'.$form_id; ?>" value="replace">
 						<label for="male">Replace</label> -->
 					</li>
+					<?php
+				}
+				} else {
+					?>
+					<li><?php echo xlt('Not Results'); ?></li>
 					<?php
 				}
 			?>
