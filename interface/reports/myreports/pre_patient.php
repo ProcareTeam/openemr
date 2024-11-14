@@ -20,8 +20,8 @@ if (!empty($_POST)) {
 }
 $form_from_date = (isset($_POST['form_from_date'])) ? DateToYYYYMMDD($_POST['form_from_date']) : date('Y-m-d',strtotime("-3 months"));
 $form_to_date = (isset($_POST['form_to_date'])) ? DateToYYYYMMDD($_POST['form_to_date']) : date('Y-m-d'); 
-$pre_patient_destination = isset($_POST['pre_patient_destination']) ? $_POST['pre_patient_destination'] : '';
-$pre_patient_status = isset($_POST['form_pre_patient_status']) ? $_POST['form_pre_patient_status'] : '';
+$pre_patient_destination = isset($_POST['pre_patient_destination']) ? $_POST['pre_patient_destination'] : array();
+$pre_patient_status = isset($_POST['form_pre_patient_status']) ? $_POST['form_pre_patient_status'] : array();
 ?>
 <html>
 <head>
