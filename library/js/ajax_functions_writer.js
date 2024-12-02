@@ -115,6 +115,33 @@ function ascii_write(asc, theSelTo) {
     }
 }
 
+function printWithUnsupportedChars(text) {
+    let result = '';
+    let unsupportedChars = [];
+
+    for (let i = 0; i < text.length; i++) {
+        const charCode = text.charCodeAt(i);
+        
+        // Check if the character is outside the latin1 range (0x00 - 0xFF)
+        if (charCode > 0xFF) {
+            unsupportedChars.push(text[i]);  // Store the unsupported character
+            result += `[${text[i]}]`;  // Highlight unsupported characters
+        } else {
+            result += text[i];  // Append valid characters
+        }
+    }
+
+    // Output the string with unsupported characters highlighted
+    console.log("Text with unsupported characters highlighted: ", result);
+    
+    // If there are unsupported characters, log them separately
+    if (unsupportedChars.length > 0) {
+        console.log("Unsupported characters: ", unsupportedChars);
+    } else {
+        console.log("All characters are compatible with latin1.");
+    }
+}
+
 function SelectToSave(textara, ccFlag = '') {
     let textAreaContent = '';
     let mainForm = window.opener.document;
@@ -135,6 +162,10 @@ function SelectToSave(textara, ccFlag = '') {
                 textEl = mainForm.querySelector("input[name=" + textara + "]");
             }
         }
+
+        // @VH: Remove characters outside of latin1 range
+        textAreaContent = textAreaContent.replace(/[^ -ÿ\n\r]/g, '');
+
         textEl.value = jsText(br2nl(textAreaContent));
     } else {
         // must be html for nation note.
