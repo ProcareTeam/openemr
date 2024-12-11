@@ -1185,7 +1185,7 @@ if (
                 type: "POST",
                 url: "<?php echo $GLOBALS['webroot']; ?>/interface/forms/LBF/ajax/predefined_lbf_selector_ajax.php",
                 datatype: "json",
-                data: { 'action' : 'get_selector', 'formname' : '<?php echo $formname; ?>', 'group_level' : grp}
+                data: { 'action' : 'get_selector', 'formname' : '<?php echo $formname; ?>', 'group_level' : grp, 'encounter' : '<?php echo $encounter ?>'}
             });
 
             if(result != '') {

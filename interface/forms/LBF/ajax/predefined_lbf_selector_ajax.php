@@ -6,12 +6,15 @@ require_once("../../../globals.php");
 require_once("$srcdir/forms.inc");
 require_once("$srcdir/options.inc.php");
 
+use OpenEMR\Common\Acl\AclMain;
+
 $action_mode = isset($_REQUEST['action']) ? $_REQUEST['action'] : "";
 $formname = isset($_REQUEST['formname']) ? $_REQUEST['formname'] : "";
 $selection_name = isset($_REQUEST['selection_name']) ? $_REQUEST['selection_name'] : "";
 $selectorIsGlobal = isset($_REQUEST['is_global']) ? $_REQUEST['is_global'] : 1;
 $grp_level = isset($_REQUEST['group_level']) ? $_REQUEST['group_level'] : "";
 $selector_id = isset($_REQUEST['selector_id']) ? $_REQUEST['selector_id'] : "";
+$encounter = isset($_REQUEST['encounter']) ? $_REQUEST['encounter'] : "";
 
 /* OEMR - Predefined LBF Selections Save */
 if (!empty($action_mode) && ($action_mode == "ADD_NEW" || $action_mode == "UPDATE")) {
@@ -76,7 +79,18 @@ if (!empty($action_mode) && ($action_mode == "ADD_NEW" || $action_mode == "UPDAT
 
     echo json_encode(array());
 } else if (!empty($action_mode) && $action_mode == "get_selector") {
-	$fres1 = sqlStatement("SELECT * FROM vh_predefined_lbf_selector_details WHERE ((user = ? AND is_global = 0) OR is_global = 1) AND form_name = ? AND group_id = ? ORDER BY title asc, created_date desc", array($_SESSION['authUserID'], $formname, $grp_level));
+	$userIds = array($_SESSION['authUserID']);
+    if (!empty($encounter)) {
+        $encounterData = sqlQuery("SELECT * from form_encounter fe where encounter = ?", $encounter);
+        if (!empty($encounterData) && isset($encounterData['provider_id'])) {
+            $userIds[] = $encounterData['provider_id'];
+        }
+    }
+    $whereStr = "((user in (". implode(",", $userIds) .")  AND is_global = 0) OR is_global = 1)";
+    if (AclMain::aclCheckCore('admin','super')) {
+        $whereStr = "(user != 0)";
+    }
+    $fres1 = sqlStatement("SELECT * FROM vh_predefined_lbf_selector_details WHERE ". $whereStr ." AND form_name = ? AND group_id = ? ORDER BY title asc, created_date desc", array($formname, $grp_level));
 
 	$slist = array();
 
