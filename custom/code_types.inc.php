@@ -78,10 +78,12 @@ while ($ctrow = sqlFetchArray($ctres)) {
     'problem' => $ctrow['ct_problem'],
     'drug' => $ctrow['ct_drug']
     );
-    if (!array_key_exists($GLOBALS['default_search_code_type'], $code_types)) {
-        reset($code_types);
-        $GLOBALS['default_search_code_type'] = key($code_types);
-    }
+}
+
+// @VH: Core Issue - Causing issue not selecting default code type on feesheet. Change moved block outside of while loop
+if (!array_key_exists($GLOBALS['default_search_code_type'], $code_types)) {
+    reset($code_types);
+    $GLOBALS['default_search_code_type'] = key($code_types);
 }
 
 /** This array contains metadata describing the arrangement of the external data
