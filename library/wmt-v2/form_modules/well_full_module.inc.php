@@ -3,7 +3,7 @@ include_once($GLOBALS['srcdir'] . '/classes/Document.class.php');
 if(!isset($portal_mode)) $portal_mode = false;
 if(!isset($field_prefix)) $field_prefix = '';
 if(!isset($pat_entries_exist)) $pat_entries_exist = false;
-if(!isset($fyi->fyi_well_nt)) $fyi->fyi_well_nt = '';
+if($fyi !== null && !isset($fyi->fyi_well_nt)) $fyi->fyi_well_nt = '';
 if(!isset($dt['fyi_well_nt'])) $dt['fyi_well_nt'] = $fyi->fyi_well_nt;
 $local_fields = array('fyi_well_nt' );
 foreach($local_fields as $tmp) {

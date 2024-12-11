@@ -16,7 +16,7 @@ if(!isset($frmdir)) $frmdir = '';
 if(!isset($field_prefix)) $field_prefix = '';
 $note_field = 'fyi_med_nt';
 if(!isset($dt[$note_field])) $dt[$note_field] = '';
-if(!isset($fyi->$note_field)) $fyi->$note_field = '';
+if($fyi !== null && !isset($fyi->$note_field)) $fyi->$note_field = '';
 if(!isset($pat_entries[$note_field])) 
 		$pat_entries[$note_field] = $portal_data_layout;
 

@@ -1,7 +1,7 @@
 <?php
 if(!isset($dt[$note_field])) $dt[$note_field] = '';
 if($note_field) {
-	if(!isset($fyi->$note_field)) $fyi->$note_field = '';
+	if($fyi !== null && !isset($fyi->$note_field)) $fyi->$note_field = '';
 	if(!isset($pat_entries[$note_field])) 
 			$pat_entries[$note_field] = $portal_data_layout;
 	if((checkSettingMode('wmt::'.$note_field, '', $frmdir) != 'none') || $portal_mode) {
