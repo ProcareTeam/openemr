@@ -35,7 +35,14 @@ function getPnoteById($id, $cols = "*")
 function checkPnotesNoteId(int $id, string $user): bool
 {
     $check = sqlQuery("SELECT `id`, `user`, `assigned_to` FROM pnotes WHERE id = ? AND deleted != 1", array($id));
-    if (
+
+    // @VH: Check is user exists in group
+    $isUserExists = checkUserExistsInGroup($check, $user);
+
+    // @VH: Check is user exists in group
+    if ($isUserExists === true) {
+        return true;
+    } elseif (
         !empty($check['id'])
         && ($check['id'] == $id)
         && (in_array($user, [$check['user'], $check['assigned_to']]))
@@ -197,6 +204,23 @@ function getPnotesByGroup($activity = "1", $show_all = "no", $user = '', $count 
     }
 
     return 0;
+}
+
+// @VH: Check is user exists in group
+function checkUserExistsInGroup(array $check, string $user): bool {
+    $isUserExists = false;
+    if(!empty($check) && substr($check['assigned_to'],0,4) == 'GRP:') {
+        $groupId=substr($check['assigned_to'],4);
+        if (!empty($groupId) && !empty($user)) {
+            $totalGroupUser = sqlQuery("SELECT count(mgl.id) as total from msg_group_link mgl join users u on u.id = mgl.user_id where mgl.group_id = ? and u.username = ?", array($groupId, $user));
+
+            if (!empty($totalGroupUser) && $totalGroupUser['total'] == "1") {
+                $isUserExists = true;
+            }
+        }
+    }
+
+    return $isUserExists;
 }
 // END
 
