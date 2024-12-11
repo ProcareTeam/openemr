@@ -199,7 +199,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 <html>
 <head>
     <meta name="author" content="OpenEMR: MedExBank" />
-    <?php Header::setupHeader(['datetime-picker', 'opener', 'jquery', 'jquery-ui', 'datatables', 'datatables-colreorder', 'datatables-bs', 'oemr_ad']); ?>
+    <?php Header::setupHeader(['datetime-picker', 'opener', 'jquery', 'datatables', 'datatables-colreorder', 'datatables-bs', 'oemr_ad']); ?>
     <title><?php echo xlt('Telemedicine Waiting Room'); ?></title>
     <script>
         <?php require_once "$srcdir/restoreSession.php"; ?>
@@ -269,6 +269,15 @@ if (!($_REQUEST['flb_table'] ?? null)) {
         }
         .rowdetail.show {
             display: table-row !important;
+        }
+    </style>
+
+    <style>
+        /* Custom tooltip styles */
+        .tooltip-inner {
+            text-align: left; /* Align content to the left */
+            font-size: 12px; /* Change font size */
+            max-width: none;  /* Ensure the tooltip content doesn't get clipped */
         }
     </style>
 </head>
@@ -347,8 +356,30 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                     </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-sm-12 mt-3 mx-auto">
+                            <div class="row mt-2">
+                                <div class="col-4 nowrap row">
+                                  <!-- Provider Group Section -->
+                                  <label class="col-form-label col-sm-3 text-right" for="flow_from"><?php echo xlt('Provider Group'); ?>:</label>
+                                  <div class="col-sm-9">
+                                      <select class="form-control form-control-sm" id="form_provider_group" >
+                                        <option value=""><?php echo xlt('Please Select'); ?></option>
+                                        <?php
+                                            $provider_groups_sql = sqlStatement("select * from user_provider_groups where user_id =". $_SESSION['authUserID'] ." OR visible_to_all =1 ");
+                                            $provider_groups = [];
+                                            for ($iter = 0; $row = sqlFetchArray($provider_groups_sql); $iter++) {
+                                                $provider_groups[$row['id']] = array_map('trim',explode(",", $row['provider_ids']));
+                                                ?>
+                                                <option value='<?php echo $row['id']; ?>' ><?php echo $row['title']; ?></option>
+                                                <?php
+                                            }
+                                        ?>
+                                      </select>
+                                      <script type="text/javascript">
+                                        var provider_group_users = JSON.parse('<?php echo json_encode($provider_groups); ?>');
+                                       </script>
+                                  </div>
+                                </div>
+                                <div class="col-sm-8 mt-3 mx-auto">
                                   <!-- OEMR - Change -->
                                   <button id="filter_submit" type="button" class="btn btn-primary btn-sm btn-filter" onclick="changePage('1', true)"><?php echo xlt('Filter'); ?></button>
                                   <input type="hidden" id="kiosk" name="kiosk" value="<?php echo attr($_REQUEST['kiosk'] ?? ''); ?>" />
@@ -611,7 +642,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     </td>
                     <!-- End -->
                     <td class="detail text-center" name="kiosk_hide">
-                        <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)">
+                        <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)" data-eid="<?php echo $appt_eid; ?>" data-tooltip="tooltip" title="">
                             <?php echo text($ptname); ?></a>
                     </td>
 
@@ -829,6 +860,9 @@ function myLocalJS()
 
             initTableButtons();
             initDataTable();
+
+            //@VH: Custom tooltip 
+            initTooltip();
         }
 
         function refreshme() {
@@ -1067,8 +1101,77 @@ function myLocalJS()
             });
         }
 
+        // @VH: Custom tooltip
+        function initTooltip(){
+            $('[data-tooltip="tooltip"]').tooltip({
+                html: true,
+                boundary: 'window',
+                trigger: 'manual'
+            });
+            // Set a delay time (in milliseconds)
+            var delayTime = 1000; // 1000ms = 1 second
+            var tooltipTimer;
+            // Loop through each tooltip link
+            $('[data-tooltip="tooltip"]').each(function() {
+                var $this = $(this);
+                // On mouse enter, start the timer to show the tooltip after the delay
+                $this.on('mouseenter', function() {
+                    tooltipTimer = setTimeout(function() {
+                        $this.tooltip('show');  // Show the tooltip after the delay
+                        // Get data loading status
+                        let isLoading = $this.attr('data-loading');
+                        let dLoadingText =  "Loading....";
+                        let eidVal = $this.attr('data-eid');
+                        if (eidVal && eidVal != "") {
+                            if (isLoading == undefined || isLoading == "0" ) {
+                                // Set data loading status
+                                $this.attr('data-loading', '1');
+                                // Set loading text
+                                $this.attr('data-original-title', $this.attr('data-original-title') + dLoadingText);
+                                
+                                // Manually show the tooltip after updating the title
+                                $this.tooltip('show');
+                                $.ajax({
+                                    url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?eid=' + eidVal,
+                                    type: 'POST',
+                                    data: {},
+                                    success: function(data) {
+                                        // Set pending forms content back to tooltip
+                                        let currentTitle = $this.attr('data-original-title');
+                                        data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
+                                        $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
+                                        $this.tooltip('show');
+                                    },
+                                    error: function() {
+                                        // Set pending forms content back to tooltip
+                                        let currentTitle = $this.attr('data-original-title');
+                                        $this.attr('data-original-title',currentTitle.replace('Error'));
+                                        $this.tooltip('show');
+                                    }
+                                });
+                            }
+                        }
+                    }, delayTime);
+                });
+                // On mouse leave, clear the timer and hide the tooltip if it was shown
+                $this.on('mouseleave', function() {
+                    clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
+                    $this.tooltip('hide');      // Hide the tooltip if it was shown
+                });
+                // Before the tooltip shows, replace \n with <br>
+                $this.on('show.bs.tooltip', function () {
+                    let originalTitle = $(this).attr('data-original-title');
+                    let newTitle = originalTitle.replace(/\n/g, '<br>');  // Replace newlines with <br>
+                    $(this).attr('data-original-title', newTitle);  // Update the tooltip content
+                });
+            });
+        }
+
         initTableButtons();
         initDataTable();
+
+        //@VH: Custom tooltip 
+        initTooltip();
 
         /* OEMR - Added function */
         function getActiveTab() {
@@ -1244,6 +1347,18 @@ function myLocalJS()
                 });
             }
         }
+    </script>
+
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#form_provider_group").change(function() {
+                let provider_group_val = $(this).val();
+                $('#form_provider').val([]);
+                if (provider_group_val != "" && provider_group_users.hasOwnProperty(provider_group_val) && Array.isArray(provider_group_users[provider_group_val])) {
+                    $('#form_provider').val(provider_group_users[provider_group_val]);
+                }
+            });
+        });
     </script>
 <?php }
 ?>

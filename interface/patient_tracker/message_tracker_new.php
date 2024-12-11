@@ -319,6 +319,12 @@ function generateFilterQuery($filterData = array()) {
 			$filterQryList[] = "(( m.`type` = 'EMAIL' AND m.`direction` = 'in' AND m.`msg_from` LIKE '%".$filterData['search_phone_email']."%' ) OR ( m.`type` = 'SMS' AND m.`direction` = 'in' AND m.`msg_from` LIKE '%".$filterData['search_phone_email']."%' ))";
 		}
 
+		if(isset($filterData['msg_from_date']) && !empty($filterData['msg_from_date']) && isset($filterData['msg_to_date']) && !empty($filterData['msg_to_date'])) {
+			$filterData['msg_from_date'] = date('Y/m/d', strtotime($filterData['msg_from_date']));
+			$filterData['msg_to_date'] = date('Y/m/d', strtotime($filterData['msg_to_date']));
+			$filterQryList[] = "(( date(m.`date`) between '". $filterData['msg_from_date'] ."' and '". $filterData['msg_to_date'] ."'  ))";
+		}
+
 		if(!empty($filterQryList)) {
 			$filterQry = implode(" and ", $filterQryList);
 		}
@@ -355,6 +361,10 @@ function prepareDataTableData($row_item = array(), $columns = array()) {
 				if ($row_item['type'] == 'P_LETTER') $msg_type = 'Postal Letter';
 				if ($row_item['type'] == 'NOTES') $msg_type = 'Internal Notes';
 				if ($row_item['type'] == 'CHAT') $msg_type = 'Chat';
+
+				if ($row_item['type'] == 'SMS' && !empty($row_item['source'])) {
+					$msg_type .= " - " . strtoupper($row_item['source']);
+				}
 
 				if(!empty($msg_type)) {
 					$fieldHtml = "<div class='noneBreakText'>$msg_type</div>";
@@ -742,7 +752,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 
 	if(isset($msg_id) && !empty($msg_id)) {
 		$result = sqlStatement(generateQuery(array(
-			"select" => "m.`id`, m.`msg_convid`, m.`type`, m.`event`, m.`pid`, m.`eid`, m.`assigned`, m.`msg_time`, m.`activity`, m.`direction`, m.`message_subject`, m.`msg_status`, m.`message`, m.`assign_group`, CONCAT(LEFT(u.`fname`,1), '. ',u.`lname`) AS 'user_name', m.`msg_from`, m.`msg_to`, m.`receivers_name`, pl.`status_code` AS pl_status_code, pl.`description` AS pl_description, pl.`file_name` AS pl_file_name, pl.`url` AS pl_url, fm.`status_code` AS fm_status_code, fm.`description` AS fm_description, fm.`file_name` AS fm_file_name, fm.`url` AS fm_url, fm.`receivers_name` AS fm_receivers_name, CONCAT(p.`fname`, ' ',p.`lname`) AS 'patient_name', p.DOB, p.pubpid, m.raw_data ",
+			"select" => "m.`id`, m.`msg_convid`, m.`type`, m.`source`, m.`event`, m.`pid`, m.`eid`, m.`assigned`, m.`msg_time`, m.`activity`, m.`direction`, m.`message_subject`, m.`msg_status`, m.`message`, m.`assign_group`, CONCAT(LEFT(u.`fname`,1), '. ',u.`lname`) AS 'user_name', m.`msg_from`, m.`msg_to`, m.`receivers_name`, pl.`status_code` AS pl_status_code, pl.`description` AS pl_description, pl.`file_name` AS pl_file_name, pl.`url` AS pl_url, fm.`status_code` AS fm_status_code, fm.`description` AS fm_description, fm.`file_name` AS fm_file_name, fm.`url` AS fm_url, fm.`receivers_name` AS fm_receivers_name, CONCAT(p.`fname`, ' ',p.`lname`) AS 'patient_name', p.DOB, p.pubpid, m.raw_data ",
 			"where" => "m.id = $msg_id"
 		)));
 
@@ -791,7 +801,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 	// $totalRecordwithFilter  = $records['allcount'];
 
 	$result = sqlStatement(generateQuery(array(
-		"select" => "m.`id`,m.`msg_convid` , m.`type`, m.`event`, m.`pid`, m.`eid`, m.`assigned`, m.`msg_time`, m.`activity`, m.`direction`, m.`message_subject`, m.`msg_status`, m.`message`, m.`assign_group`, CONCAT(LEFT(u.`fname`,1), '. ',u.`lname`) AS 'user_name', m.`msg_from`, m.`msg_to`, m.`receivers_name`, pl.`status_code` AS pl_status_code, pl.`description` AS pl_description, pl.`file_name` AS pl_file_name, pl.`url` AS pl_url, fm.`status_code` AS fm_status_code, fm.`description` AS fm_description, fm.`file_name` AS fm_file_name, fm.`url` AS fm_url, fm.`receivers_name` AS fm_receivers_name, CONCAT(p.`fname`, ' ',p.`lname`) AS 'patient_name', p.DOB, p.pubpid, m.raw_data, (SELECT IF(m.direction = 'in', (SELECT IF(u.username is null or u.username = '', 'Automated', u.username) as to_username from message_log ml left join users u on u.id = ml.userid where ml.`pid` = m.pid and ml.`direction` = 'out' and ml.msg_time <= m.msg_time order by ml.`msg_time` desc limit 1), NULL)) as recent_username ",
+		"select" => "m.`id`,m.`msg_convid` , m.`type`, m.`source`, m.`event`, m.`pid`, m.`eid`, m.`assigned`, m.`msg_time`, m.`activity`, m.`direction`, m.`message_subject`, m.`msg_status`, m.`message`, m.`assign_group`, CONCAT(LEFT(u.`fname`,1), '. ',u.`lname`) AS 'user_name', m.`msg_from`, m.`msg_to`, m.`receivers_name`, pl.`status_code` AS pl_status_code, pl.`description` AS pl_description, pl.`file_name` AS pl_file_name, pl.`url` AS pl_url, fm.`status_code` AS fm_status_code, fm.`description` AS fm_description, fm.`file_name` AS fm_file_name, fm.`url` AS fm_url, fm.`receivers_name` AS fm_receivers_name, CONCAT(p.`fname`, ' ',p.`lname`) AS 'patient_name', p.DOB, p.pubpid, m.raw_data, (SELECT IF(m.direction = 'in', (SELECT IF(u.username is null or u.username = '', 'Automated', u.username) as to_username from message_log ml left join users u on u.id = ml.userid where ml.`pid` = m.pid and ml.`direction` = 'out' and ml.msg_time <= m.msg_time order by ml.`msg_time` desc limit 1), NULL)) as recent_username ",
 		"where" => $searchQuery,
 		"order" => $columnName,
 		"order_type" => $columnSortOrder,
@@ -1313,6 +1323,20 @@ function addPNoteAfterAssing($set_id, $set_assign_pid, $set_uid, $set_username, 
 								    <input type="text" name="search_phone_email" class="form-control form-control-sm" value="">
 								</div>
 		  					</div>
+
+		  					<div class="col-2">
+		  						<div class="form-group">
+								    <label><?php xl('From Date','e') ?></label>
+								    <input type="text" name="msg_from_date" class="form-control form-control-sm date_field" placeholder="From (MM/DD/YY)" value="">
+								</div>
+		  					</div>
+		  					<div class="col-2">
+		  						<div class="form-group">
+								    <label><?php xl('To Date','e') ?></label>
+								    <input type="text" name="msg_to_date" class="form-control form-control-sm date_field" placeholder="To (MM/DD/YY)" value="">
+								</div>
+		  					</div>
+
 		  				</div>
   					</div>
   				</div>
@@ -1321,6 +1345,8 @@ function addPNoteAfterAssing($set_id, $set_assign_pid, $set_uid, $set_username, 
   					<div class="col-12">
   						<button type="submit" id="filter_submit" class="btn btn-primary btn-sm"><?php xl('Submit','e'); ?></button>
 						<button type="button" class="btn btn-secondary btn-sm" onclick="doCallInternalNotes()"><?php xl('Create Message','e'); ?></button>
+
+						<button type="button" class="btn btn-secondary btn-sm" onclick="doCallSendSMS()"><?php xl('Send SMS','e'); ?></button>
 
 						<?php 
 						$cnotify = sqlQuery("SELECT `notification` FROM `user_notification` WHERE `user_id` = ? ORDER BY id DESC LIMIT 1", array($_SESSION['authUserID']));
@@ -1353,6 +1379,17 @@ function addPNoteAfterAssing($set_id, $set_assign_pid, $set_uid, $set_username, 
 		</table>
 	</div>
 	</div>
+
+<script type="text/javascript">
+	$(document).ready(function(){
+		$('.date_field').datetimepicker({
+      		<?php $datetimepicker_timepicker = false; ?>
+      		<?php $datetimepicker_showseconds = false; ?>
+      		<?php $datetimepicker_formatInput = true; ?>
+    		<?php require($GLOBALS['srcdir'] . '/js/xl/jquery-datetimepicker-2-5-4.js.php'); ?>
+		});
+	});
+</script>
 
 <script type='text/javascript'>
 	<?php include($GLOBALS['srcdir'].'/wmt-v2/report_tools.inc.js'); ?>
@@ -1727,6 +1764,15 @@ function addPNoteAfterAssing($set_id, $set_assign_pid, $set_uid, $set_username, 
 
 	function doCallInternalNotes() {
 		openInternalNotesPopup('?pid=<?php echo $pid ?>');
+	}
+
+	function doCallSendSMS(urlStrQtr = '') {
+		let dTitle = 'Send SMS';
+		let url = top.webroot_url + '/interface/main/messages/send_sms.php' + urlStrQtr;
+		let dialogObj = dlgopen(url, 'sendsmsPop', 'modal-md', '580', '', dTitle, {
+	        allowDrag: true,
+	        allowResize: true
+	    });
 	}
 
 	function resendButton(e, type, messageId) {

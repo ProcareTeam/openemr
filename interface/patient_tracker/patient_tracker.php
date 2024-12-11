@@ -139,9 +139,13 @@ function ext_fetchAppointments($from_date, $to_date, $patient_id = null, $provid
 
     $where = "";
 
-    if ($provider_id) {
-        $where .= " AND e.pc_aid = ?";
-        array_push($sqlBindArray, $provider_id);
+    if (!empty($provider_id)) {
+        if (is_array($provider_id)) {
+            $where .= " AND e.pc_aid in ('". implode("','", $provider_id) ."') ";
+        } else if ($provider_id) {
+            $where .= " AND e.pc_aid = ?";
+            array_push($sqlBindArray, $provider_id);
+        }
     }
 
     if ($patient_id) {
@@ -311,6 +315,16 @@ function getESignClass($eid = null) {
 }
 // End
 
+// @VH: Set temp provider value
+if (isset($_POST['form_provider']) && is_array($_POST['form_provider'])) {
+    if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'])) {
+        $_POST['form_provider_tmp'] = $_POST['form_provider'][0];
+    } else if(in_array("all", $_POST['form_provider'])) {
+        $_POST['form_provider_tmp'] = "";
+    }
+}
+// END
+
 // These settings are sticky user preferences linked to a given page.
 // mdsupport - user_settings prefix
 $uspfx = substr(__FILE__, strlen($webserver_root)) . '.';
@@ -321,7 +335,15 @@ $setting_selectors = prevSetting($uspfx, 'setting_selectors', 'setting_selectors
 $form_apptcat = prevSetting($uspfx, 'form_apptcat', 'form_apptcat', '');
 $form_apptstatus = prevSetting($uspfx, 'form_apptstatus', 'form_apptstatus', '');
 $facility = prevSetting($uspfx, 'form_facility', 'form_facility', '');
-$provider = prevSetting($uspfx, 'form_provider', 'form_provider', $_SESSION['authUserID']);
+// @VH: Changed field name
+$provider = prevSetting($uspfx, 'form_provider_tmp', 'form_provider', $_SESSION['authUserID']);
+// @VH: Set provider value
+if (isset($_POST['form_provider']) && is_array($_POST['form_provider'])) {
+    if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'])) {
+        $provider = $_POST['form_provider'];
+    }
+}
+// END
 
 if (
     ($_POST['setting_new_window'] ?? '') ||
@@ -459,6 +481,15 @@ if (!($_REQUEST['flb_table'] ?? null)) {
             }
         }
     </script>
+
+    <style>
+        /* Custom tooltip styles */
+        .tooltip-inner {
+            text-align: left; /* Align content to the left */
+            font-size: 12px; /* Change font size */
+            max-width: none;  /* Ensure the tooltip content doesn't get clipped */
+        }
+    </style>
     <!-- End -->
 </head>
 
@@ -543,7 +574,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                     $provid = $urow['id'];
                                     ($select_provs ?? null) ? $select_provs : $select_provs = '';
                                     $select_provs .= "    <option value='" . attr($provid) . "'";
-                                    if (isset($_POST['form_provider']) && $provid == $_POST['form_provider']) {
+                                    if (isset($_POST['form_provider']) && in_array($provid, $_POST['form_provider'])) {
                                         $select_provs .= " selected";
                                     } elseif (!isset($_POST['form_provider']) && $_SESSION['userauthorized'] && $provid == $_SESSION['authUserID']) {
                                         $select_provs .= " selected";
@@ -555,12 +586,12 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                 ?>
                               <!-- Provider Section -->
                               <div class="col-sm">
-                                  <select class="form-control form-control-sm" id="form_provider" name="form_provider" <?php
+                                  <select class="form-control form-control-sm" id="form_provider" name="form_provider[]" multiple <?php
                                     if ($count_provs < '2') {
                                         echo "disabled";
                                     }
                                     ?> onchange="refineMe('provider');">
-                                      <option value="" selected><?php echo xlt('All Providers'); ?></option>
+                                      <option value="all" <?php echo (is_array($_REQUEST['form_provider']) && in_array("all", $_REQUEST['form_provider'])) ? "selected" : ""; ?>><?php echo xlt('All Providers'); ?></option>
 
                                       <?php
                                         echo $select_provs;
@@ -587,11 +618,26 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                   <input type="text" id="form_to_date" name="form_to_date" class="datepicker form-control form-control-sm text-center" value="<?php echo attr(oeFormatShortDate($to_date)); ?>"/>
                               </div>
 
-                              <div class="col-sm-12 mt-3 mx-auto">
-                                  <!-- @VH: Filter button changes for change page_no [V100072] -->
-                                  <button id="filter_submit" type="button" class="btn btn-primary btn-sm btn-filter" onclick="changePage('1')"><?php echo xlt('Filter'); ?></button>
-                                  <input type="hidden" id="kiosk" name="kiosk" value="<?php echo attr($_REQUEST['kiosk'] ?? ''); ?>" />
-                              </div>
+                              <!-- Provider Group -->
+                              <label class="col-form-label col-sm-3 text-right" for="flow_from"><?php echo xlt('Provider Group'); ?>:</label>
+                              <div class="col-sm-9">
+                                  <select class="form-control form-control-sm" id="form_provider_group">
+                                    <option value=""><?php echo xlt('Please Select'); ?></option>
+                                    <?php
+                                        $provider_groups_sql = sqlStatement("select * from user_provider_groups where user_id =". $_SESSION['authUserID'] ." OR visible_to_all =1 ");
+                                        $provider_groups = [];
+                                        for ($iter = 0; $row = sqlFetchArray($provider_groups_sql); $iter++) {
+                                            $provider_groups[$row['id']] = array_map('trim',explode(",", $row['provider_ids']));
+                                            ?>
+                                            <option value='<?php echo $row['id']; ?>' ><?php echo $row['title']; ?></option>
+                                            <?php
+                                        }
+                                    ?>
+                                  </select>
+                                  <script type="text/javascript">
+                                    var provider_group_users = JSON.parse('<?php echo json_encode($provider_groups); ?>');
+                                   </script>
+                              </div>  
                             </div>
                             <div class="col-4 mt-3 row">
                                 <div class="col-sm-12 text-center">
@@ -613,6 +659,12 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                                 </a>
                                           <?php } ?>
                                     </div>
+                                </div>
+
+                                <div class="col-sm-12 mt-3 mx-auto">
+                                  <!-- @VH: Filter button changes for change page_no [V100072] -->
+                                  <button id="filter_submit" type="button" class="btn btn-primary btn-sm btn-filter" onclick="changePage('1')"><?php echo xlt('Filter'); ?></button>
+                                  <input type="hidden" id="kiosk" name="kiosk" value="<?php echo attr($_REQUEST['kiosk'] ?? ''); ?>" />
                                 </div>
                             </div>
                             <div id="message" class="warning"></div>
@@ -679,6 +731,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <i id="print_caret" class='fa fa-caret-<?php echo $caret = ($setting_selectors == 'none') ? 'down' : 'up'; ?> fa-stack-1x'></i>
                     </span>
 
+                    <a class='btn btn-primary btn-status-update' onclick="updateStatus();"> <?php echo xlt('Update Status'); ?></a>
                     <a class="btn btn-primary btn-setting" data-toggle="collapse" href="#collapseSetting">
                         <?php echo xlt('Setting'); ?>
                     </a>
@@ -702,6 +755,8 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                 <?php //echo xlt('PID'); ?>
                             <!-- </td> -->
                         <?php //} ?>
+                        <td class="dehead text-center" style="max-width:50px;">
+                        </td>
                         <td class="dehead text-center" style="max-width:150px;">
                             <?php echo xlt('PID'); ?>
                         </td>
@@ -946,12 +1001,15 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
                         ?>
                         <!-- @VH: Added to show pubpid -->
+                        <td>
+                            <input type="checkbox" data-trackerid="<?php echo $tracker_id; ?>" name="sel_item[<?php echo attr_js($tracker_id); ?>]" class="sel_item" value="1" />
+                        </td>
                         <td class="detail hidden-xs" align="center" name="kiosk_hide">
                             <?php echo text($appointment['pubpid']); ?>
                         </td>
                         <!-- End -->
                         <td class="detail text-center" name="kiosk_hide">
-                            <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)">
+                            <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)" data-eid="<?php echo $appt_eid; ?>" data-tooltip="tooltip" title="">
                                 <?php echo text($ptname); ?></a>
                         </td>
 
@@ -1180,6 +1238,26 @@ function myLocalJS()
             window.print();
         }
 
+        function updateStatus() {
+            let selectedItemsList = [];
+            $('.sel_item').each(function(index, selitem) {
+                if ($(selitem).is(":checked") === true) {
+                    let trackerid = $(selitem).attr("data-trackerid");
+                    if (trackerid != "") {
+                        selectedItemsList.push(trackerid);
+                    }
+                }
+            });
+            if (selectedItemsList.length > 15) {
+                alert("Please don't select more than 15 items.");
+            } else if (selectedItemsList.length > 0) {
+                top.restoreSession();
+                dlgopen('../patient_tracker/patient_tracker_status.php?tracker_id=' + encodeURIComponent(selectedItemsList.join(",")) + '&update_mutiple_status=1&csrf_token_form=' + <?php echo js_url(CsrfUtils::collectCsrfToken()); ?>, '_blank', 500, 250);
+            } else {
+                alert('Please select items for update status.');
+            }
+        }
+
         function toggleSelectors() {
             top.restoreSession();
             if ($("#flb_selectors").css('display') === 'none') {
@@ -1267,6 +1345,9 @@ function myLocalJS()
             refineMe();
 
             initTableButtons();
+
+            //@VH: Custom tooltip 
+            initTooltip();
 
         }
 
@@ -1489,7 +1570,76 @@ function myLocalJS()
             });
         }
 
+        // @VH: Custom tooltip
+        function initTooltip(){
+            $('[data-tooltip="tooltip"]').tooltip({
+                html: true,
+                boundary: 'window',
+                trigger: 'manual'
+            });
+            // Set a delay time (in milliseconds)
+            var delayTime = 1000; // 1000ms = 1 second
+            var tooltipTimer;
+            // Loop through each tooltip link
+            $('[data-tooltip="tooltip"]').each(function() {
+                var $this = $(this);
+                // On mouse enter, start the timer to show the tooltip after the delay
+                $this.on('mouseenter', function() {
+                    tooltipTimer = setTimeout(function() {
+                        $this.tooltip('show');  // Show the tooltip after the delay
+                        // Get data loading status
+                        let isLoading = $this.attr('data-loading');
+                        let dLoadingText =  "Loading....";
+                        let eidVal = $this.attr('data-eid');
+                        if (eidVal && eidVal != "") {
+                            if (isLoading == undefined || isLoading == "0" ) {
+                                // Set data loading status
+                                $this.attr('data-loading', '1');
+                                // Set loading text
+                                $this.attr('data-original-title', $this.attr('data-original-title') + dLoadingText);
+                                
+                                // Manually show the tooltip after updating the title
+                                $this.tooltip('show');
+                                $.ajax({
+                                    url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?eid=' + eidVal,
+                                    type: 'POST',
+                                    data: {},
+                                    success: function(data) {
+                                        // Set pending forms content back to tooltip
+                                        let currentTitle = $this.attr('data-original-title');
+                                        data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
+                                        $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
+                                        $this.tooltip('show');
+                                    },
+                                    error: function() {
+                                        // Set pending forms content back to tooltip
+                                        let currentTitle = $this.attr('data-original-title');
+                                        $this.attr('data-original-title',currentTitle.replace('Error'));
+                                        $this.tooltip('show');
+                                    }
+                                });
+                            }
+                        }
+                    }, delayTime);
+                });
+                // On mouse leave, clear the timer and hide the tooltip if it was shown
+                $this.on('mouseleave', function() {
+                    clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
+                    $this.tooltip('hide');      // Hide the tooltip if it was shown
+                });
+                // Before the tooltip shows, replace \n with <br>
+                $this.on('show.bs.tooltip', function () {
+                    let originalTitle = $(this).attr('data-original-title');
+                    let newTitle = originalTitle.replace(/\n/g, '<br>');  // Replace newlines with <br>
+                    $(this).attr('data-original-title', newTitle);  // Update the tooltip content
+                });
+            });
+        }
+
         initTableButtons();
+
+        // @VH: Custom tooltip
+        initTooltip();
 
         // @VH: get active tab information
         function getActiveTab() {
@@ -1505,6 +1655,18 @@ function myLocalJS()
         }
         // End
 
+    </script>
+
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#form_provider_group").change(function() {
+                let provider_group_val = $(this).val();
+                $('#form_provider').val([]);
+                if (provider_group_val != "" && provider_group_users.hasOwnProperty(provider_group_val) && Array.isArray(provider_group_users[provider_group_val])) {
+                    $('#form_provider').val(provider_group_users[provider_group_val]);
+                }
+            });
+        });
     </script>
 <?php }
 ?>
