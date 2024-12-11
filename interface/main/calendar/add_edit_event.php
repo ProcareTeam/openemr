@@ -1330,10 +1330,10 @@ if ($groupid) {
     <?php } ?>
 
     // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
-    async function getTotalCancelledPatientAppt(pid = '', caseId = '', totalCount = 1, futureAppt = 1, rehabProgress = 1) {
+    async function getTotalCancelledPatientAppt(pid = '', caseId = '', totalCount = 1, futureAppt = 1, rehabProgress = 1, pendingForms = 1) {
         if(pid && pid != '') {
             var responce = await $.ajax({
-                url: '<?php echo $GLOBALS['webroot'].'/interface/main/calendar/ajax/total_cancelled_patient_appt.php'; ?>?pid=' + pid + '&caseId=' + caseId + '&totalCount=' + totalCount + '&futureAppt=' + futureAppt + '&rehabProgress=' + rehabProgress,
+                url: '<?php echo $GLOBALS['webroot'].'/interface/main/calendar/ajax/total_cancelled_patient_appt.php'; ?>?pid=' + pid + '&caseId=' + caseId + '&totalCount=' + totalCount + '&futureAppt=' + futureAppt + '&rehabProgress=' + rehabProgress + '&pendingForms=' + pendingForms,
                 type: 'GET'
             });
 
@@ -1391,6 +1391,28 @@ if ($groupid) {
                 if(responceJSON && responceJSON['rehab_progress'] && responceJSON['rehab_progress'] != "") {
                     document.querySelector('#rehab_progress_info .content').innerHTML = "<b>Rehab Progress: </b>" + responceJSON['rehab_progress'];
                     $('#rehab_progress_info').show();
+                }
+            }
+
+            if(pendingForms === 1) {
+                $('#pending_form_info').hide();
+                if(responceJSON && responceJSON['pending_form_list']) {
+                    var pendingFormList = [];
+                    var fapptFullList = [];
+                    var pendingFormFullHtml = "";
+                    var futurApptHtml = "";
+                    responceJSON['pending_form_list'].forEach((item, i) => {
+                        if(i < 2) {
+                            pendingFormList.push("<li><span>"+item['template_name']+" (" + item['form_type'].toUpperCase() + ")</span></li>");
+                        }
+                    });
+                    if(pendingFormList.length > 0) {
+                        pendingFormFullHtml = "<ul class='pendingApptUlList'>" + pendingFormList.join("") + "</ul>";
+                    }
+                    if(pendingFormList.length > 0) {
+                        document.querySelector('#pending_form_info').innerHTML =  "<span><b>Pending Forms:</b></span><br/>" + pendingFormFullHtml;
+                        $('#pending_form_info').show();
+                    }
                 }
             }
         }
@@ -1583,7 +1605,7 @@ function setpatient(pid, lname, fname, dob = '', alert_info = '', p_data = {}) {
     // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
     if(pid && pid != "") {
         //Get Total Cancelled Appt.
-        getTotalCancelledPatientAppt(pid, '', 1, 1, 0);
+        getTotalCancelledPatientAppt(pid, '', 1, 1, 0, 1);
     }
     // END
 
@@ -1891,6 +1913,7 @@ $(document).ready(function(){
     }
 
     #cancellation_info { line-height: 14px; margin-bottom: 0px !important; display: none; }
+    #pending_form_info { line-height: 14px; margin-bottom: 0px !important; display: none; text-align:left; }
     #future_appt_info { text-align: center; line-height: 14px; display: none; }
     .future_appt_info_inner { /*margin-bottom: 5px; max-width: 450px;*/ text-align: left; }
     .future_appt_info_inner .more_content, .hidden_content { display: none; }
@@ -1899,6 +1922,8 @@ $(document).ready(function(){
     .uiTooltipContent { font-size: 12px; }
     .uiTooltipContainer { max-width: 450px!important; }
     .futureApptUlList { padding-left: 18px; margin-bottom: 0px; }
+    .pendingApptUlList { padding-left: 18px; margin-bottom: 0px; margin-top: 8px; }
+    .pendingApptUlList li { text-align: left; }
     /* END  */
 </style>
 </head>
@@ -2494,6 +2519,10 @@ if (empty($_GET['prov'])) { ?>
         <div id="cancellation_info" class="text alert alert-danger py-1 mb-1">
         </div>
 
+        <!-- @VH: Pending form info. -->
+        <div id="pending_form_info" class="text alert alert-danger py-1 mb-1"> 
+        </div>
+
         <?php if ($informant) {
             echo "<label><p class='text'>" . xlt('Last update by') . " " .
             text($informant) . " " . xlt('on') . " " . text($row['pc_time']);
@@ -2571,7 +2600,7 @@ $(function () {
     // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
     <?php if(isset($patientid) && !empty($patientid)) { ?>
         //Initialize total cancelled appt.
-        getTotalCancelledPatientAppt('<?php echo $patientid; ?>', '<?php echo $case; ?>', 1, 1, 1);
+        getTotalCancelledPatientAppt('<?php echo $patientid; ?>', '<?php echo $case; ?>', 1, 1, 1, 1);
     <?php } ?>
     // END
 

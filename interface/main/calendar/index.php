@@ -27,6 +27,7 @@ use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Common\Session\SessionUtil;
 use OpenEMR\OemrAd\CoverageCheck;
 use OpenEMR\OemrAd\Utility;
+use Vitalhealthcare\OpenEMR\Modules\Generic\Api\PatientFormController;
 
 // @VH: Code Block
 // @VH: Get saved values for set back. [V100034]

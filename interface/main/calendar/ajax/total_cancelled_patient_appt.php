@@ -4,12 +4,14 @@ require_once("../../../globals.php");
 require_once("$srcdir/OemrAD/oemrad.globals.php");
 
 use OpenEMR\OemrAd\Caselib;
+use Vitalhealthcare\OpenEMR\Modules\Generic\Api\PatientFormController;
 
 $pid = $_REQUEST['pid'] ? $_REQUEST['pid'] : '';
 $caseId = $_REQUEST['caseId'] ? $_REQUEST['caseId'] : '';
 $totalCount = $_REQUEST['totalCount'] ? $_REQUEST['totalCount'] : '';
 $futureAppt = $_REQUEST['futureAppt'] ? $_REQUEST['futureAppt'] : '';
 $rehabProgress = $_REQUEST['rehabProgress'] ? $_REQUEST['rehabProgress'] : '';
+$pendingForms = $_REQUEST['pendingForms'] ? $_REQUEST['pendingForms'] : '';
 
 
 $response = array(
@@ -75,6 +77,12 @@ function getFutureAppt($pid, $date = '') {
 	return $resultItems;
 }
 
+function getPendingFormList($pid) {
+    $patientFormController =  new PatientFormController();
+    $pendingForms = $patientFormController->getPatientPendingFormList($pid);
+    return $pendingForms;
+}
+
 if(isset($pid) && !empty($pid)) {
 	if(isset($totalCount) && $totalCount == "1") {
 		$toDate = date('Y-m-d', strtotime("-1 days"));
@@ -88,6 +96,10 @@ if(isset($pid) && !empty($pid)) {
 
 	if(isset($futureAppt) && $futureAppt == "1") {
 		$response['future_appt_list'] = getFutureAppt($pid);
+	}
+
+	if(isset($pendingForms) && $pendingForms == "1") {
+		$response['pending_form_list'] = getPendingFormList($pid);
 	}
 
 	if(isset($rehabProgress) && $rehabProgress == "1" && !empty($caseId)) {

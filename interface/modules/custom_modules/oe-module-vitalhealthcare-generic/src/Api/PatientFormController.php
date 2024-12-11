@@ -215,4 +215,25 @@ class PatientFormController
         $responseBody = RestControllerHelper::handleProcessingResult($processingResult, null, 200);
         return $responseBody;
     }
+
+    public function getPatientPendingFormList($pid) {
+        $itemsIdList = array();
+        $dataSet = array();
+        if (!empty($pid)) {
+            $pendingresult = sqlStatement("SELECT DISTINCT vof.ref_id as id, vof.created_date, (SELECT vof1.id from vh_onsite_forms vof1 where vof1.ref_id = vof.ref_id order by case when vof1.status = 'rejected' then 5 when vof1.status = 'reviewed' then 4 when vof1.status = 'submited' then 3 when vof1.status = 'saved' then 2 when vof1.status = 'pending' then 1 end desc limit 1) as item_id FROM vh_onsite_forms vof JOIN vh_form_data_log vfdl ON vof.ref_id = vfdl.id JOIN vh_onetimetoken_form_log vofl ON vofl.ref_id = vof.ref_id JOIN onetime_auth oa ON vofl.onetime_token_id = oa.id WHERE vof.status != '' and vof.deleted = 0 AND vof.status in ('pending', 'saved') AND FROM_UNIXTIME(oa.expires) >= NOW() and DATE(vof.created_date) and vof.pid = ? ORDER BY created_date", array($pid));
+            while ($pendingitem = sqlFetchArray($pendingresult)) {
+                if(isset($pendingitem['item_id'])) {
+                    $itemsIdList[] = $pendingitem['item_id'];
+                }
+            }
+            $itemsIdList = implode(",", $itemsIdList);
+            if(!empty($itemsIdList)) {
+                $dataResult = sqlStatement("SELECT CASE WHEN vfdl.`type` = 'form' THEN (SELECT template_name from vh_form_templates vft where vft.id = vfdl.form_id) WHEN vfdl.`type` = 'packet' THEN (SELECT name from vh_form_packets vfp where vfp.id = vfdl.form_id) ELSE '' END as template_name, vfdl.id, vfdl.`type` as form_type, vfdl.form_id, vfdl.`created_by` as form_created_by, vof.id as item_id, vof.pid, vof.created_date, vof.reviewed_date, vof.received_date, vof.status from vh_form_data_log vfdl join vh_onsite_forms vof on vof.ref_id = vfdl.id  WHERE vof.id IN (" . $itemsIdList . ") ORDER BY created_date desc");
+                while ($data_row_item = sqlFetchArray($dataResult)) {
+                    $dataSet[] = $data_row_item;
+                }
+            }
+        }
+        return $dataSet;
+    }
 }

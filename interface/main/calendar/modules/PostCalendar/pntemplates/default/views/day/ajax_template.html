@@ -850,9 +850,9 @@ foreach ($providers as $provider) {
                     $link_title .= "(" . xl('Click to view') . ")";
                     // @VH: Made change to display alert info and coverage info. [V100035]
                     $link_title .= getAlertInfoTitle($patient_alert_info);
-                    $link_title .= $coverage_info['title'];
+                    //$link_title .= $coverage_info['title'];
                     // @VH: Made change to display alert info and coverage info. [V100035]
-                    $content .= "<a class='link_title' data-pid='". attr($patientid) . "' href='javascript:goPid(" . attr_js($patientid) . ")' title='" . replaceSpace(attr($link_title)) . "'>";
+                    $content .= "<a class='link_title' data-pid='". attr($patientid) . "' href='javascript:goPid(" . attr_js($patientid) . ")' data-toggle=\"tooltip\" title='" . replaceSpace(attr($link_title)) . "'>";
                     $content .= "<i class='fas fa-user text-success' onmouseover=\"javascript:ShowImage(" . attr_js($GLOBALS['webroot']."/controller.php?document&retrieve&patient_id=".attr($patientid)."&document_id=-1&as_file=false&original_file=true&disable_exit=false&show_original=true&context=patient_picture") . ");\" onmouseout=\"javascript:HideImage();\" title='" . replaceSpace(attr($link_title)) . "'></i>";
                     // END
                     if ($catid == 1) $content .= "<s>";
@@ -1191,6 +1191,80 @@ echo "</div>\n";
         $("#wrapper").toggleClass("toggled");
     });
 </script>
+
+<script type="text/javascript">
+    $(document).ready(function(){
+        $('[data-toggle="tooltip"]').tooltip({
+            html: true,
+            boundary: 'window',
+            trigger: 'manual'
+        });
+        // Set a delay time (in milliseconds)
+        var delayTime = 1000; // 1000ms = 1 second
+        var tooltipTimer;
+        // Loop through each tooltip link
+        $('[data-toggle="tooltip"]').each(function() {
+            var $this = $(this);
+            // On mouse enter, start the timer to show the tooltip after the delay
+            $this.on('mouseenter', function() {
+                tooltipTimer = setTimeout(function() {
+                    $this.tooltip('show');  // Show the tooltip after the delay
+                    // Get data loading status
+                    let isLoading = $this.attr('data-loading');
+                    let dLoadingText =  "<br><br>Loading....";
+                    let eidVal = $this.parent().parent().attr('data-eid');
+                    if (eidVal && eidVal != "") {
+                        if (isLoading == undefined || isLoading == "0" ) {
+                            // Set data loading status
+                            $this.attr('data-loading', '1');
+                            // Set loading text
+                            $this.attr('data-original-title', $this.attr('data-original-title') + dLoadingText);
+                            
+                            // Manually show the tooltip after updating the title
+                            $this.tooltip('show');
+                            $.ajax({
+                                url: '[-php-]echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php"[-/php-]?eid=' + eidVal,
+                                type: 'POST',
+                                data: {},
+                                success: function(data) {
+                                    // Set pending forms content back to tooltip
+                                    let currentTitle = $this.attr('data-original-title');
+                                    $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
+                                    $this.tooltip('show');
+                                },
+                                error: function() {
+                                    // Set pending forms content back to tooltip
+                                    let currentTitle = $this.attr('data-original-title');
+                                    $this.attr('data-original-title',currentTitle.replace('Error'));
+                                    $this.tooltip('show');
+                                }
+                            });
+                        }
+                    }
+                }, delayTime);
+            });
+            // On mouse leave, clear the timer and hide the tooltip if it was shown
+            $this.on('mouseleave', function() {
+                clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
+                $this.tooltip('hide');      // Hide the tooltip if it was shown
+            });
+            // Before the tooltip shows, replace \n with <br>
+            $this.on('show.bs.tooltip', function () {
+                let originalTitle = $(this).attr('data-original-title');
+                let newTitle = originalTitle.replace(/\n/g, '<br>');  // Replace newlines with <br>
+                $(this).attr('data-original-title', newTitle);  // Update the tooltip content
+            });
+        });
+    });
+</script>
+<style>
+    /* Custom tooltip styles */
+    .tooltip-inner {
+        text-align: left; /* Align content to the left */
+        font-size: 12px; /* Change font size */
+        max-width: none;  /* Ensure the tooltip content doesn't get clipped */
+    }
+</style>
 
 </body>
 </html>
