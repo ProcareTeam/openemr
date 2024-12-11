@@ -210,18 +210,16 @@ function select_all_issue_selected(data) {
 
 // @VH: Select all issue [2023122201]
 function select_all_issue(data, event) { 
-    let issueCheckInput = event.target.parentNode.parentNode.parentNode.parentNode.querySelectorAll('tbody > tr > td > input[type="checkbox"]');
+    for (let idx = 0; idx < data.issues().length; idx++) {
+        var cur_diag = data.issues()[idx];
 
-    
-    if(issueCheckInput) {
-        issueCheckInput.forEach((issueCheck) => {
+        if (cur_diag) {
             if (event.target.checked === true) {
-                issueCheck.checked = true;
+                cur_diag.selected(true);
             } else {
-                issueCheck.checked = false;
+                cur_diag.selected(false);
             }
-            
-        });
+        }
     }
 }
 
@@ -229,7 +227,7 @@ function select_all_issue(data, event) {
 function select_all_procedure_selected(data) {
     let procedureCheckStatus = true;
 
-    data.issues().forEach((procedureItem) => {
+    data.procedures().forEach((procedureItem) => {
         if(procedureItem.selected() === false) {
             procedureCheckStatus = false;
         }
@@ -240,18 +238,16 @@ function select_all_procedure_selected(data) {
 
 // @VH: Select all procedure. [2023122201]
 function select_all_procedure(data, event) { 
-    let procedureCheckInput = event.target.parentNode.parentNode.parentNode.parentNode.querySelectorAll('tbody > tr > td > input[type="checkbox"]');
+    for (let idx = 0; idx < data.procedures().length; idx++) {
+        var cur_proc = data.procedures()[idx];
 
-    
-    if(procedureCheckInput) {
-        procedureCheckInput.forEach((procedureCheck) => {
+        if (cur_proc) {
             if (event.target.checked === true) {
-                procedureCheck.checked = true;
+                cur_proc.selected(true);
             } else {
-                procedureCheck.checked = false;
+                cur_proc.selected(false);
             }
-            
-        });
+        }
     }
 }
 
