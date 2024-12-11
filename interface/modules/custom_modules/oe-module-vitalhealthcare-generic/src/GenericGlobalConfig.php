@@ -182,4 +182,60 @@ class GenericGlobalConfig
         ];
         return $settings;
     }
+
+    public function getCallrailGlobalSettingSectionConfiguration()
+    {
+        $settings = [
+            'cr_account_id' => [
+                'title' => 'Client ID'
+                ,'description' => 'Client ID'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+            'cr_token' => [
+                'title' => 'Token'
+                ,'description' => 'Token'
+                ,'type' => GlobalSetting::DATA_TYPE_ENCRYPTED
+                ,'default' => ''
+            ]
+        ];
+        return $settings;
+    }
+
+    public function getInmomentGlobalSettingSectionConfiguration()
+    {
+        $settings = [
+            'inm_client_id' => [
+                'title' => 'Client Id'
+                ,'description' => 'Client Id'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+            'inm_client_secret' => [
+                'title' => 'Client Secret'
+                ,'description' => 'Client Secret'
+                ,'type' => GlobalSetting::DATA_TYPE_ENCRYPTED
+                ,'default' => ''
+            ],
+            'inm_username' => [
+                'title' => 'Username'
+                ,'description' => 'Username'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+            'inm_password' => [
+                'title' => 'Password'
+                ,'description' => 'Password'
+                ,'type' => GlobalSetting::DATA_TYPE_ENCRYPTED
+                ,'default' => ''
+            ],
+            'inm_orgid' => [
+                'title' => 'OrgID'
+                ,'description' => 'OrgID'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+        ];
+        return $settings;
+    }
 }

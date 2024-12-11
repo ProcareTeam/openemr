@@ -6,6 +6,7 @@ namespace OpenEMR\OemrAd;
 @include_once(__DIR__ . "/mdReminder.class.php");
 
 use OpenEMR\OemrAd\Reminder;
+use OpenEMR\Common\Crypto\CryptoGen;
 
 class InmomentWebservice {
 
@@ -1059,5 +1060,83 @@ class InmomentWebservice {
 				sqlStatementNoLog("UPDATE `vh_inmoment_webservice_notif_log` SET ".$setStr." WHERE id = ? ", $binds);
 			}
 		}
+	}
+
+	public static function getSurveysByOrgId() {
+		$resList = array();
+		$cryptoGen = new CryptoGen();
+		$inm_orgid = isset($GLOBALS['inm_orgid']) ? $GLOBALS['inm_orgid'] : "";
+		$inm_client_id = isset($GLOBALS['inm_client_id']) ? $GLOBALS['inm_client_id'] : "";
+		$inm_client_secret = $cryptoGen->decryptStandard($GLOBALS['inm_client_secret']);
+		$inm_username = isset($GLOBALS['inm_username']) ? $GLOBALS['inm_username'] : "";
+		$inm_password = $cryptoGen->decryptStandard($GLOBALS['inm_password']);
+		if(empty($inm_orgid) || empty($inm_client_id) || empty($inm_client_secret) || empty($inm_username) || empty($inm_password)) {
+			return false;
+		}
+		$tokenData = self::generateToken(array(
+			'client_id' => $inm_client_id,
+			'client_secret' => $inm_client_secret,
+			'username' => $inm_username,
+			'password' => $inm_password
+		));
+		// Create a DateTime object for the current date and time
+		$currentDate = new \DateTime();
+		// Format the current date (optional)
+		$today = $currentDate->format('Y-m-d'); // Example format: 2024-12-09
+		// Subtract 7 days to get the date one week ago
+		$currentDate->modify('-1 week');
+		// Format the date one week ago
+		$oneWeekAgo = $currentDate->format('Y-m-d'); // Example format: 2024-12-02
+		//Service Call
+		$idList = self::callRequest(array(
+			'api_url' => 'https://api.inmoment.com/api/rest/1.1/surveyresponses/ids/'. $oneWeekAgo .'/'. $today .'/' . $inm_orgid,
+			'method' => 'GET'
+		), $tokenData);
+		if($idList) {
+			foreach ($idList as $idItem) {
+				if (!empty($idItem)) {
+					$isExists = sqlQuery("SELECT count(id) as count from vh_inmoment_survey_log where response_id = ?", array($idItem));
+					if (isset($isExists) && $isExists['count'] === "0") {
+						//Service Call
+						$surveyRes = self::callRequest(array(
+							'api_url' => 'https://api.inmoment.com/api/rest/1.1/surveyresponses/' . $idItem,
+							'method' => 'GET'
+						), $tokenData);
+						if (!empty($surveyRes)) {
+							$resList[] = $surveyRes;
+						}
+					}
+				}
+			}
+			return $resList;
+		}
+		return false;
+	}
+	public static function fetchSurveys() {
+		$responceData = array(
+			'status' => 'true',
+			'survey_count' => 0
+		);
+		try {
+			$surveysData = self::getSurveysByOrgId();
+			$inm_orgid = isset($GLOBALS['inm_orgid']) ? $GLOBALS['inm_orgid'] : "";
+			if ($surveysData) {
+				foreach ($surveysData as $surveyItem) {
+					if (isset($surveyItem['id'])) {
+						$rowId = sqlInsert("INSERT INTO `vh_inmoment_survey_log` ( org_id, response_id, responce ) VALUES (?, ?, ?) ", array($inm_orgid, $surveyItem['id'], json_encode($surveyItem)));
+						if (!empty($rowId)) {
+							$responceData['survey_count']++;
+						}
+					}
+				}
+			}
+ 
+		} catch (Exception $e) {
+			return array(
+        		'status' => 'false',
+				'error' => 'Caught exception: ',  $e->getMessage(), "\n"
+        	);
+		}
+		return $responceData;
 	}
 }

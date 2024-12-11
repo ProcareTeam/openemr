@@ -101,6 +101,17 @@ CREATE TABLE `vh_inmoment_webservice_notif_log` (
 );
 #EndIf
 
+#IfNotTable vh_inmoment_survey_log
+CREATE TABLE `vh_inmoment_survey_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `org_id` varchar(255) DEFAULT NULL,
+  `response_id` varchar(255) DEFAULT NULL,
+  `responce` longtext,
+  `created_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+
 #IfNotTable vh_wordpress_sync_log
 CREATE TABLE `vh_wordpress_sync_log` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,

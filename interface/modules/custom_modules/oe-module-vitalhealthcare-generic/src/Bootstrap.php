@@ -377,5 +377,41 @@ class Bootstrap
                 )
             );
         }
+
+        $cr_manager_section = xlt("Callrail Configuration");
+        $service->createSection($cr_manager_section, 'Callrail Configuration');
+        $cr_manager_settings = $this->globalsConfig->getCallrailGlobalSettingSectionConfiguration();
+        foreach ($cr_manager_settings as $key => $config) {
+            $value = $GLOBALS[$key] ?? $config['default'];
+            $service->appendToSection(
+                $cr_manager_section,
+                $key,
+                new GlobalSetting(
+                    xlt($config['title']),
+                    $config['type'],
+                    $value,
+                    xlt($config['description']),
+                    true
+                )
+            );
+        }
+
+        $inm_manager_section = xlt("Inmoment Configuration");
+        $service->createSection($inm_manager_section, 'Inmoment Configuration');
+        $inm_manager_settings = $this->globalsConfig->getInmomentGlobalSettingSectionConfiguration();
+        foreach ($inm_manager_settings as $key => $config) {
+            $value = $GLOBALS[$key] ?? $config['default'];
+            $service->appendToSection(
+                $inm_manager_section,
+                $key,
+                new GlobalSetting(
+                    xlt($config['title']),
+                    $config['type'],
+                    $value,
+                    xlt($config['description']),
+                    true
+                )
+            );
+        }
     }
 }

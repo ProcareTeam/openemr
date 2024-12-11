@@ -281,3 +281,7 @@ ALTER TABLE `vh_pistorage_preference` ADD COLUMN `insurance_companies_id` bigint
 ALTER TABLE `form_encounter` ADD COLUMN `vh_first_esign_datetime` datetime default NULL;
 #EndIf
 
+#IfMissingColumn message_log source
+ALTER TABLE `message_log` ADD COLUMN `source` varchar(255) DEFAULT 'twilio' AFTER `type`;
+#EndIf
+
