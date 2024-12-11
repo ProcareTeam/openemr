@@ -689,8 +689,13 @@ async function fetchLinkCount(direction, msg_from, msg_to, id, action) {
 
 /*------------------- (Others) ----------------*/
 
-async function isGroupUserExists(userVal) {
+async function isGroupUserExists(userVal, setuserlist = false) {
     var select_val = userVal;
+
+    if (setuserlist === true) {
+        //$('#assigned_to_text').attr("title", "");
+        $(".userlist-container").html("");
+    }
 
     const result = await $.ajax({
         type: "GET",
@@ -702,12 +707,20 @@ async function isGroupUserExists(userVal) {
         var resultObj = JSON.parse(result);
         if(resultObj && resultObj['status'] == true && resultObj['isGroup'] == true) {
             if(resultObj['data'] && Number(resultObj['data']) == 0) {
-                alert("Selected group doesn't have a valid member.")
+                alert("Selected group doesn't have a valid member.");
                 // await confirmBoxModal({
                 //     type: 'alert',
                 //     title: "Alert",
                 //     html: "Selected group doesn't have a valid member."
                 // });
+            }
+
+            if (setuserlist === true) {
+                if (resultObj['userlist'] && resultObj['userlist'].length > 0) {
+                    //assigned_to_text
+                    $(".userlist-container").html('<span class="badge badge-secondary text-wrap text-left">• '+ resultObj['userlist'].join("<br>• ") +'</span>');
+                    //$('#assigned_to_text').attr("title", resultObj['userlist'].join(", \n"));
+                }
             }
         }
     }

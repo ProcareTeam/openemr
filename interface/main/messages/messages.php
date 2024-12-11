@@ -276,7 +276,7 @@ if (
 
                 $('.usersSelectList').on("change", function (e) {
                     let select_val = $(this).val();
-                    isGroupUserExists(select_val);             
+                    isGroupUserExists(select_val, true);             
                 });
             });
 
@@ -718,7 +718,7 @@ if (!empty($_REQUEST['go'])) { ?>
                                                 <?php generate_form_field(array('data_type' => 4, 'field_id' => 'datetime', 'edit_options' => 'F'), empty($datetime) ? date('Y-m-d H:i') : $datetime) ?>
                                             </div>
                                             <?php } ?>
-                                            <div class="col-6 col-sm-4 d-flex align-items-end flex-wrap">
+                                            <div class="col-6 col-sm-4 d-flex align-items-end flex-wrap flex-column">
                                                 <label for="assigned_to_text"><?php echo xlt('To{{Destination}}'); ?>:</label>
                                                 <input type='text' name='assigned_to_text' class='form-control oe-cursor-stop' id='assigned_to_text' readonly='readonly' value='' placeholder='<?php echo xla("SELECT Users FROM The Dropdown LIST"); ?>' />
                                                 <input type='hidden' name='assigned_to' id='assigned_to' />
@@ -755,9 +755,12 @@ if (!empty($_REQUEST['go'])) { ?>
                                                     ?>
                                                 </select>
                                             </div>
-                                            <div class="col-6 col-sm-2  d-flex align-items-end flex-wrap">
+                                            <div class="col-6 col-sm-4  d-flex align-items-end flex-wrap flex-wrap">
                                                 <label class="oe-empty-label" for="users"></label>
-                                                <button type="button" name="clear_user" id="clear_user" class="btn btn-secondary btn-undo float-left flip" value="<?php echo xla('Clear'); ?>"><?php echo xlt('Clear'); ?></button>
+                                                <div style="display: grid;grid-template-columns: auto 1fr;grid-gap: 10px;">
+                                                    <button type="button" name="clear_user" id="clear_user" class="btn btn-secondary btn-undo float-left flip" value="<?php echo xla('Clear'); ?>" style="max-height: 34px;"><?php echo xlt('Clear'); ?></button>
+                                                    <div class="userlist-container"></div>
+                                                </div>
                                             </div>
                                         </div>
                                     <div class='col-12 oe-margin-t-3'>
