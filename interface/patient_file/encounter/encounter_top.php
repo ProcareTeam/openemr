@@ -91,6 +91,18 @@ function closeTab(winname, refresh) {
   }
 }
 
+// @VH: OpenEsign
+function closeTabWithEsign(winname, refresh) {
+  twCloseTab('enctabs', winname);
+  activateTab('enctabs-1');
+  for (var i = 0; i < window.frames.length; ++i) {
+    if (window.frames[i].refreshVisitDisplay) {
+        window.frames[i].frameElement.setAttribute('data-openesign', '1');
+        window.frames[i].location.href = <?php echo js_escape($rootdir); ?> + '/patient_file/encounter/forms.php';
+    }
+  }
+}
+
 </script>
 </head>
 <body class='m-0'>

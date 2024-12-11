@@ -877,14 +877,18 @@ if($form_mode == 'update') {
 			}
 		}
 	}
-
-	$justify = autoJustify($pid, $encounter, $frmdir, $visit);
-
-	if (isset($_REQUEST['tmp_form_justify_all']) && isset($_REQUEST['tmp_form_justify_code'])) {
-		if (!empty($_REQUEST['tmp_form_justify_all']) && !empty($_REQUEST['tmp_form_justify_code'])) {
-			setCPTCode($pid, $encounter, $frmdir, $visit, $_REQUEST['tmp_form_justify_code']);
+  
+  // Commented auto justify cpt code
+	//if (empty($_REQUEST['tmp_form_justify_all']) && empty($_REQUEST['tmp_form_justify_code'])) {
+		$autoJustifyStatus = (empty($_REQUEST['tmp_form_justify_all']) && empty($_REQUEST['tmp_form_justify_code'])) ? true : false;
+		$justify = autoJustify($pid, $encounter, $frmdir, $visit, $autoJustifyStatus);
+	//} else {
+		if (isset($_REQUEST['tmp_form_justify_all']) || isset($_REQUEST['tmp_form_justify_code'])) {
+			if (!empty($_REQUEST['tmp_form_justify_all']) || !empty($_REQUEST['tmp_form_justify_code'])) {
+				setCPTCode($pid, $encounter, $frmdir, $visit, isset($_REQUEST['tmp_form_justify_all']) && $_REQUEST['tmp_form_justify_all'] == "1" ? true : false, $_REQUEST['tmp_form_justify_code']);
+			}
 		}
-	}
+	//}
 
 	$draw_display = FALSE;
 	// NOW PROCESS ALL THE COMMENTS
@@ -1121,7 +1125,24 @@ if($form_mode == 'update') {
 			echo "</script>\n";
 			echo "</head>\n";
 			echo "</html>\n";
-			formJump();
+			
+			// If open esign is set then open popup 
+			if (isset($_REQUEST['tmp_open_esign']) && $_REQUEST['tmp_open_esign'] == "1") { 
+				// @VH: Code from formJump in (library/api.inc)
+			  // @VH: formJump() refer this function code;
+			  ?>
+			  <script>
+	    		parent.closeTabWithEsign(window.name, true);
+		  	</script>
+		  	<?php
+			} else {
+				// Normal flow
+				formJump();
+			}
+
+			// TBD: Exit seems wrong here, but that's how it has been forever.
+	    exit;
+
 		}
 	}
 } // END OF THE SAVE SECTION
@@ -2631,6 +2652,11 @@ foreach($fh_defaults as $who => $what) {
     		<span>Justify All</span>
     		<input type="checkbox" name="tmp_form_justify_all" value="1">
     	</div>
+
+    	<!-- @VH: added is open esign hidden field -->
+   		<input type="hidden" name="tmp_open_esign" id="tmp_open_esign" value="">
+   		<a href="javascript:<?php echo $pop_form ? '' : 'top.restoreSession(); '; ?>document.querySelector('#tmp_open_esign').value='1';document.forms[0].submit();" tabindex="-1" class="css_button"><span>Save & Esign</span></a>
+
     	<div style="display: inline-block; margin-left: 10px;">
     		<select name="tmp_form_justify_code" class="form-control">
     			<option value="">Please Select</option>

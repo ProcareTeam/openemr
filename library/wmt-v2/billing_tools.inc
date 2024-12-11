@@ -131,9 +131,10 @@ function getBillingCodes($pid, $enc, $type='') {
   return $items;
 }
 
-function setCPTCode($pid, $enc, $frmdir, $visit, $codeval) {
+function setCPTCode($pid, $enc, $frmdir, $visit, $justiycode = false, $codeval) {
 	$justify = "";
 	if(!$pid || !$enc) return '';
+	if ($justiycode === true && empty($codeval)) return '';
 	if($max_to_justify = checkSettingMode('wmt::auto_justify','',$frmdir)) {
 		$dr = 0;
 		if(is_object($visit)) $dr = $visit->provider_id;
@@ -157,11 +158,12 @@ function setCPTCode($pid, $enc, $frmdir, $visit, $codeval) {
 				// MAKE SURE THE DIAG WE ARE USING IS IN THE BILLING TABLE
 				if(!$bill_id) {
 					$desc = lookup_code_descriptions($reqtype.':'.$reqcode);
-					$bill_id = \OpenEMR\Billing\BillingUtilities::addBilling($enc, $reqtype, $reqcode, $desc, $pid, 1, $dr);
+					$bill_id = \OpenEMR\Billing\BillingUtilities::addBilling($enc, $reqtype, $reqcode, $desc, $pid, 1, $dr, "", 1);
 				}
 			}
 		}
 
+		if ($justiycode === true && !empty($codeval)) {
 		if (!empty($bill_id)) {
 					$lines = getBillingCodes($pid, $enc, " AND billing.id = '". $bill_id ."' ");
 					if (!empty($lines) && count($lines) == 1) {
@@ -174,10 +176,11 @@ function setCPTCode($pid, $enc, $frmdir, $visit, $codeval) {
 						}
 					}
 		}
+		}
 	}
 }
 
-function autoJustify($pid, $enc, $frmdir, $visit) {
+function autoJustify($pid, $enc, $frmdir, $visit, $ajustify = true) {
 	$justify = '';
 	if(!$pid || !$enc) return '';
 	if($max_to_justify = checkSettingMode('wmt::auto_justify','',$frmdir)) {
@@ -200,6 +203,7 @@ function autoJustify($pid, $enc, $frmdir, $visit) {
 			if($cnt == $max_to_justify) break;
 		}
 
+		if ($ajustify === false) return $justify;
 		if(!$justify) return $justify;
 
 		// NOW CHECK FOR ANY UN-JUSTIFIED BILLING

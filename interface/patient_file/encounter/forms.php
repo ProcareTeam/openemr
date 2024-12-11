@@ -455,6 +455,20 @@ function refreshVisitDisplay() {
   location.href = <?php echo js_escape($rootdir); ?> + '/patient_file/encounter/forms.php';
 }
 
+// @VH: Handle esign popup after extended exam form save.
+$(document).ready(function() {
+    let curriframeElement = window.frameElement;
+    // @VH: Get open esign trigger
+    let needToOpenEsign = curriframeElement.getAttribute('data-openesign');
+    
+    if (needToOpenEsign == "1") {
+        // Trigger esign button
+        $(".esign-button-encounter").trigger('click');
+    }
+    // @VH: After open remove attribute
+    curriframeElement.removeAttribute('data-openesign');
+});
+
 </script>
 
 <style>
