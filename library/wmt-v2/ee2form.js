@@ -49,7 +49,9 @@ function ClearExam()
   for (i=0; i<l; i++) {
     if(document.forms[0].elements[i].name.indexOf('ge_') != -1) {
     	if(document.forms[0].elements[i].type.indexOf('select') != -1) {
-        document.forms[0].elements[i].selectedIndex = '0';
+        if (document.forms[0].elements[i].name != "oe_ge_gait[]") {
+        	document.forms[0].elements[i].selectedIndex = '0';
+      	}
       }
     	if(document.forms[0].elements[i].type.indexOf('check') != -1) {
         document.forms[0].elements[i].checked=false;
