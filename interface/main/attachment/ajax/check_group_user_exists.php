@@ -19,19 +19,28 @@ $responce = array();
 
 
 if(!empty($userGroup)) {
-	$sResult = sqlQuery("SELECT count(msg_group_link.id) as total_result FROM `msg_group_link` JOIN `users` ON users.id  = msg_group_link.user_id WHERE group_id = ?  LIMIT 1", array($userGroup));
+	$fres = sqlStatement("SELECT * FROM `msg_group_link` JOIN `users` ON users.id  = msg_group_link.user_id WHERE group_id = ?", array($userGroup));
+	$sResult = array();
+	while($frow = sqlFetchArray($fres)) {
+		unset($frow['uuid']);
+		$uname = text($frow['lname']);
+		if($frow['fname']) $uname .= ', ' . text($frow['fname']);
+		$sResult[] = $uname;
+	}
 
 	$responce = array(
 		'status' => true,
 		'isGroup' => true,
-		'data' =>  isset($sResult['total_result']) ? $sResult['total_result'] : 0
+		'data' => !empty($sResult) ? (string) count($sResult) : "0",
+		'userlist' => $sResult
 	);
 
 } else {
 	$responce = array(
 		'status' => false,
 		'isGroup' => true,
-		'data' =>  ''
+		'data' =>  '',
+		'userlist' => array()
 	);
 }
 echo json_encode($responce);
