@@ -60,6 +60,8 @@ $form_msgId = trim(strip_tags($_REQUEST['msgId']));
 
 $form_email_id = trim(strip_tags($_REQUEST['email_id']));
 $form_custom_email_id = trim(strip_tags($_REQUEST['custom_email_id']));
+$form_cc_email = trim(strip_tags($_REQUEST['cc_email']));
+
 $form_custom_email_check = trim(strip_tags($_REQUEST['custom_email_check']));
 
 $form_custom_email_check = trim(strip_tags($_REQUEST['custom_email_check']));
@@ -160,7 +162,8 @@ if($form_action == "reply" && !empty($form_msgId)) {
 
 	$variableList = array(
 		'default_subject' => 'subject',
-		'default_custom_email_check' => 'custom_email_check'
+		'default_custom_email_check' => 'custom_email_check',
+		'default_cc_email' => 'cc_email'
 	);
 	if(!empty($messageData[0]['raw_data'])) {
 		$previousData = json_decode($messageData[0]['raw_data'], true);
@@ -187,7 +190,8 @@ if($form_action == "reply" && !empty($form_msgId)) {
 		'default_baseDocList' => 'baseDocList',
 		'default_attachments' => 'attachments',
 		'default_custom_email_id' => 'custom_email_id',
-		'default_custom_email_check' => 'custom_email_check'
+		'default_custom_email_check' => 'custom_email_check',
+		'default_cc_email' => 'cc_email'
 	);
 	if(!empty($messageData[0]['raw_data'])) {
 		$previousData = json_decode($messageData[0]['raw_data'], true);
@@ -246,8 +250,15 @@ if ($form_mode == 'retrieve') {
 		$content = str_replace("target='_blank'", '', $content);
 
 		
-		$contact .= $email_content;
-		$content_html .= $email_content_html;
+		// If email content there		
+		if (!empty($email_content)) {
+			$contact = $email_content;
+		}
+		// If email content there
+		if (!empty($email_content_html)) {
+			$content_html = $email_content_html;
+		}
+
 		$subject = $message_list->getItem($form_message);
 
 		$subject = '';
@@ -400,7 +411,8 @@ if($form_id) {
 		'default_baseDocList' => 'baseDocList',
 		'default_attachments' => 'attachments',
 		'default_custom_email_id' => 'custom_email_id',
-		'default_custom_email_check' => 'custom_email_check'
+		'default_custom_email_check' => 'custom_email_check',
+		'default_cc_email' => 'cc_email'
 	);
 
 	if(!empty($msg['raw_data'])) {
@@ -639,6 +651,17 @@ if($form_id) {
 			    	<a class='medium_modal select_abook btn btn-primary' style="max-width: 220px;" href='<?php echo $GLOBALS['webroot']. '/interface/forms/cases/php/find_user_popup.php?allow_multi_select=true'; ?>'><span> <?php echo xlt('Select from address book'); ?></span></a>
 				</div>
 			</div>
+		</div>
+
+		<div class="form-row">
+		    <div class="form-group col-md-12">
+		    	<label><?php echo xlt('Cc Email'); ?></label>
+		    	<?php if($form_action == "reply" || $readonly === 1) { ?>
+		    		<input type='text' name="cc_email" id="cc_email" class='form-control' value='<?php echo $default_cc_email ?>' disabled />
+		    	<?php } else { ?>
+		    		<input type='text' name="cc_email" id="cc_email" class='form-control' value='' />
+		    	<?php } ?>
+		    </div>
 		</div>
 
 		<div class="form-group">
@@ -908,6 +931,7 @@ if($form_id) {
 			formData.append('email_id', emailId);
 			formData.append('custom_email_id', $('#custom_email_id').val());
 			formData.append('custom_email_check', isCustomEmailSelected);
+			formData.append('cc_email', $('#cc_email').val());
 			
 			if($('#message').val() == 'free_text') {
 				formData.append('subject', $('#subject').val());

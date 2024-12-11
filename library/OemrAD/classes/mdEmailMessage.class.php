@@ -2610,6 +2610,9 @@ class EmailMessage {
 
             $emailData['request_data'] = $request_data;
 
+            // Set cc email id
+            $cc_email_list = isset($request_data['cc_email']) ? explode(",", $request_data['cc_email']) : array();
+
             try {
                 if(empty($emailData['from'])) $emailData['from'] = isset($GLOBALS['EMAIL_SEND_FROM']) ? $GLOBALS['EMAIL_SEND_FROM'] : "";
             		//if(empty($emailData['from'])) $emailData['from'] = "";
@@ -2625,6 +2628,15 @@ class EmailMessage {
 
                 $email = new \wmt\Email(TRUE);
                 $email->FromName = $emailData['from_name'];
+
+                // Set cc email list
+                if (!empty($cc_email_list)) {
+	                foreach ($cc_email_list as $ccemailitem) {
+	                	if (filter_var(trim($ccemailitem), FILTER_VALIDATE_EMAIL)) {
+	                		$email->addCC(trim($ccemailitem));
+	                	}
+	                }
+              	}
 
                 // Prepare email data
                 $email_data = array();
@@ -2730,6 +2742,9 @@ class EmailMessage {
                     if(!empty($email_data['subject'])) $extrainfo['subject'] = $email_data['subject'];
                     if(!empty($email_data['custom_email_id'])) $extrainfo['custom_email_id'] = $email_data['custom_email_id'];
                     if(!empty($email_data['custom_email_check'])) $extrainfo['custom_email_check'] = $email_data['custom_email_check'];
+
+                    // Set and check cc email
+                    if(isset($request_data['cc_email']) && !empty($request_data['cc_email'])) $extrainfo['cc_email'] = $request_data['cc_email'];
 
                     $msgAttachmentList = array();
                     if(!empty($emailData['request_data'])) {
