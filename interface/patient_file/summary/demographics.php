@@ -2083,10 +2083,17 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
                             $mname3 = ($row['i3_subscriber_mname'] != "") ? $row['i3_subscriber_mname'] : "";
                             $row['subscriber_full_name3'] = trim(str_replace("%mname%", $mname3, "{$row['i3_subscriber_fname']} %mname% {$row['i3_subscriber_lname']}"));
 
+                            $chiropractic_care_list = array("yes" => "Yes", "no" => "No");
+                            $communication_list = array("email" => "Email", "phone_call" => "Phone call");
+
                             if(!empty($row['i1_payerid'])) {
                                 $icobj1 = new InsuranceCompany($row['i1_payerid']);
                                 $adobj1 = $icobj1->get_address();
                                 $insco_name1 = trim($icobj1->get_name());
+
+                                // @VH: Show preferences section field values
+                                $pistorage_ins1 = sqlQuery("SELECT * FROM `vh_pistorage_preference` WHERE `insurance_companies_id` = ? ", array($icobj1->get_id()));
+
                                 $row['insco1'] = [
                                     'name' => trim($icobj1->get_name()),
                                     'address' => [
@@ -2097,7 +2104,15 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
                                         'postal' => $adobj1->get_zip(),
                                         'country' => $adobj1->get_country()
                                     ],
-                                    'phone_number' => $icobj1->get_phone()
+                                    'phone_number' => $icobj1->get_phone(),
+                                    'pharmacy' => $pistorage_ins1["pharmacy"] ?? "",
+                                    'behavioral_health' => $pistorage_ins1["behavioral_health"] ?? "",
+                                    'chiropractic_care' => $chiropractic_care_list[$pistorage_ins1["chiropractic_care"]] ?? "",
+                                    'communication' => $communication_list[$pistorage_ins1["communication"]] ?? "",
+                                    'imaging' => $pistorage_ins1["imaging"] ?? "",
+                                    'neurology' => $pistorage_ins1["neurology"] ?? "",
+                                    'ortho' => $pistorage_ins1["ortho"] ?? "",
+                                    'pain_management' => $pistorage_ins1["pain_management"] ?? ""
                                 ];
                             }
 
@@ -2105,6 +2120,10 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
                                 $icobj2 = new InsuranceCompany($row['i2_payerid']);
                                 $adobj2 = $icobj2->get_address();
                                 $insco_name2 = trim($icobj2->get_name());
+
+                                // @VH: Show preferences section field values
+                                $pistorage_ins2 = sqlQuery("SELECT * FROM `vh_pistorage_preference` WHERE `insurance_companies_id` = ? ", array($icobj2->get_id()));
+
                                 $row['insco2'] = [
                                     'name' => trim($icobj2->get_name()),
                                     'address' => [
@@ -2115,7 +2134,15 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
                                         'postal' => $adobj2->get_zip(),
                                         'country' => $adobj2->get_country()
                                     ],
-                                    'phone_number' => $icobj2->get_phone()
+                                    'phone_number' => $icobj2->get_phone(),
+                                    'pharmacy' => $pistorage_ins2["pharmacy"] ?? "",
+                                    'behavioral_health' => $pistorage_ins2["behavioral_health"] ?? "",
+                                    'chiropractic_care' => $chiropractic_care_list[$pistorage_ins2["chiropractic_care"]] ?? "",
+                                    'communication' => $communication_list[$pistorage_ins2["communication"]] ?? "",
+                                    'imaging' => $pistorage_ins2["imaging"] ?? "",
+                                    'neurology' => $pistorage_ins2["neurology"] ?? "",
+                                    'ortho' => $pistorage_ins2["ortho"] ?? "",
+                                    'pain_management' => $pistorage_ins2["pain_management"] ?? ""
                                 ];
                             }
 
@@ -2123,6 +2150,10 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
                                 $icobj3 = new InsuranceCompany($row['i3_payerid']);
                                 $adobj3 = $icobj3->get_address();
                                 $insco_name1 = trim($icobj3->get_name());
+
+                                // @VH: Show preferences section field values
+                                $pistorage_ins3 = sqlQuery("SELECT * FROM `vh_pistorage_preference` WHERE `insurance_companies_id` = ? ", array($icobj3->get_id()));
+
                                 $row['insco3'] = [
                                     'name' => trim($icobj3->get_name()),
                                     'address' => [
@@ -2133,7 +2164,15 @@ $oemr_ui->heading =  $oemr_ui->heading . ((isset($result['nickname33']) && !empt
                                         'postal' => $adobj3->get_zip(),
                                         'country' => $adobj3->get_country()
                                     ],
-                                    'phone_number' => $icobj3->get_phone()
+                                    'phone_number' => $icobj3->get_phone(),
+                                    'pharmacy' => $pistorage_ins3["pharmacy"] ?? "",
+                                    'behavioral_health' => $pistorage_ins3["behavioral_health"] ?? "",
+                                    'chiropractic_care' => $chiropractic_care_list[$pistorage_ins3["chiropractic_care"]] ?? "",
+                                    'communication' => $communication_list[$pistorage_ins3["communication"]] ?? "",
+                                    'imaging' => $pistorage_ins3["imaging"] ?? "",
+                                    'neurology' => $pistorage_ins3["neurology"] ?? "",
+                                    'ortho' => $pistorage_ins3["ortho"] ?? "",
+                                    'pain_management' => $pistorage_ins3["pain_management"] ?? ""
                                 ];
                             }
 

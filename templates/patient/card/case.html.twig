@@ -48,8 +48,41 @@
                         {% endif %}
 
                         {% if c.subscriber_full_name1 != "" %}
-                        <strong>{{ "Subscriber"|xlt }}:</strong> <span>{{ c.subscriber_full_name1|text }}{{ c.subscriber_relationship1 != "" ? " (" ~ c.subscriber_relationship1|capitalize|text ~ ")" : "" }}</span>
+                        <strong>{{ "Subscriber"|xlt }}:</strong> <span>{{ c.subscriber_full_name1|text }}{{ c.subscriber_relationship1 != "" ? " (" ~ c.subscriber_relationship1|capitalize|text ~ ")" : "" }}</span><br>
                         {% endif %}
+
+                        {% if c.insco1.pharmacy != "" or c.insco1.behavioral_health != "" or c.insco1.chiropractic_care != "" or c.insco1.communication != "" or c.insco1.imaging != "" or c.insco1.neurology != "" or c.insco1.ortho != "" or c.insco1.pain_management != "" %}
+                        <div class="mt-3" style="max-width: 220px;">
+                        <span><strong>{{ "Preference"|xlt }}</strong></span>
+                        <hr class="mt-1 mb-2">
+                        
+                        {% if c.insco1.pharmacy != "" %}
+                        <strong>{{ "Pharmacy"|xlt }}:</strong> <span>{{ c.insco1.pharmacy|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.behavioral_health != "" %}
+                        <strong>{{ "Behavioral Health - procare or atty choice"|xlt }}:</strong> <span>{{ c.insco1.behavioral_health|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.chiropractic_care != "" %}
+                        <strong>{{ "Chiropractic care"|xlt }}:</strong> <span>{{ c.insco1.chiropractic_care|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.communication != "" %}
+                        <strong>{{ "Communication"|xlt }}:</strong> <span>{{ c.insco1.communication|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.imaging != "" %}
+                        <strong>{{ "Imaging - Procare LOP, Longhorn, AHI, other"|xlt }}:</strong> <span>{{ c.insco1.imaging|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.neurology != "" %}
+                        <strong>{{ "Neurology - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco1.neurology|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.ortho != "" %}
+                        <strong>{{ "Ortho - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco1.ortho|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco1.pain_management != "" %}
+                        <strong>{{ "Pain Management - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco1.pain_management|text }}</span><br>
+                        {% endif %}
+                        </div>
+                        {% endif %}
+
                     </address>
                 {% else %}
                     <span class="font-weight-bold text-danger">{{ "Unassigned"|xlt }}</span>
@@ -80,6 +113,38 @@
                         {% if c.subscriber_full_name2 != "" %}
                         <strong>{{ "Subscriber"|xlt }}:</strong> <span>{{ c.subscriber_full_name2|text }}{{ c.subscriber_relationship2 != "" ? " (" ~ c.subscriber_relationship2|capitalize|text ~ ")" : "" }}</span>
                         {% endif %}
+                        
+                        {% if c.insco2.pharmacy != "" or c.insco2.behavioral_health != "" or c.insco2.chiropractic_care != "" or c.insco2.communication != "" or c.insco2.imaging != "" or c.insco2.neurology != "" or c.insco2.ortho != "" or c.insco2.pain_management != "" %}
+                        <div class="mt-3" style="max-width: 220px;">
+                        <span><strong>{{ "Preference"|xlt }}</strong></span>
+                        <hr class="mt-1 mb-2">
+                        {% if c.insco2.pharmacy != "" %}
+                        <strong>{{ "Pharmacy"|xlt }}:</strong> <span>{{ c.insco2.pharmacy|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.behavioral_health != "" %}
+                        <strong>{{ "Behavioral Health - procare or atty choice"|xlt }}:</strong> <span>{{ c.insco2.behavioral_health|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.chiropractic_care != "" %}
+                        <strong>{{ "Chiropractic care"|xlt }}:</strong> <span>{{ c.insco2.chiropractic_care|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.communication != "" %}
+                        <strong>{{ "Communication"|xlt }}:</strong> <span>{{ c.insco2.communication|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.imaging != "" %}
+                        <strong>{{ "Imaging - Procare LOP, Longhorn, AHI, other"|xlt }}:</strong> <span>{{ c.insco2.imaging|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.neurology != "" %}
+                        <strong>{{ "Neurology - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco2.neurology|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.ortho != "" %}
+                        <strong>{{ "Ortho - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco2.ortho|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco2.pain_management != "" %}
+                        <strong>{{ "Pain Management - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco2.pain_management|text }}</span><br>
+                        {% endif %}
+                        </div>
+                        {% endif %}
+
                     </address>
                 {% else %}
                     <span class="font-weight-bold text-danger">{{ "Unassigned"|xlt }}</span>
@@ -109,6 +174,37 @@
                         
                         {% if c.subscriber_full_name3 != "" %}
                         <strong>{{ "Subscriber"|xlt }}:</strong> <span>{{ c.subscriber_full_name3|text }}{{ c.subscriber_relationship3 != "" ? " (" ~ c.subscriber_relationship3|capitalize|text ~ ")" : "" }}</span>
+                        {% endif %}
+
+                        {% if c.insco3.pharmacy != "" or c.insco3.behavioral_health != "" or c.insco3.chiropractic_care != "" or c.insco3.communication != "" or c.insco3.imaging != "" or c.insco3.neurology != "" or c.insco3.ortho != "" or c.insco3.pain_management != "" %}
+                        <div class="mt-3" style="max-width: 220px;">
+                        <span><strong>{{ "Preference"|xlt }}</strong></span>
+                        <hr class="mt-1 mb-2">
+                        {% if c.insco3.pharmacy != "" %}
+                        <strong>{{ "Pharmacy"|xlt }}:</strong> <span>{{ c.insco3.pharmacy|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.behavioral_health != "" %}
+                        <strong>{{ "Behavioral Health - procare or atty choice"|xlt }}:</strong> <span>{{ c.insco3.behavioral_health|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.chiropractic_care != "" %}
+                        <strong>{{ "Chiropractic care"|xlt }}:</strong> <span>{{ c.insco3.chiropractic_care|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.communication != "" %}
+                        <strong>{{ "Communication"|xlt }}:</strong> <span>{{ c.insco3.communication|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.imaging != "" %}
+                        <strong>{{ "Imaging - Procare LOP, Longhorn, AHI, other"|xlt }}:</strong> <span>{{ c.insco3.imaging|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.neurology != "" %}
+                        <strong>{{ "Neurology - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco3.neurology|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.ortho != "" %}
+                        <strong>{{ "Ortho - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco3.ortho|text }}</span><br>
+                        {% endif %}
+                        {% if c.insco3.pain_management != "" %}
+                        <strong>{{ "Pain Management - Procare or atty choice"|xlt }}:</strong> <span>{{ c.insco3.pain_management|text }}</span><br>
+                        {% endif %}
+                        </div>
                         {% endif %}
                     </address>
                 {% else %}
