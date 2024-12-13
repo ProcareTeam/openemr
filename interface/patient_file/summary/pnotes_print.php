@@ -18,34 +18,40 @@ require_once("$srcdir/pnotes.inc.php");
 use OpenEMR\Common\Acl\AclMain;
 use OpenEMR\Core\Header;
 
-$prow = getPatientData($pid, "squad, title, fname, mname, lname");
-
 // Check authorization.
 $thisauth = AclMain::aclCheckCore('patients', 'notes');
 if (!$thisauth) {
     die(xlt('Not authorized'));
 }
 
-if ($prow['squad'] && ! AclMain::aclCheckCore('squads', $prow['squad'])) {
-    die(xlt('Not authorized for this squad.'));
-}
-
 $noteid = $_REQUEST['noteid'];
-
-$ptname = $prow['title'] . ' ' . $prow['fname'] . ' ' . $prow['mname'] .
-  ' ' . $prow['lname'];
 
 $title       = '';
 $assigned_to = '';
 $body        = '';
 $activity    = 0;
 if ($noteid) {
-    $nrow = getPnoteById($noteid, 'title,assigned_to,activity,body');
+    $nrow = getPnoteById($noteid, 'title,assigned_to,activity,body,pid');
     $title = $nrow['title'];
     $assigned_to = $nrow['assigned_to'];
     $activity = $nrow['activity'];
     $body = $nrow['body'];
+    
+    if (!empty($nrow['pid'])) {
+        $pid = $nrow['pid'];
+    }
 }
+
+$prow = getPatientData($pid, "squad, title, fname, mname, lname");
+
+if ($prow['squad'] && ! AclMain::aclCheckCore('squads', $prow['squad'])) {
+    die(xlt('Not authorized for this squad.'));
+}
+
+$ptname = $prow['title'] . ' ' . $prow['fname'] . ' ' . $prow['mname'] .
+  ' ' . $prow['lname'];
+
+
 ?>
 <html>
 <head>
