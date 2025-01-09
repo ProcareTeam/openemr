@@ -1140,13 +1140,25 @@ function myLocalJS()
                                         let currentTitle = $this.attr('data-original-title');
                                         //data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
                                         $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
-                                        $this.tooltip('show');
+                                        
+                                        let isvisible = $this.attr('data-isvisible');
+                                        if (isvisible == "1") {
+                                            $this.tooltip('show');
+                                        } else {
+                                            $this.tooltip('hide');
+                                        }
                                     },
                                     error: function() {
                                         // Set pending forms content back to tooltip
                                         let currentTitle = $this.attr('data-original-title');
                                         $this.attr('data-original-title',currentTitle.replace('Error'));
-                                        $this.tooltip('show');
+                                        
+                                        let isvisible = $this.attr('data-isvisible');
+                                        if (isvisible == "1") {
+                                            $this.tooltip('show');
+                                        } else {
+                                            $this.tooltip('hide');
+                                        }
                                     }
                                 });
                             }
@@ -1155,14 +1167,25 @@ function myLocalJS()
                 });
                 // On mouse leave, clear the timer and hide the tooltip if it was shown
                 $this.on('mouseleave', function() {
+                    // Set is not visible
+                    $(this).attr('data-isvisible', '0');
+
                     clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
                     $this.tooltip('hide');      // Hide the tooltip if it was shown
                 });
                 // Before the tooltip shows, replace \n with <br>
                 $this.on('show.bs.tooltip', function () {
+                    // Set is not visible
+                    $(this).attr('data-isvisible', '1');
+
                     let originalTitle = $(this).attr('data-original-title');
                     let newTitle = originalTitle.replace(/\n/g, '<br>');  // Replace newlines with <br>
                     $(this).attr('data-original-title', newTitle);  // Update the tooltip content
+                });
+
+                $this.on('hidden.bs.tooltip', function () {
+                    // Set is not visible
+                    $(this).attr('data-isvisible', '0');
                 });
             });
         }

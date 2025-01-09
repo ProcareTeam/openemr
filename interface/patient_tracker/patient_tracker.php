@@ -1009,7 +1009,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         </td>
                         <!-- End -->
                         <td class="detail text-center" name="kiosk_hide">
-                            <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)" data-eid="<?php echo $appt_eid; ?>" data-tooltip="tooltip" title="">
+                            <a href="#" onclick="return topatient(<?php echo attr_js($appt_pid); ?>,<?php echo attr_js($appt_enc); ?>)" data-eid="<?php echo $appt_eid; ?>" data-toggle1="tooltip" title="">
                                 <?php echo text($ptname); ?></a>
                         </td>
 
@@ -1551,7 +1551,7 @@ function myLocalJS()
                 refreshMe();
             });
 
-            $('[data-toggle="tooltip"]').tooltip();
+            //$('[data-toggle="tooltip"]').tooltip();
 
             $('.datepicker').datetimepicker({
                 <?php $datetimepicker_timepicker = false; ?>
@@ -1572,16 +1572,16 @@ function myLocalJS()
 
         // @VH: Custom tooltip
         function initTooltip(){
-            $('[data-tooltip="tooltip"]').tooltip({
+            $('[data-toggle1="tooltip"]').tooltip({
                 html: true,
                 boundary: 'window',
                 trigger: 'manual'
             });
             // Set a delay time (in milliseconds)
-            var delayTime = 1000; // 1000ms = 1 second
+            var delayTime = 500; // 1000ms = 1 second
             var tooltipTimer;
             // Loop through each tooltip link
-            $('[data-tooltip="tooltip"]').each(function() {
+            $('[data-toggle1="tooltip"]').each(function() {
                 var $this = $(this);
                 // On mouse enter, start the timer to show the tooltip after the delay
                 $this.on('mouseenter', function() {
@@ -1609,13 +1609,25 @@ function myLocalJS()
                                         let currentTitle = $this.attr('data-original-title');
                                         //data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
                                         $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
-                                        $this.tooltip('show');
+
+                                        let isvisible = $this.attr('data-isvisible');
+                                        if (isvisible == "1") {
+                                            $this.tooltip('show');
+                                        } else {
+                                            $this.tooltip('hide');
+                                        }
                                     },
                                     error: function() {
                                         // Set pending forms content back to tooltip
                                         let currentTitle = $this.attr('data-original-title');
                                         $this.attr('data-original-title',currentTitle.replace('Error'));
-                                        $this.tooltip('show');
+                                        
+                                        let isvisible = $this.attr('data-isvisible');
+                                        if (isvisible == "1") {
+                                            $this.tooltip('show');
+                                        }  else {
+                                            $this.tooltip('hide');
+                                        }
                                     }
                                 });
                             }
@@ -1624,14 +1636,25 @@ function myLocalJS()
                 });
                 // On mouse leave, clear the timer and hide the tooltip if it was shown
                 $this.on('mouseleave', function() {
+                    // Set is not visible
+                    $(this).attr('data-isvisible', '0');
+
                     clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
                     $this.tooltip('hide');      // Hide the tooltip if it was shown
                 });
                 // Before the tooltip shows, replace \n with <br>
                 $this.on('show.bs.tooltip', function () {
+                    // Set is not visible
+                    $(this).attr('data-isvisible', '1');
+
                     let originalTitle = $(this).attr('data-original-title');
                     let newTitle = originalTitle.replace(/\n/g, '<br>');  // Replace newlines with <br>
                     $(this).attr('data-original-title', newTitle);  // Update the tooltip content
+                });
+
+                $this.on('hidden.bs.tooltip', function () {
+                    // Set is not visible
+                    $(this).attr('data-isvisible', '0');
                 });
             });
         }
