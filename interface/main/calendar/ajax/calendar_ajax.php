@@ -15,6 +15,7 @@ use OpenEMR\OemrAd\CoverageCheck;
 
 //$pid = $_REQUEST['pid'] ? $_REQUEST['pid'] : '';
 $form_eid = $_REQUEST['eid'] ? $_REQUEST['eid'] : '';
+$pinfo = isset($_REQUEST['pinfo']) ? true : false;
 $responce_text = "";
 
 // OEMR - Get coverage content.
@@ -47,10 +48,25 @@ function getPendingOrderList($pid) {
     return $resList;
 }
 
-$apptData = sqlQuery("SELECT * from openemr_postcalendar_events ope where ope.pc_eid = ? ", $form_eid);
+$apptData = sqlQuery("SELECT ope.*, concat(pd.lname,', ',pd.fname) as patient_name, pd.DOB as patient_dob, pd.alert_info from openemr_postcalendar_events ope join patient_data pd on pd.pid = ope.pc_pid where ope.pc_eid = ? ", $form_eid);
 
 if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid'])) {
 	$pid = isset($apptData['pc_pid']) ? $apptData['pc_pid'] : '';
+
+	if ($pinfo === true) {
+		$commapos = strpos(($apptData['patient_name'] ?? ''), ",");
+	    $lname = substr(($apptData['patient_name'] ?? ''), 0, $commapos);
+	    $fname = substr(($apptData['patient_name'] ?? ''), $commapos + 2);
+	    $patient_dob = oeFormatShortDate($apptData['patient_dob']);
+	    $patient_age = date("Y") - substr(($apptData['patient_dob']), 0, 4);
+		$comment = $apptData['hometext'];
+		
+		$link_title = $fname . " " . $lname . " \n";
+	    $link_title .= xl('Age') . ": " . $patient_age . "\n" . xl('DOB') . ": " . $patient_dob . " $comment" . "\n";
+	    $link_title .= "(" . xl('Click to view') . ")";
+	    $link_title .="\n\s\n-- Alert Info -- \n".$apptData['alert_info'];
+	    $responce_text .= $link_title;
+	}
 
 	$coverageData = CoverageCheck::getEligibilityDataForPostCalender($form_eid);
 	$event = array(

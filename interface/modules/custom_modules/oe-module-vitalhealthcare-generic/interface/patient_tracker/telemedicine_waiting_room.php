@@ -1132,13 +1132,13 @@ function myLocalJS()
                                 // Manually show the tooltip after updating the title
                                 $this.tooltip('show');
                                 $.ajax({
-                                    url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?eid=' + eidVal,
+                                    url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?pinfo=1&eid=' + eidVal,
                                     type: 'POST',
                                     data: {},
                                     success: function(data) {
                                         // Set pending forms content back to tooltip
                                         let currentTitle = $this.attr('data-original-title');
-                                        data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
+                                        //data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
                                         $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
                                         $this.tooltip('show');
                                     },
