@@ -229,6 +229,19 @@ function InsertEventFull()
     }
 }
 
+// @VH: Get pending form and order details
+function getPendingItemsDetails($pc_eid) {
+    ob_start();
+    $form_eid = $pc_eid;
+    $patient_info_status = false;
+    $c_info_status = false;
+    $pending_form_info_status = true;
+    $pending_order_info_status = true;
+    include_once($GLOBALS['incdir'] . "/main/calendar/ajax/calendar_ajax.php");
+    $content = ob_get_clean();
+    return $content;
+}
+
 function DOBandEncounter($pc_eid)
 {
      // @VH: Added created_eid
@@ -269,6 +282,12 @@ function DOBandEncounter($pc_eid)
             if ($encounter) {
                 $info_msg .= xl("New encounter created with id");
                 $info_msg .= " $encounter";
+            }
+
+            // @VH: Get pending form and order details
+            $pendingDetails = getPendingItemsDetails($created_eid);
+            if (!empty($pendingDetails)) {
+                $info_msg .= "\\n" . str_replace(['<br>', '<br />'], "\\n", $pendingDetails);
             }
 
             // @VH: Replaced function with todaysEncounterEventCheck and pass bypass param. if form_todaysEncounterIf value false then return existing encounter other wise create new encounter. [V100024]
@@ -877,7 +896,7 @@ if (!empty($_POST['form_action'])) {
     // @VH: Change [V100025]
     echo "<script language='JavaScript'>\n";
     if ($info_msg) {
-        echo " alert('" . addslashes($info_msg) . "');\n";
+        echo " alert('" . $info_msg . "');\n";
     }
     echo " if (opener && !opener.closed && opener.refreshme) {\n " .
       "  opener.refreshme();\n " . // This is for standard calendar page refresh

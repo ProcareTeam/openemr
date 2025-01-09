@@ -1,12 +1,15 @@
 <?php
 
-require_once("../../../globals.php");
+include_once("../../../globals.php");
 require_once($GLOBALS['srcdir'].'/calendar.inc');
 require_once($GLOBALS['srcdir'].'/../interface/main/calendar/includes/pnAPI.php');
 require_once($GLOBALS['srcdir'].'/../interface/main/calendar/php/calendar_fun.php');
 require_once("$srcdir/wmt-v2/wmtstandard.inc");
 require_once("$srcdir/wmt-v2/wmt.msg.inc");
 require_once("$srcdir/OemrAD/oemrad.globals.php");
+require_once($GLOBALS['srcdir']."/wmt-v2/wmtstandard.inc");
+require_once($GLOBALS['srcdir']."/wmt-v2/wmt.msg.inc");
+require_once($GLOBALS['srcdir']."/OemrAD/oemrad.globals.php");
 
 
 use OpenEMR\OemrAd\Caselib;
@@ -14,8 +17,11 @@ use Vitalhealthcare\OpenEMR\Modules\Generic\Api\PatientFormController;
 use OpenEMR\OemrAd\CoverageCheck;
 
 //$pid = $_REQUEST['pid'] ? $_REQUEST['pid'] : '';
-$form_eid = $_REQUEST['eid'] ? $_REQUEST['eid'] : '';
-$pinfo = isset($_REQUEST['pinfo']) ? true : false;
+if(!isset($form_eid)) $form_eid = $_REQUEST['eid'] ? $_REQUEST['eid'] : '';
+if(!isset($patient_info_status)) $patient_info_status = isset($_REQUEST['patient_info']) ? true : false;
+if(!isset($c_info_status)) $c_info_status = isset($_REQUEST['coverage_info']) ? true : false;
+if(!isset($pending_form_info_status)) $pending_form_info_status = isset($_REQUEST['pending_form_info']) ? true : false;
+if(!isset($pending_order_info_status)) $pending_order_info_status = isset($_REQUEST['pending_order_info']) ? true : false;
 $responce_text = "";
 
 // OEMR - Get coverage content.
@@ -38,10 +44,6 @@ function getPendingOrderList($pid) {
     while ($row = sqlFetchArray($pendingresult)) {
         if(isset($row['id'])) {
         	$resList[] = $row['rto_date'] . " " . ListLook($row['rto_action'],'RTO_Action') . " - " . ListLook($row['rto_status'],'RTO_Status');
-        	//$rto_text
-        	//echo ListLook($row['rto_status'],'RTO_Status');
-        	//echo ListLook($row['rto_action'],'RTO_Action');
-            //$itemsIdList[] = $pendingitem['item_id'];
         }
     }
 
@@ -53,7 +55,7 @@ $apptData = sqlQuery("SELECT ope.*, concat(pd.lname,', ',pd.fname) as patient_na
 if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid'])) {
 	$pid = isset($apptData['pc_pid']) ? $apptData['pc_pid'] : '';
 
-	if ($pinfo === true) {
+	if ($patient_info_status === true) {
 		$commapos = strpos(($apptData['patient_name'] ?? ''), ",");
 	    $lname = substr(($apptData['patient_name'] ?? ''), 0, $commapos);
 	    $fname = substr(($apptData['patient_name'] ?? ''), $commapos + 2);
@@ -64,51 +66,60 @@ if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid
 		$link_title = $fname . " " . $lname . " \n";
 	    $link_title .= xl('Age') . ": " . $patient_age . "\n" . xl('DOB') . ": " . $patient_dob . " $comment" . "\n";
 	    $link_title .= "(" . xl('Click to view') . ")";
-	    $link_title .="\n\s\n-- Alert Info -- \n".$apptData['alert_info'];
+
+	    if (!empty($apptData['alert_info'])) {
+	    	$link_title .="\n\s\n-- Alert Info -- \n".$apptData['alert_info'];
+		}
+
 	    $responce_text .= $link_title;
 	}
 
-	$coverageData = CoverageCheck::getEligibilityDataForPostCalender($form_eid);
-	$event = array(
-		'eid' => isset($apptData['pc_eid']) ? $apptData['pc_eid'] : '',
-		'pid' => $pid
-	);
-
-	// Get coverage content
-	$coverage_info = getCoverageContent($event, $coverageData);
-	if (!empty($coverage_info) && isset($coverage_info['title'])) {
-		$responce_text .= $coverage_info['title'];
+	if ($c_info_status === true) {
+		$coverageData = CoverageCheck::getEligibilityDataForPostCalender($form_eid);
+		$event = array(
+			'eid' => isset($apptData['pc_eid']) ? $apptData['pc_eid'] : '',
+			'pid' => $pid
+		);
+		// Get coverage content
+		$coverage_info = getCoverageContent($event, $coverageData);
+		if (!empty($coverage_info) && isset($coverage_info['title'])) {
+			$responce_text .= $coverage_info['title'];
+		}
 	}
 
 	// Pending Forms
-	$pending_form_items = getPendingFormList($pid);
+	if ($pending_form_info_status === true) {
+		// Pending Forms
+		$pending_form_items = getPendingFormList($pid);
 
-	if (!empty($pending_form_items)) {
-		if (count($pending_form_items) > 0) {
-			$responce_text .= "\n--Pending Forms--";
-			foreach ($pending_form_items as $formitems) {
-				$responce_text .= "\n" . $formitems['template_name'] . " - (" . strtoupper($formitems['status']) . ")";
+		if (!empty($pending_form_items)) {
+			if (count($pending_form_items) > 0) {
+				$responce_text .= "\n--Pending Forms--";
+				foreach ($pending_form_items as $formitems) {
+					$responce_text .= "\n" . $formitems['template_name'] . " - (" . strtoupper($formitems['status']) . ")";
+				}
+
+				$responce_text .= "\n";
 			}
-
-			$responce_text .= "\n";
 		}
 	}
 
-	// Pending Orders
-	$pending_order_items = getPendingOrderList($pid);
+	if ($pending_order_info_status === true) {
+		// Pending Orders
+		$pending_order_items = getPendingOrderList($pid);
+		if (!empty($pending_order_items) && count($pending_order_items) > 0) {
+			$responce_text .= "\n--Pending Orders--";
+			$i = 1;
+			foreach ($pending_order_items as $formitems) {
+				if ($i === 5) break;
+				$responce_text .= "\n" . $formitems;
+				$i++;
+			}
 
-	if (!empty($pending_order_items) && count($pending_order_items) > 0) {
-		$responce_text .= "\n--Pending Orders--";
-		$i = 1;
-		foreach ($pending_order_items as $formitems) {
-			if ($i === 5) break;
-			$responce_text .= "\n" . $formitems;
-			$i++;
-		}
-
-		$trcount = count($pending_order_items) - 5;
-		if ($trcount > 0) {
-			$responce_text .= "\n" . (count($pending_order_items) - 5) . " more ...";
+			$trcount = count($pending_order_items) - 5;
+			if ($trcount > 0) {
+				$responce_text .= "\n" . (count($pending_order_items) - 5) . " more ...";
+			}
 		}
 	}
 

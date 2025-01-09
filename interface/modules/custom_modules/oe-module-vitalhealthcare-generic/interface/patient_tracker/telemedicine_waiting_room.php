@@ -1132,7 +1132,7 @@ function myLocalJS()
                                 // Manually show the tooltip after updating the title
                                 $this.tooltip('show');
                                 $.ajax({
-                                    url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?pinfo=1&eid=' + eidVal,
+                                    url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?patient_info=1&coverage_info=1&pending_form_info=1&pending_order_info=1&eid=' + eidVal,
                                     type: 'POST',
                                     data: {},
                                     success: function(data) {

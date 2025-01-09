@@ -25,6 +25,19 @@ require_once("$srcdir/wmt-v2/case_functions.inc.php");
 use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 
+// @VH: Get pending form and order details
+function getPendingItemsDetails($pc_eid) {
+    ob_start();
+    $form_eid = $pc_eid;
+    $patient_info_status = false;
+    $c_info_status = false;
+    $pending_form_info_status = true;
+    $pending_order_info_status = true;
+    include_once($GLOBALS['incdir'] . "/main/calendar/ajax/calendar_ajax.php");
+    $content = ob_get_clean();
+    return $content;
+}
+
 if (!empty($_GET)) {
     if (!CsrfUtils::verifyCsrfToken($_GET["csrf_token_form"])) {
         CsrfUtils::csrfNotVerified();
@@ -118,6 +131,14 @@ if (!empty($_POST['statustype'])) {
                // @VH: Alert message [V100024]
                $info_msg .= xl("New encounter created with id");
                $info_msg .= " $encounter for appt $pceid \\n";
+
+               if (count($trow) === 1) {
+                    // @VH: Get pending form and order details
+                    $pendingDetails = getPendingItemsDetails($pceid);
+                    if (!empty($pendingDetails)) {
+                        $info_msg .= "\\n" . str_replace(['<br>', '<br />'], "\\n", $pendingDetails);
+                    }
+                }
 
                echo "Inserting For ($pceid) [$encounter] ($tkpid)<br>\n";
                echo "Case (".$genenc['pc_case'].")<br>\n";
