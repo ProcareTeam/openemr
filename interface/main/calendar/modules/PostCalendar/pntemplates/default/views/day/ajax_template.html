@@ -194,7 +194,7 @@ if(isset($_SESSION['provider_group']))
     }
     if(count($prov_group_info)> 0)
     {
-        $provinfo = $prov_group_info;
+        //$provinfo = $prov_group_info;
     }
 }
 //EOS USER PROVIDER GROUP (CHEMED)
@@ -444,7 +444,7 @@ if (count($facilities) > 1) {
  echo "    <option value='__PC_ALL__'>"  . xlt("All Users") . "</option>\n";
  foreach ($provinfo as $doc) {
     $username = $doc['username'];
-    echo "    <option value='" . attr($username) . "'";
+    echo "    <option data-userid='". $doc['id'] ."' value='" . attr($username) . "'";
     foreach ($providers as $provider)
         if ($provider['username'] == $username) echo " selected";
     echo ">" . text($doc['lname']) . ", " . text($doc['fname']) . "</option>\n";
@@ -1067,7 +1067,11 @@ echo "</div>\n";
 
     $(function () {
         setupDirectTime();
-        $("#pc_username").change(function() { ChangeProviders(this); });
+        $("#pc_username").change(function() {
+            // @VH
+            $("#provider_groups").val('0');
+            ChangeProviders(this); 
+        });
         // @VH: Script Change [V100034]
         //$("#pc_facility").change(function() { ChangeProviders(this); });
         $("#pc_facility").change(function() { 
@@ -1080,8 +1084,31 @@ echo "</div>\n";
         });
         // @VH: Provider group change. [V100034]
         $("#provider_groups").change(function() {
-            $("#pc_username").val('__PC_ALL__');
+            $("#pc_username").val('');
             $("#pc_facility").val('0');
+
+            let selected_group = $('#provider_groups').val();
+            // Split the string by commas, and then trim spaces from each item
+            let provider_list = selected_group.split(',').map(item => item.trim());
+            let providerusernamelist = [];
+            if (Array.isArray(provider_list) && provider_list.length > 0) {
+                provider_list.forEach(function(provitem, index) {
+                    let proOptEle = $('#pc_username option[data-userid="'+ provitem +'"]');
+                    if (proOptEle) {
+                        let prouseridval = proOptEle.attr('data-userid');
+                        let prousernameval = proOptEle.attr('value');
+                        if (prouseridval != "" && prouseridval == provitem) {
+                            providerusernamelist.push(prousernameval);
+                        }
+                    }
+                });
+            }
+            if (Array.isArray(providerusernamelist) && providerusernamelist.length > 0) {
+                $('#pc_username').val(providerusernamelist);
+            } else {
+                // Not valid user selected
+                $("#pc_username").val('__PC_ALL__');
+            }
 
             // Change providers
             ChangeProviders(this); 
