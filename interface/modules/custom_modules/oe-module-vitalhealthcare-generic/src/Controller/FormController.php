@@ -108,7 +108,7 @@ class FormController
     }
 
     // Get Form Template Details
-	public function getFormTemplates($formId = "", $status = "") {
+	public function getFormTemplates($formId = "", $status = "", $selectQtr = "vft.*") {
 		$strWhere = "";
 		$binds = array();
 
@@ -122,7 +122,7 @@ class FormController
 			$binds[] = $status;
 		}
 
-		$ftResult = sqlStatementNoLog("SELECT vft.* from vh_form_templates vft where vft.id != '' " . $strWhere . " order by vft.id desc", $binds);
+		$ftResult = sqlStatementNoLog("SELECT " . $selectQtr . " from vh_form_templates vft where vft.id != '' " . $strWhere . " order by vft.id desc", $binds);
 
 		$ftReturn = [];
 		while ($ftRow = sqlFetchArray($ftResult)) {
@@ -131,6 +131,25 @@ class FormController
 
 		return $ftReturn;
 	}
+
+    // Get Form Template Details
+    public function getFormTemplatesByIds($formId = array(), $status = "", $selectQtr = "vft.*") {
+        $strWhere = "";
+        $binds = array();
+        if(!empty($formId) && is_array($formId)) {
+            $strWhere .= " and vft.id in ('" . implode("','", $formId) .  "') ";
+        }
+        if(!empty($status)) {
+            $strWhere .= " and vft.status = ? ";
+            $binds[] = $status;
+        }
+        $ftResult = sqlStatementNoLog("SELECT " . $selectQtr . " from vh_form_templates vft where vft.id != '' " . $strWhere . " order by vft.id desc", $binds);
+        $ftReturn = [];
+        while ($ftRow = sqlFetchArray($ftResult)) {
+            $ftReturn[] = $ftRow;
+        }
+        return $ftReturn;
+    }
 
     // Get Onsite Form Data By Id
 	public function getOnsiteForms($formDataId = "", $authPid = "") {
@@ -369,7 +388,7 @@ class FormController
         $formId = isset($opts['form_id']) ? $opts['form_id'] : "";
         $authPid = isset($opts['pid']) ? $opts['pid'] : "";
 
-        $formTemplateList = $this->getFormTemplates($formId, "1");
+        $formTemplateList = $this->getFormTemplates($formId, "1", "vft.id, vft.template_name, vft.email_template, vft.sms_template, vft.status, vft.to_patient, vft.uid");
 
         $formTemplateResults = [];
         foreach ($formTemplateList as $formTemplateItem) {
@@ -464,6 +483,15 @@ class FormController
                             $finalResult['i' . $row['form_data_id']]['template'] = $packetTemplateList[0];
                         }
                     }
+                } else {
+                    // Else set status value
+                    if($row['form_type'] == FormController::FORM_LABEL) {
+                        $finalResult['i' . $row['form_data_id']]['status'] = $row['status'];
+                    } else if($row['form_type'] == FormController::PACKET_LABEL) {
+                        $finalResult['i' . $row['form_data_id']]['status'] = array(FormController::PENDING_LABEL);
+                    }
+
+                    $finalResult['i' . $row['form_data_id']]['created_date'] = $row['data_created_date'];
                 }
             }
 
@@ -495,16 +523,30 @@ class FormController
             $formStatusList[] = FormController::SUBMIT_LABEL;
         }
 
-        $formDataItems = $this->getOnsiteDataItems(array('form_id' => $templateId, 'pid' => $authPid, 'status' => $formStatusList, 'type' => $formType));
+        $formDataItems = $this->getOnsiteDataItems(array('form_id' => $templateId, 'pid' => $authPid, 'status' => $formStatusList, 'type' => $formType, 'other_details' => false));
 
         $hasFormAccess = false;
         $formTemplateResults = [];
         $finalformTemplateResults = [];
 
+        $formTemplateList = array();
+        $packetTemplateList = array();
+
         foreach ($formDataItems as $dikey => $dItem) {
-            unset($dItem['template']['template_content']);
+            //unset($dItem['template']['template_content']);
 
             if($dItem['form_type'] == FormController::FORM_LABEL) {
+                if (!isset($formTemplateList['t' . $dItem['form_id']])) {
+                    $ft = $this->getFormTemplates($dItem['form_id'], "1", "vft.id, vft.template_name, vft.email_template, vft.sms_template, vft.status, vft.to_patient, vft.uid");
+                    if (!empty($ft) && is_array($ft) && count($ft) > 0) {
+                        $formTemplateList['t' . $dItem['form_id']] = $ft[0];
+                    }
+                }
+                // Set template data
+                if (isset($formTemplateList['t' . $dItem['form_id']])) {
+                    $dItem['template'] = $formTemplateList['t' . $dItem['form_id']];
+                }
+
                 $isFormAssigned = $this->isFormAssigned($dItem['template'], $authPid);
                 $formTemplateItem = isset($dItem['form_items']) && count($dItem['form_items']) > 0 ? $dItem['form_items'][0] : array();
 
@@ -513,6 +555,17 @@ class FormController
                     $hasFormAccess = true;
                 }
             } else if($dItem['form_type'] == FormController::PACKET_LABEL) {
+                if (!isset($packetTemplateList['t' . $dItem['form_id']])) {
+                    $pt = $this->getPacketTemplates($dItem['form_id'], "1", false);
+                    if (!empty($pt) && is_array($pt) && count($pt) > 0) {
+                        $packetTemplateList['t' . $dItem['form_id']] = $pt[0];
+                    }
+                }
+                // Set template data
+                if (isset($packetTemplateList['t' . $dItem['form_id']])) {
+                    $dItem['template'] = $packetTemplateList['t' . $dItem['form_id']];
+                }
+                
                 $formTemplateResults[] = $dItem;
                 $hasFormAccess = true;
             }
@@ -1751,7 +1804,7 @@ class FormController
     // Packets
 
     // Get Form Template Details
-    public function getPacketTemplates($packetId = "", $status = "") {
+    public function getPacketTemplates($packetId = "", $status = "", $formListRequired = true) {
         $strWhere = "";
         $binds = array();
 
@@ -1765,20 +1818,19 @@ class FormController
             $binds[] = $status;
         }
 
-        $pResult = sqlStatementNoLog("SELECT vfp.*, vfp.name as template_name from vh_form_packets vfp where vfp.id != '' " . $strWhere . " order by vfp.id desc", $binds);
+        $pResult = sqlStatementNoLog("SELECT vfp.*, vfp.name as template_name, (select GROUP_CONCAT(vpl2.form_id) from vh_packet_link vpl2 where vpl2.packet_id = vfp.id) as form_ids from vh_form_packets vfp where vfp.id != '' " . $strWhere . " order by vfp.id desc", $binds);
 
         $pReturn = [];
         while ($row = sqlFetchArray($pResult)) {
 
             $row['form_items'] = array();
 
-            // Get link form data
-            $plResult = sqlStatementNoLog("SELECT vpl.* from vh_packet_link vpl where vpl.packet_id = ?", $row['id']);
-            while ($plrow = sqlFetchArray($plResult)) {
-                if(isset($plrow['form_id'])) {
-                    $formTemplateDetails = $this->getFormTemplates($plrow['form_id']);
-                    if(!empty($formTemplateDetails) && count($formTemplateDetails) > 0) {
-                        $row['form_items'][] = $formTemplateDetails[0];
+            if ($formListRequired === true && isset($row['form_ids']) && $row['form_ids'] != "") {
+                $formIdList = array_map('trim', explode(",", $row['form_ids']));
+                if (!empty($formIdList)) {
+                    $formItemList = $this->getFormTemplatesByIds($formIdList);
+                    if (!empty($formItemList) && is_array($formItemList)) {
+                        $row['form_items'] = $formItemList;
                     }
                 }
                 
@@ -1793,7 +1845,7 @@ class FormController
     // Get Packet Template List
     public function getPacketTemplateList($opts = array()) {
         $packetId = isset($opts['packet_id']) ? $opts['packet_id'] : "";
-        $packetTemplateList = $this->getPacketTemplates($packetId, "1");
+        $packetTemplateList = $this->getPacketTemplates($packetId, "1", false);
 
         $packetTemplateResults = [];
         foreach ($packetTemplateList as $packetTemplateItem) {

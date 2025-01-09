@@ -128,7 +128,7 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 		$row_item['template_name'] = $formTemplate[0]['template_name'];
 		$row_item['template_status'] = $formTemplate[0]['status'];
 	} else if($row_item['form_type'] == FormController::PACKET_LABEL) {
-		$formTemplate = $patientForm->getPacketTemplates($row_item['form_id']);
+		$formTemplate = $patientForm->getPacketTemplates($row_item['form_id'], '', false);
 
 		$row_item['template_name'] = $formTemplate[0]['name'];
 		$row_item['template_status'] = $formTemplate[0]['status'];
