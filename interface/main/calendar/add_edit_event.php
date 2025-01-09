@@ -2829,7 +2829,11 @@ async function GetDefaultFacilityFromBlock(hr, mt) {
     if(result) {
         resultObj = JSON.parse(result);
         if(resultObj['facility'] && resultObj['facility'] != $('#facility').val()) {
-            if (!confirm("<?php echo addslashes(xl('This appointment facility does not match the facility listed in the IN block.  Press Cancel to correct this appointment. Press Ok to save as-is')); ?>")) {
+            let extraMsg = "";
+            if (resultObj['block_count'] && resultObj['block_count'] > 1) {
+                extraMsg = " \n(Note: Total "+ resultObj['block_count'] +" IN Office block found. )";
+            }
+            if (!confirm("<?php echo addslashes(xl('This appointment facility does not match the facility listed in the IN block.  Press Cancel to correct this appointment. Press Ok to save as-is.')); ?>" + extraMsg)) {
                 //$('#facility').val(resultObj['facility']);
                 return false;
             }

@@ -13,7 +13,9 @@ $form_date = isset($_REQUEST['form_date']) ? $_REQUEST['form_date'] : "";
 $form_provider = isset($_REQUEST['form_provider']) ? $_REQUEST['form_provider'] : "";
 $form_ampm = isset($_REQUEST['form_ampm']) ? $_REQUEST['form_ampm'] : "";
 
-$response = array();
+$response = array(
+	'block_count' => 0
+);
 
 if(empty($form_hour) || empty($form_minute) || empty($form_date) || empty($form_provider)) {
 	return json_encode($response);
@@ -41,12 +43,22 @@ $defFacility = getDefaultFacility1($provIDs, $starting_date, $inEvents);
 
 foreach ($defFacility as $provider => $pItems) {
 	foreach ($pItems as $pKey => $pItem) {
-		$eStartTime = DateTime::createFromFormat('Y-m-d H:i:s', $pItem['startTime']);
-		$eEndTime = DateTime::createFromFormat('Y-m-d H:i:s', $pItem['endTime']);
+		$eStartTime = \DateTime::createFromFormat('Y-m-d H:i:s', $pItem['startTime']);
+		$eEndTime = \DateTime::createFromFormat('Y-m-d H:i:s', $pItem['endTime']);
 
 		if($eStartTime <= $form_date_obj && $eEndTime >= $form_date_obj) {
 			$response['facility'] = $pItem['facility'];
 			break;
+		}
+	}
+}
+
+foreach ($defFacility as $provider => $pItems) {
+	foreach ($pItems as $pKey => $pItem) {
+		$eStartTime1 = \DateTime::createFromFormat('Y-m-d H:i:s', $pItem['startTime']);
+		$eEndTime1 = \DateTime::createFromFormat('Y-m-d H:i:s', $pItem['endTime']);
+		if($eStartTime1 <= $form_date_obj && $eEndTime1 >= $form_date_obj) {
+			$response['block_count']++;
 		}
 	}
 }
