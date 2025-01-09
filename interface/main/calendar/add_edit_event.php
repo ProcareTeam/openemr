@@ -285,7 +285,7 @@ function DOBandEncounter($pc_eid)
             }
 
             // @VH: Get pending form and order details
-            $pendingDetails = getPendingItemsDetails($created_eid);
+            $pendingDetails = getPendingItemsDetails($pc_eid);
             if (!empty($pendingDetails)) {
                 $info_msg .= "\\n" . str_replace(['<br>', '<br />'], "\\n", $pendingDetails);
             }
