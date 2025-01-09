@@ -25,14 +25,57 @@ if (isset($_REQUEST['ajax']) && $_REQUEST['ajax'] == "1") {
 		}
 	} else {
 		?>
-		<li class="menuLabel">
+		<!-- <li class="menuLabel">
         	<div class="d-flex">
-        		<div><?php echo xlt('Not Found'); ?></div>
+        		<div><?php //echo xlt('Not Found'); ?></div>
 				<div class="ml-auto"></div>
         	</div>
-        </li>
+        </li> -->
 		<?php
 	}
+
+	exit();
+} else if (isset($_REQUEST['ajax']) && $_REQUEST['ajax'] == "2") {
+	require_once(__DIR__ . '/../../../globals.php');
+
+	//verify csrf
+	if (!\OpenEMR\Common\Csrf\CsrfUtils::verifyCsrfToken($_REQUEST["csrf_token_form"])) {
+	    echo json_encode(array("error" => xl('Authentication Error') ));
+	    \OpenEMR\Common\Csrf\CsrfUtils::csrfNotVerified(false);
+	}
+
+	$cat_name = "New Chiropractic Patient Exam";
+	$current_week = sqlQuery("select count(ope.pc_eid) as total from openemr_postcalendar_events ope join openemr_postcalendar_categories opc on ope.pc_catid = opc.pc_catid where week(ope.pc_eventdate)=week(now()) and year(ope.pc_eventdate)=year(now()) and ope.pc_apptstatus not in ('x','%','?') and opc.pc_catid = 30;");
+	$current_week_last_year = sqlQuery("select count(ope.pc_eid) as total from openemr_postcalendar_events ope join openemr_postcalendar_categories opc on ope.pc_catid = opc.pc_catid where week(ope.pc_eventdate)=week(now()) and year(ope.pc_eventdate)=year(now())-1 and ope.pc_apptstatus not in ('x','%','?') and opc.pc_catid = 30;");
+	$previous_week = sqlQuery("select count(ope.pc_eid) as total from openemr_postcalendar_events ope join openemr_postcalendar_categories opc on ope.pc_catid = opc.pc_catid where week(ope.pc_eventdate)=week(now())-1 and year(ope.pc_eventdate)=year(now()) and ope.pc_apptstatus not in ('x','%','?') and opc.pc_catid = 30;");
+	$previous_week_last_year = sqlQuery("select count(ope.pc_eid) as total from openemr_postcalendar_events ope join openemr_postcalendar_categories opc on ope.pc_catid = opc.pc_catid where week(ope.pc_eventdate)=week(now())-1 and year(ope.pc_eventdate)=year(now())-1 and ope.pc_apptstatus not in ('x','%','?') and opc.pc_catid = 30;");
+
+	?>
+	<li class="menuLabel">
+    	<div class="d-flex">
+    		<div><b><?php echo xlt('New Chiro Current Week'); ?></b></div>
+			<div class="ml-auto"><?php echo !empty($current_week) && isset($current_week['total']) ? $current_week['total'] : 0 ?></div>
+    	</div>
+    </li>
+    <li class="menuLabel">
+    	<div class="d-flex">
+    		<div><b><?php echo xlt('New Chiro Current Week Last Year'); ?></b></div>
+			<div class="ml-auto"><?php echo !empty($current_week_last_year) && isset($current_week_last_year['total']) ? $current_week_last_year['total'] : 0 ?></div>
+    	</div>
+    </li>
+    <li class="menuLabel">
+    	<div class="d-flex">
+    		<div><b><?php echo xlt('New Chiro Previous Week'); ?></b></div>
+			<div class="ml-auto"><?php echo !empty($previous_week) && isset($previous_week['total']) ? $previous_week['total'] : 0 ?></div>
+    	</div>
+    </li>
+    <li class="menuLabel">
+    	<div class="d-flex">
+    		<div><b><?php echo xlt('New Chiro Previous Week Last Year'); ?></b></div>
+			<div class="ml-auto"><?php echo !empty($previous_week_last_year) && isset($previous_week_last_year['total']) ? $previous_week_last_year['total'] : 0 ?></div>
+    	</div>
+    </li>
+	<?php
 
 	exit();
 }
@@ -66,6 +109,10 @@ if (isset($_REQUEST['ajax']) && $_REQUEST['ajax'] == "1") {
 	            <i class="fa fa-info-circle" aria-hidden="true"></i>
 	        </span>
 	        <ul id="apptinfodropdown" class="apptfunctions menuEntries dropdown-menu dropdown-menu-right menu-shadow-ovr rounded-0 border-0">
+	        	<ul id="stats1">
+	        	</ul>
+	        	<ul id="stats2">
+	        	</ul>
 	        </ul>
 	    </div>
 	</div>
@@ -85,7 +132,7 @@ if (isset($_REQUEST['ajax']) && $_REQUEST['ajax'] == "1") {
         		// When the page is loaded convert it to text
         		return response.text()
     	}).then((htmldata) => {
-            document.getElementById('apptinfodropdown').innerHTML = htmldata;
+            document.querySelector('#apptinfodropdown #stats1').innerHTML = htmldata;
         }).catch(function(error) {
             console.log('HTML Background Service start Request failed: ', error);
         });
@@ -93,7 +140,26 @@ if (isset($_REQUEST['ajax']) && $_REQUEST['ajax'] == "1") {
 		var repeater = setTimeout("goApptInfoRepeaterServices()", 10000);	
 	}
 
+	function fetchStats2() {
+		request = new FormData;
+        request.append("ajax", "2");
+        request.append("csrf_token_form", csrf_token_js);
+        fetch(webroot_url + "/interface/main/tabs/templates/appt_data_info_template.php", {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: request
+        }).then(function(response) {
+        		// When the page is loaded convert it to text
+        		return response.text()
+    	}).then((htmldata) => {
+            document.querySelector('#apptinfodropdown #stats2').innerHTML = htmldata;
+        }).catch(function(error) {
+            console.log('HTML Background Service start Request failed: ', error);
+        });
+	}
+
 	$(function() {
         goApptInfoRepeaterServices();
+        fetchStats2();
     });
 </script>
