@@ -414,9 +414,9 @@ class Bootstrap
             );
         }
 
-        $ubh_manager_section = xlt("Uber Helth Configuration");
-        $service->createSection($ubh_manager_section, 'Uber Helth Configuration');
-        $ubh_manager_settings = $this->globalsConfig->getUberHelthGlobalSettingSectionConfiguration();
+        $ubh_manager_section = xlt("Uber Health Configuration");
+        $service->createSection($ubh_manager_section, 'Uber Health Configuration');
+        $ubh_manager_settings = $this->globalsConfig->getUberHealthGlobalSettingSectionConfiguration();
         foreach ($ubh_manager_settings as $key => $config) {
             $value = $GLOBALS[$key] ?? $config['default'];
             $service->appendToSection(
