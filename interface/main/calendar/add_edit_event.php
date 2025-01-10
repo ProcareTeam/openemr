@@ -1524,6 +1524,22 @@ if ($groupid) {
           });
     }
 
+    // Uber popup window
+    function uberPopupWindow() {
+        let form_pid_val = $("input[name='form_pid']").val();
+        let form_facility_val = $("select[name='facility']").val();
+        if (form_pid_val == "") {
+            alert("Please select patient");
+            return false;
+        }
+        if (form_facility_val == "" ) {
+            alert("Please select provider");
+            return false;
+        }
+        var href = "../../modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/uber_estimatetime.php?form_pid=" + form_pid_val + "&facility_id=" + form_facility_val;
+        dlgopen(href, 'ubertrippopup', 'modal-lg', '800', '', '<?php echo xlt('Uber'); ?>');
+    }
+
 </script>
 <!-- End -->
 
@@ -2511,6 +2527,8 @@ if (empty($_GET['prov'])) { ?>
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-danger" type='button' name='form_delete' id='form_delete' value='<?php echo xla('Delete'); ?>'<?php echo (!$eid) ? " disabled" : ""; ?> />
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-secondary" type='button' id='cancel' onclick="dlgclose()" value='<?php echo xla('Cancel'); ?>' />
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-secondary" type='button' name='form_duplicate' id='form_duplicate' value='<?php echo xla('Create Duplicate'); ?>' />
+
+    <button type="button" id="uber_button" class="btn btn-primary btn-sm" title='Email Message' onclick="uberPopupWindow()"><?php echo xlt('Uber'); ?></button>
 </div>
 
 <!-- @VH: Bottom info container [V100021] -->

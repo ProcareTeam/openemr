@@ -285,3 +285,62 @@ ALTER TABLE `form_encounter` ADD COLUMN `vh_first_esign_datetime` datetime defau
 ALTER TABLE `message_log` ADD COLUMN `source` varchar(255) DEFAULT 'twilio' AFTER `type`;
 #EndIf
 
+#IfNotTable vh_uber_health_trips
+CREATE TABLE `vh_uber_health_trips` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `request_id` varchar(255) DEFAULT NULL,
+  `pid` bigint(20) DEFAULT NULL,
+  `user_id` bigint(20) DEFAULT NULL,
+  `rider_first_name` varchar(255) DEFAULT NULL,
+  `rider_last_name` varchar(255) DEFAULT NULL,
+  `rider_phone_number` varchar(255) DEFAULT NULL,
+  `pickup_lat` DECIMAL(10, 6) NOT NULL,
+  `pickup_lng` DECIMAL(10, 6) NOT NULL,
+  `pickup_address` varchar(255) DEFAULT NULL,
+  `dropoff_lat` DECIMAL(10, 6) NOT NULL,
+  `dropoff_lng` DECIMAL(10, 6) NOT NULL,
+  `dropoff_address` varchar(255) DEFAULT NULL,
+  `trip_type` varchar(50) DEFAULT NULL,
+  `trip_leg_number` DECIMAL(2) DEFAULT 0,
+  `trip_status` varchar(255) DEFAULT NULL,
+  `linked_request_id` varchar(255) DEFAULT NULL,
+  `trip_schedule_date` DATE DEFAULT NULL,
+  `trip_schedule_time` TIME DEFAULT NULL,
+  `trip_request_payload` longtext  DEFAULT NULL,
+  `trip_response` longtext  DEFAULT NULL,
+  `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+#IfNotTable vh_addresses_geocode
+CREATE TABLE `vh_addresses_geocode` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `formatted_address` varchar(255) NOT NULL,
+  `lat` DECIMAL(10, 6) NOT NULL,
+  `lng` DECIMAL(10, 6) NOT NULL,
+  `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+#IfNotTable vh_uber_health_trips
+CREATE TABLE `vh_uber_health_token` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `client_id` varchar(255) DEFAULT NULL,
+  `access_token` TEXT DEFAULT NULL,
+  `scope` varchar(255) DEFAULT NULL,
+  `expires_in` varchar(255) DEFAULT NULL,
+  `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+#IfNotTable vh_uber_health_trips_log
+CREATE TABLE `vh_uber_health_trips_log` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `request_id` varchar(255) NOT NULL,
+  `event` varchar(255) NOT NULL,
+  `event_value` longtext  DEFAULT NULL,
+  `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`id`)
+);
+#EndIf
+

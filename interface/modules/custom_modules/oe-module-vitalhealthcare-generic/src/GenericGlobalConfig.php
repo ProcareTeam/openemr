@@ -238,4 +238,23 @@ class GenericGlobalConfig
         ];
         return $settings;
     }
+
+    public function getUberHealthGlobalSettingSectionConfiguration()
+    {
+        $settings = [
+            'ub_client_id' => [
+                'title' => 'Uber Health Client Id'
+                ,'description' => 'Uber Health Client Id'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+            'ub_client_secret' => [
+                'title' => 'Uber Health Client Secret'
+                ,'description' => 'Uber Health Client Secret'
+                ,'type' => GlobalSetting::DATA_TYPE_ENCRYPTED
+                ,'default' => ''
+            ]
+        ];
+        return $settings;
+    }
 }

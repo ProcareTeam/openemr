@@ -413,5 +413,23 @@ class Bootstrap
                 )
             );
         }
+
+        $ubh_manager_section = xlt("Uber Helth Configuration");
+        $service->createSection($ubh_manager_section, 'Uber Helth Configuration');
+        $ubh_manager_settings = $this->globalsConfig->getUberHelthGlobalSettingSectionConfiguration();
+        foreach ($ubh_manager_settings as $key => $config) {
+            $value = $GLOBALS[$key] ?? $config['default'];
+            $service->appendToSection(
+                $ubh_manager_section,
+                $key,
+                new GlobalSetting(
+                    xlt($config['title']),
+                    $config['type'],
+                    $value,
+                    xlt($config['description']),
+                    true
+                )
+            );
+        }
     }
 }

@@ -18,6 +18,7 @@ use Vitalhealthcare\OpenEMR\Modules\Generic\Api\GenericRestController;
 use Vitalhealthcare\OpenEMR\Modules\Generic\Api\ZoomRestController;
 use Vitalhealthcare\OpenEMR\Modules\Generic\Api\PatientFormController;
 use Vitalhealthcare\OpenEMR\Modules\Generic\Api\PortalRestController;
+use Vitalhealthcare\OpenEMR\Modules\Generic\Api\UberRestController;
 use OpenEMR\Events\Generic\AuthEvent;
 
 class ApiController
@@ -89,6 +90,9 @@ class ApiController
 
         $zoomApiController = new ZoomRestController();
         $event->addToRouteMap('POST /api/zoom_webhook', [$zoomApiController, 'zoomWebHook']);
+
+        $uberApiController = new UberRestController();
+        $event->addToRouteMap('POST /api/uber_webhook', [$uberApiController, 'uberWebhook']);
 
         $patientFormApiController = new PatientFormController();    
         $event->addToRouteMap('POST /api/formauthcheck', [$patientFormApiController, 'formAuthCheck']);
@@ -162,6 +166,19 @@ class ApiController
             if (\RestConfig::areSystemScopesEnabled()) {
                 $scopes[] = 'system/zoom_webhook.read';
                 $scopes[] = 'system/zoom_webhook.write';
+            }
+            // End
+
+            // uber_webhook
+            $scopes[] = 'user/uber_webhook.read';
+            $scopes[] = 'patient/uber_webhook.read';
+            $scopes[] = 'user/uber_webhook.write';
+            $scopes[] = 'patient/uber_webhook.write';
+            
+            // only add system scopes if they are actually enabled
+            if (\RestConfig::areSystemScopesEnabled()) {
+                $scopes[] = 'system/uber_webhook.read';
+                $scopes[] = 'system/uber_webhook.write';
             }
             // End
 
@@ -254,7 +271,7 @@ class ApiController
      */
     public function skipSecurityCheck(RestApiSecurityCheckEvent $event)
     {   
-        if (in_array($event->getResource(), array('zoom_webhook', 'patientform', 'formauthcheck'))) {
+        if (in_array($event->getResource(), array('zoom_webhook', 'patientform', 'formauthcheck', 'uber_webhook'))) {
             $event->skipSecurityCheck(true);
         }
     }

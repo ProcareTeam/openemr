@@ -150,6 +150,16 @@ class MenuController
                             "requirement" => 0,
                             "acl_req" => array("patients", "appt")
                         )));
+
+                array_splice($menuList[$key1]->children, 13, 0, array((object) array(
+                            "label" => "Uber Dashboard",
+                            "menu_id" => "ub1",
+                            "target" => "msc",
+                            "url" => "/interface/modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/trips_manager.php",
+                            "children"=> array(),
+                            "requirement" => 0,
+                            "acl_req" => array("patients", "appt")
+                        )));
             }
         }
 
