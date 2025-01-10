@@ -330,14 +330,14 @@ class Grab {
 		    case 'Spanish':
 		        setlocale(LC_TIME, array('esm','es_ES.utf8') );
 				$this->appt_full = strftime("%A, %e de %B %G", $start);
-				$this->appt_date = strftime("%d/%m/%G", $start);
+				$this->appt_date = strftime("%d/%m/%Y", $start);
 				$this->appt_time = strftime("%H:%M", $start);
 				$this->appt_ends = ($ends)? strftime("%H:%M", $ends) : '';
 				setlocale(LC_TIME, '');
 		        break;
 		    default: // system setting
 		        $this->appt_full = strftime("%A, %B %e, %G", $start);
-				$this->appt_date = strftime("%m/%d/%G", $start);
+				$this->appt_date = strftime("%m/%d/%Y", $start);
 				$this->appt_time = strftime("%I:%M %p", $start);
 				$this->appt_ends = ($ends)? strftime("%I:%M %p", $ends) : '';
 				break;
