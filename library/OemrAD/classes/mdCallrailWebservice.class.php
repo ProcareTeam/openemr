@@ -3,6 +3,7 @@
 namespace OpenEMR\OemrAd;
 
 @include_once(__DIR__ . "/../interface/globals.php");
+@include_once("$srcdir/patient.inc");
 
 use OpenEMR\Common\Crypto\CryptoGen;
 
@@ -106,7 +107,23 @@ class CallrailWebservice {
 			$toNumber = preg_replace("/[^0-9]/", "", $toNumber);
 			$fromNumber = preg_replace("/[^0-9]/", "", $fromNumber);
 
-			$insertStatus = self::insertMsg("SMS_RECEIVED", $toNumber, $fromNumber, 0, $msgId, $timestamp, "SMS_RECEIVED", $message, $direction, true);
+			$pids = array();
+			if ($direction == "in" && !empty($fromNumber)) {
+				$pParam = array();
+    			$pParam["phone_cell"] = array("value" => $fromNumber, "condition" => "");
+    			$pat_data = @getPatientByCondition($pParam, "pid");
+    			if (!empty($pat_data) && is_array($pat_data) && array_key_exists('pid', $pat_data)) {
+					$pids[] = $pat_data['pid'];
+				} else if(is_array($pat_data) && count($pat_data) > 0) {
+					foreach ($pat_data as $pItem) {
+						$pids[] = $pItem['pid'];
+					}
+				}
+				
+			}
+			// Unique patient found
+			$pid = ( is_array($pids) && count($pids) == 1) ? $pids[0] : '';
+			$insertStatus = self::insertMsg("SMS_RECEIVED", $toNumber, $fromNumber, $pid, $msgId, $timestamp, "SMS_RECEIVED", $message, $direction, true);
 
 			if (!empty($insertStatus)) {
 				$responceData['synced_count']++;
@@ -133,7 +150,7 @@ class CallrailWebservice {
 		$binds[] = $direction;
 		$binds[] = 'Pro-Care Bi-Directional';
 		$binds[] = $_SESSION['authUserID'] ?? 0;
-		$binds[] = (empty($pid))? $pid : 0;
+		$binds[] = (!empty($pid))? $pid : 0;
 		$binds[] = null;
 		$binds[] = $toNumber;
 		$binds[] = $fromNumber;
