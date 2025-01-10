@@ -512,6 +512,8 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     <i id="print_caret" class='fa fa-caret-<?php echo $caret = ($setting_selectors == 'none') ? 'down' : 'up'; ?> fa-stack-1x'></i>
                 </span>
 
+                <!-- @VH: Added Update Status Button -->
+                <a class='btn btn-primary btn-status-update' onclick="updateStatus();"> <?php echo xlt('Update Status'); ?></a>
                 <a class="btn btn-primary btn-setting" data-toggle="collapse" href="#collapseSetting">
                     <?php echo xlt('Setting'); ?>
                 </a>
@@ -544,6 +546,10 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                 <?php //echo xlt('PID'); ?>
                             </td> -->
                         <?php //} ?>
+
+                        <!-- @VH: Select item for status update -->
+                        <td class="dehead text-center" style="max-width:50px;">
+                        </td>
                         <td class="dehead text-center" style="max-width:150px;" name="kiosk_hide">
                             <?php echo xlt('PID'); ?>
                         </td>
@@ -637,6 +643,10 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     <td class="details-control" name="kiosk_hide"></td>
 
                     <!-- OEMR - Change -->
+                    <td>
+                        <input type="checkbox" data-trackerid="<?php echo $tracker_id; ?>" name="sel_item[<?php echo attr_js($tracker_id); ?>]" class="sel_item" value="1" />
+                    </td>
+                    <!-- @VH: Select item for status update -->
                     <td class="detail hidden-xs" align="center" name="kiosk_hide">
                         <?php echo text($appointment['pubpid']); ?>
                     </td>
@@ -779,7 +789,7 @@ function myLocalJS()
         $("[name='kiosk_hide']").show();
         $("[name='kiosk_show']").hide();
 
-        /* OEMR - Changes */
+        /* @VH: Changes */
         function changePage(page_no, init = false) {
             if(page_no && page_no != '') {
                 let errorMsg = [];
@@ -798,6 +808,28 @@ function myLocalJS()
                 $('#flb').submit();
             }
         }
+
+        // @VH: Update appt status
+        function updateStatus() {
+            let selectedItemsList = [];
+            $('.sel_item').each(function(index, selitem) {
+                if ($(selitem).is(":checked") === true) {
+                    let trackerid = $(selitem).attr("data-trackerid");
+                    if (trackerid != "") {
+                        selectedItemsList.push(trackerid);
+                    }
+                }
+            });
+            if (selectedItemsList.length > 15) {
+                alert("Please don't select more than 15 items.");
+            } else if (selectedItemsList.length > 0) {
+                top.restoreSession();
+                dlgopen('<?php echo $GLOBALS['webroot']; ?>/interface/patient_tracker/patient_tracker_status.php?tracker_id=' + encodeURIComponent(selectedItemsList.join(",")) + '&update_mutiple_status=1&csrf_token_form=' + <?php echo js_url(CsrfUtils::collectCsrfToken()); ?>, '_blank', 500, 250);
+            } else {
+                alert('Please select items for update status.');
+            }
+        }
+        
         /* End */
 
         function print_FLB() {
