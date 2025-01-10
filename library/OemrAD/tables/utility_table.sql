@@ -212,3 +212,70 @@ ALTER TABLE `documents` ADD COLUMN `case_id` bigint(20) default 0 AFTER `importe
 #IfMissingColumn insurance_companies parent_company
 ALTER TABLE `insurance_companies` ADD COLUMN `parent_company` bigint(20) default 0;
 #EndIf
+
+#IfNotTable vh_uber_sync_log
+CREATE TABLE `vh_uber_sync_log` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `event_id` varchar(255) DEFAULT NULL,
+  `config_id` varchar(255) DEFAULT NULL,
+  `seq` bigint(20) DEFAULT '0',
+  `event_type` varchar(255) DEFAULT '0',
+  `tablename` varchar(255) NOT NULL,
+  `uniqueid` varchar(255) NOT NULL,
+  `uid` bigint(20) DEFAULT NULL,
+  `user_type` varchar(255) DEFAULT NULL,
+  `sent` tinyint(1) NOT NULL DEFAULT '0',
+  `sent_time` datetime DEFAULT NULL,
+  `trigger_time` datetime DEFAULT NULL,
+  `time_delay` varchar(255) DEFAULT '0',
+  `status` varchar(255) DEFAULT NULL,
+  `request_body` longtext,
+  `request_responce` longtext,
+  `created_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+);
+#EndIf
+
+#IfMissingColumn vh_inmoment_survey_log patientname
+alter table vh_inmoment_survey_log
+add column patientname  varchar(500),
+add column facility varchar(500),
+add column provider varchar(500),
+add column chartnumber  varchar(500),
+add column question1  varchar(500),
+add column answer1  varchar(500),
+add column question2  varchar(500),
+add column answer2  varchar(500),
+add column question3  varchar(500),
+add column answer3  varchar(500),
+add column question4  varchar(500),
+add column answer4 varchar(500),
+add column question5  varchar(500),
+add column answer5  varchar(500),
+add column question6 varchar(500),
+add column answer6 varchar(500),
+add column question7  varchar(500),
+add column answer7  varchar(500),
+add column question8 varchar(500),
+add column answer8 varchar(500),
+add column question9  varchar(500),
+add column answer9 varchar(500),
+add column question10 varchar(500),
+add column answer10 varchar(500),
+add column question11 varchar(500),
+add column answer11 varchar(500),
+add column question12 varchar(500),
+add column answer12 varchar(500),
+add column question13  varchar(500),
+add column answer13 varchar(500),
+add column question14 varchar(500), 
+add column answer14 varchar(500),
+add column question15 varchar(500),
+add column answer15 varchar(500),
+add column question16 varchar(500),
+add column answer16  varchar(500),
+add column question17 varchar(500),
+add column answer17 varchar(500),
+add column question18 varchar(500),
+add column answer18 varchar(500);
+#EndIf

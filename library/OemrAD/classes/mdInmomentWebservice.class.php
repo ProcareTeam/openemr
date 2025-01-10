@@ -1123,7 +1123,53 @@ class InmomentWebservice {
 			if ($surveysData) {
 				foreach ($surveysData as $surveyItem) {
 					if (isset($surveyItem['id'])) {
-						$rowId = sqlInsert("INSERT INTO `vh_inmoment_survey_log` ( org_id, response_id, responce ) VALUES (?, ?, ?) ", array($inm_orgid, $surveyItem['id'], json_encode($surveyItem)));
+						$surveyItemAnswers = $surveyItem['answers'] ?? array();
+						$surveyItemTags = $surveyItem['tags'] ?? array();
+						$rowId = sqlInsert("INSERT INTO `vh_inmoment_survey_log` ( org_id, response_id, responce, patientname, facility, provider, chartnumber, question1, answer1, question2, answer2, question3, answer3, question4, answer4, question5, answer5, question6, answer6, question7, answer7, question8, answer8, question9, answer9, question10, answer10, question11, answer11, question12, answer12, question13, answer13, question14, answer14, question15, answer15, question16, answer16, question17, answer17, question18, answer18 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ", array(
+							$inm_orgid, 
+							$surveyItem['id'], 
+							json_encode($surveyItem),
+							$surveyItemAnswers[1]['literalValue'] ?? "",
+							$surveyItemAnswers[2]['literalValue'] ?? "",
+							$surveyItemAnswers[3]['literalValue'] ?? "",
+							$surveyItemAnswers[4]['literalValue'] ?? "",
+							$surveyItemAnswers[12]['fieldText'] ?? "",
+							$surveyItemAnswers[12]['option']['name'] ?? "",
+							$surveyItemAnswers[13]['fieldText'] ?? "",
+							$surveyItemAnswers[13]['option']['name'] ?? "",
+							$surveyItemAnswers[14]['fieldText'] ?? "",
+							$surveyItemAnswers[14]['option']['name'] ?? "",
+							$surveyItemAnswers[15]['fieldText'] ?? "",
+							$surveyItemAnswers[15]['option']['name'] ?? "",
+							$surveyItemAnswers[16]['fieldText'] ?? "",
+							$surveyItemAnswers[16]['option']['name'] ?? "",
+							$surveyItemAnswers[17]['fieldText'] ?? "",
+							$surveyItemAnswers[17]['option']['name'] ?? "",
+							$surveyItemAnswers[18]['fieldText'] ?? "",
+							$surveyItemAnswers[18]['option']['name'] ?? "",
+							$surveyItemAnswers[19]['fieldText'] ?? "",
+							$surveyItemAnswers[19]['option']['name'] ?? "",
+							$surveyItemAnswers[20]['fieldText'] ?? "",
+							$surveyItemAnswers[20]['option']['name'] ?? "",
+							$surveyItemAnswers[21]['fieldText'] ?? "",
+							$surveyItemAnswers[21]['option']['name'] ?? "",
+							$surveyItemAnswers[22]['fieldText'] ?? "",
+							$surveyItemAnswers[22]['option']['name'] ?? "",
+							$surveyItemAnswers[23]['fieldText'] ?? "",
+							$surveyItemAnswers[23]['option']['name'] ?? "",
+							$surveyItemTags[1]['name'] ?? "",
+							$surveyItemTags[1]['enabled'] ?? "",
+							$surveyItemTags[2]['name'] ?? "",
+							$surveyItemTags[2]['enabled'] ?? "",
+							$surveyItemTags[3]['name'] ?? "",
+							$surveyItemTags[3]['enabled'] ?? "",
+							$surveyItemTags[4]['name'] ?? "",
+							$surveyItemTags[4]['enabled'] ?? "",
+							$surveyItemTags[5]['name'] ?? "",
+							$surveyItemTags[5]['enabled'] ?? "",
+							$surveyItemTags[6]['name'] ?? "",
+							$surveyItemTags[6]['enabled'] ?? "",
+						));
 						if (!empty($rowId)) {
 							$responceData['survey_count']++;
 						}
