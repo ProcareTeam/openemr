@@ -1058,7 +1058,7 @@ if (empty($trip_request_id)) {
 
 	<title><?php echo xlt('Uber'); ?></title>
 
-	<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAkva4wBBRFzCbShT5_auGTo9CQ9MxRHek&libraries=places&v=beta" async defer></script>
+	<script src="https://maps.googleapis.com/maps/api/js?key=?&libraries=places&v=beta" async defer></script>
 
 	<script type="text/javascript">
 		let map, directionsService, directionsRenderer, startAutocomplete, endAutocomplete, startMarker, endMarker, uberView;
