@@ -291,6 +291,7 @@ CREATE TABLE `vh_uber_health_trips` (
   `request_id` varchar(255) DEFAULT NULL,
   `pid` bigint(20) DEFAULT NULL,
   `user_id` bigint(20) DEFAULT NULL,
+  `eid` bigint(20) DEFAULT NULL,
   `rider_first_name` varchar(255) DEFAULT NULL,
   `rider_last_name` varchar(255) DEFAULT NULL,
   `rider_phone_number` varchar(255) DEFAULT NULL,

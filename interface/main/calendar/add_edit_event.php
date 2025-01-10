@@ -1536,8 +1536,21 @@ if ($groupid) {
             alert("Please select provider");
             return false;
         }
-        var href = "../../modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/uber_estimatetime.php?form_pid=" + form_pid_val + "&facility_id=" + form_facility_val;
+
+        let appt_form_date = $('input[name="form_date"]').val();
+        let appt_form_hour = $('input[name="form_hour"]').val();
+        let appt_form_minute = $('input[name="form_minute"]').val();
+        let appt_form_ampm = $('select[name="form_ampm"]').val();
+        var href = "../../modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/uber_estimatetime.php?form_pid=" + form_pid_val + "&facility_id=" + form_facility_val + '&form_eid=<?php echo $eid; ?>&default_date=' + appt_form_date;
         dlgopen(href, 'ubertrippopup', 'modal-lg', '800', '', '<?php echo xlt('Uber'); ?>');
+    }
+
+    function uberDetailsViewPopupWindow(request_ids = "") {
+        if (request_ids != "") {
+            dlgopen('<?php echo $GLOBALS['webroot']; ?>/interface/modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/trips_manager.php?view_mode=1&trip_request_id=' + request_ids, 'linkedTripWindow', 'modal-md', '500', false, 'Trip Details', {
+                onClosed: ''
+            });
+        }
     }
 
 </script>
@@ -2528,7 +2541,24 @@ if (empty($_GET['prov'])) { ?>
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-secondary" type='button' id='cancel' onclick="dlgclose()" value='<?php echo xla('Cancel'); ?>' />
     <input class="col-sm mx-sm-2 my-2 my-sm-auto btn btn-secondary" type='button' name='form_duplicate' id='form_duplicate' value='<?php echo xla('Create Duplicate'); ?>' />
 
-    <button type="button" id="uber_button" class="btn btn-primary btn-sm" title='Email Message' onclick="uberPopupWindow()"><?php echo xlt('Uber'); ?></button>
+    <?php
+    if (!empty($eid)) { 
+        $utRequestIds = array();
+        $utres = sqlStatement("SELECT vuht.request_id, vuht.eid, vuht.pid from vh_uber_health_trips vuht where vuht.eid = ? order by vuht.created_date desc", array($eid));
+        while ($urow = sqlFetchArray($utres)) {
+            $utRequestIds[] = $urow['request_id'];
+        }
+        if (empty($utRequestIds)) {
+            ?>
+            <button type="button" id="uber_button" class="btn btn-primary btn-sm" title='Uber trips' onclick="uberPopupWindow()"><?php echo xlt('Uber'); ?></button>
+            <?php
+        } else {
+            ?>
+            <button type="button" class="btn btn-primary btn-sm" title='Uber view trips details' onclick="uberDetailsViewPopupWindow('<?php echo implode(",", $utRequestIds) ?>')"><?php echo xlt('Ride Scheduled'); ?></button>
+            <?php
+        }
+    }
+    ?>
 </div>
 
 <!-- @VH: Bottom info container [V100021] -->
