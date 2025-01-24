@@ -141,17 +141,17 @@ function generateFilterQuery($filterData = array()) {
 		}
 
 		if(isset($filterData['delivery_date_from']) && !empty($filterData['delivery_date_from']) && isset($filterData['delivery_date_to']) && !empty($filterData['delivery_date_to'])) {
-			$filterData['delivery_date_from'] = date('Y/m/d', strtotime($filterData['delivery_date_from']));
-			$filterData['delivery_date_to'] = date('Y/m/d', strtotime($filterData['delivery_date_to']));
+			$filterData['delivery_date_from'] = date('Y-m-d', strtotime($filterData['delivery_date_from']));
+			$filterData['delivery_date_to'] = date('Y-m-d', strtotime($filterData['delivery_date_to']));
 			
-			$filterQryList[] = "(fc.bc_date IS NOT null and fc.bc_date != '' and date(fc.bc_date) between '".$filterData['delivery_date_from']."' and '".$filterData['delivery_date_to']."')";
+			$filterQryList[] = "(fc.bc_date IS NOT null and date(fc.bc_date) between '".$filterData['delivery_date_from']."' and '".$filterData['delivery_date_to']."')";
 		}
 
 		if(isset($filterData['create_time_from']) && !empty($filterData['create_time_from']) && isset($filterData['create_time_to']) && !empty($filterData['create_time_to'])) {
-			$filterData['create_time_from'] = date('Y/m/d', strtotime($filterData['create_time_from']));
-			$filterData['create_time_to'] = date('Y/m/d', strtotime($filterData['create_time_to']));
+			$filterData['create_time_from'] = date('Y-m-d', strtotime($filterData['create_time_from']));
+			$filterData['create_time_to'] = date('Y-m-d', strtotime($filterData['create_time_to']));
 			
-			$filterQryList[] = "(fc.`date` IS NOT null and fc.`date` != '' and date(fc.`date`) between '".$filterData['create_time_from']."' and '".$filterData['create_time_to']."')";
+			$filterQryList[] = "(fc.`date` IS NOT null and date(fc.`date`) between '".$filterData['create_time_from']."' and '".$filterData['create_time_to']."')";
 		}
 
 		if(!empty($filterQryList)) {
