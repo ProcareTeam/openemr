@@ -1541,7 +1541,15 @@ if ($groupid) {
         let appt_form_hour = $('input[name="form_hour"]').val();
         let appt_form_minute = $('input[name="form_minute"]').val();
         let appt_form_ampm = $('select[name="form_ampm"]').val();
-        var href = "../../modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/uber_estimatetime.php?form_pid=" + form_pid_val + "&facility_id=" + form_facility_val + '&form_eid=<?php echo $eid; ?>&default_date=' + appt_form_date;
+
+        appt_form_hour = appt_form_hour != "" ? Number(appt_form_hour) : "";
+        appt_form_minute = appt_form_minute != "" ? Number(appt_form_minute) : "";
+        //let fdate = appt_form_date + " " + appt_form_hour + ":" + appt_form_minute + ":00";
+        if (appt_form_ampm == "2" && appt_form_hour < 12) {
+            appt_form_hour += 12;
+        }
+        let appttime = appt_form_hour.toString().padStart(2, '0') + ":" + appt_form_minute.toString().padStart(2, '0') + ":00";
+        var href = "../../modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/uber_estimatetime.php?form_pid=" + form_pid_val + "&facility_id=" + form_facility_val + '&form_eid=<?php echo $eid; ?>&appt_date=' + appt_form_date + '&appt_time=' + appttime;
         dlgopen(href, 'ubertrippopup', 'modal-lg', '800', '', '<?php echo xlt('Uber'); ?>');
     }
 
@@ -2792,6 +2800,17 @@ async function validateform(event,valu){
     }
     <?php } ?>
     // END SECTION
+
+    // @VH - Check duration is not 0
+    <?php if(!$_GET['prov']) { ?>
+    let formDurationValue = Number(document.forms[0].form_duration.value);
+    if (Number.isNaN(formDurationValue) || formDurationValue <= 0) {
+        if (!confirm('<?php echo xls("Appointment duration value is not valid. It should be greater than 0.\nDo you still want to create?") ; ?>')) {
+            $('#form_save').attr('disabled', false);
+            return false;
+        }
+    }
+    <?php } ?>
 
     //Make sure if days_every_week is checked that at least one weekday is checked.
     if($('#days_every_week').is(':checked') && !are_days_checked()){
