@@ -17,15 +17,14 @@
  * @copyright Copyright (c) 2017 Ray Magauran <magauran@medexbank.com>
  * @license https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
  */
-
 require_once "../globals.php";
-require_once "$srcdir/patient.inc.php";
+require_once "$srcdir/patient.inc";
 require_once "$srcdir/options.inc.php";
 require_once "$srcdir/patient_tracker.inc.php";
-require_once "$srcdir/user.inc.php";
+require_once "$srcdir/user.inc";
 require_once "$srcdir/MedEx/API.php";
 
-// @VH: Change
+// OEMR - Change
 require_once($GLOBALS['srcdir'].'/wmt-v2/case_functions.inc.php');
 require_once($GLOBALS['srcdir'].'/OemrAD/oemrad.globals.php');
 
@@ -33,14 +32,16 @@ use OpenEMR\Common\Csrf\CsrfUtils;
 use OpenEMR\Core\Header;
 use OpenEMR\OemrAd\Utility;
 
+
 if (!empty($_POST)) {
     if (!CsrfUtils::verifyCsrfToken($_POST["csrf_token_form"])) {
         CsrfUtils::csrfNotVerified();
     }
 }
 
-// @VH: Code Changes [V100070]
-// @VH: Save Filter Value [V100070]
+/* OEMR - Changes */
+
+//Save Filter Value
 Utility::saveFilterValueOfPatientTracker($_SESSION['authUserID'], $_POST);
 setPreservedValuesForFlowBoard();
 
@@ -69,7 +70,7 @@ function fetch_appt_signatures_data_byId($eid) {
     return false;
 }
 
-// Fetch total events
+//fetch total events
 function fetchTotalEvents($from_date, $to_date, $where_param = null, $orderby_param = null, $tracker_board = false, $nextX = 0, $bind_param = null, $query_param = null, $fetch_status = false)
 {
 
@@ -132,7 +133,7 @@ function fetchTotalEvents($from_date, $to_date, $where_param = null, $orderby_pa
     }
 }
 
-// Support for therapy group appointments added by shachar z.
+//Support for therapy group appointments added by shachar z.
 function ext_fetchAppointments($from_date, $to_date, $patient_id = null, $provider_id = null, $facility_id = null, $pc_appstatus = null, $with_out_provider = null, $with_out_facility = null, $pc_catid = null, $tracker_board = false, $nextX = 0, $group_id = null, $patient_name = null, $limit = null, $page = null, $data = 'appointments')
 {
     $sqlBindArray = array();
@@ -233,7 +234,7 @@ function pageDetails($results, $limit) {
     );
 }
 
-// get information the statuses of the appointments*/
+/* get information the statuses of the appointments*/
 function ext_getApptStatus($page_details, $app_status)
 {
 
@@ -313,7 +314,7 @@ function getESignClass($eid = null) {
 
     return $esign_class;
 }
-// End
+/* End */
 
 // @VH: Set temp provider value
 if (isset($_POST['form_provider']) && is_array($_POST['form_provider'])) {
@@ -337,6 +338,7 @@ $form_apptstatus = prevSetting($uspfx, 'form_apptstatus', 'form_apptstatus', '')
 $facility = prevSetting($uspfx, 'form_facility', 'form_facility', '');
 // @VH: Changed field name
 $provider = prevSetting($uspfx, 'form_provider_tmp', 'form_provider', $_SESSION['authUserID']);
+
 // @VH: Set provider value
 if (isset($_POST['form_provider']) && is_array($_POST['form_provider'])) {
     if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'])) {
@@ -352,6 +354,12 @@ if (
 ) {
     // These are not form elements. We only ever change them via ajax, so exit now.
     exit();
+}
+if (($_POST['saveCALLback'] ?? '') == "Save") {
+    $sqlINSERT = "INSERT INTO medex_outgoing (msg_pc_eid,msg_pid,campaign_uid,msg_type,msg_reply,msg_extra_text)
+                  VALUES
+                (?,?,?,'NOTES','CALLED',?)";
+    sqlQuery($sqlINSERT, array($_POST['pc_eid'], $_POST['pc_pid'], $_POST['campaign_uid'], $_POST['txtCALLback']));
 }
 
 //set default start date of flow board to value based on globals
@@ -441,7 +449,6 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 <html>
 <head>
     <meta name="author" content="OpenEMR: MedExBank" />
-    <!-- @VH: added ('jquery', 'oemr_ad') -->
     <?php Header::setupHeader(['datetime-picker', 'opener', 'jquery', 'oemr_ad']); ?>
     <title><?php echo xlt('Flow Board'); ?></title>
     <script>
@@ -456,15 +463,14 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
     <script src="<?php echo $GLOBALS['web_root']; ?>/interface/main/messages/js/reminder_appts.js?v=<?php echo $v_js_includes; ?>"></script>
 
-    <!-- @VH: Scripts -->
+    <!-- OEMR - Change -->
     <script type="text/javascript">
-        // @VH: Go to encounter link [V100071]
         function goToEncounter(pid, pubpid, pname, enc, dobstr) {
             top.restoreSession();
             loadpatient(pid,enc);
         }
 
-        // @VH: used to display the patient demographic and encounter screens [V100071]
+        // used to display the patient demographic and encounter screens
         function loadpatient(newpid, enc) {
             if ($('#setting_new_window').val() === 'checked') {
                 document.fnew.patientID.value = newpid;
@@ -507,7 +513,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                 <div class="showRFlow text-center" id="show_flows" name="kiosk_hide">
                     <div name="div_response" id="div_response" class="nodisplay"></div>
                         <form name="flb" id="flb" method="post">
-                        <!-- @VH: added hidden page_no field [V100072] -->
+                        <!-- OEMR - Change -->
                         <input type='hidden' name='page_no' id='page_no' value='<?php echo $pageno; ?>' />
                         <div class="row">
                           <input type="hidden" name="csrf_token_form" value="<?php echo attr(CsrfUtils::collectCsrfToken()); ?>" />
@@ -591,7 +597,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                         echo "disabled";
                                     }
                                     ?> onchange="refineMe('provider');">
-                                      <option value="all" <?php echo (is_array($_REQUEST['form_provider']) && in_array("all", $_REQUEST['form_provider'])) ? "selected" : ""; ?>><?php echo xlt('All Providers'); ?></option>
+                                      <option value="all" <?php echo in_array("all", $_REQUEST['form_provider']) ? "selected" : "" ?>><?php echo xlt('All Providers'); ?></option>
 
                                       <?php
                                         echo $select_provs;
@@ -638,6 +644,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                     var provider_group_users = JSON.parse('<?php echo json_encode($provider_groups); ?>');
                                    </script>
                               </div>  
+                              
                             </div>
                             <div class="col-4 mt-3 row">
                                 <div class="col-sm-12 text-center">
@@ -662,7 +669,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                 </div>
 
                                 <div class="col-sm-12 mt-3 mx-auto">
-                                  <!-- @VH: Filter button changes for change page_no [V100072] -->
+                                  <!-- OEMR - Change -->
                                   <button id="filter_submit" type="button" class="btn btn-primary btn-sm btn-filter" onclick="changePage('1')"><?php echo xlt('Filter'); ?></button>
                                   <input type="hidden" id="kiosk" name="kiosk" value="<?php echo attr($_REQUEST['kiosk'] ?? ''); ?>" />
                                 </div>
@@ -689,22 +696,23 @@ if (!($_REQUEST['flb_table'] ?? null)) {
     // get all appts for date range and refine view client side.  very fast...
     $appointments = array();
     $datetime = date("Y-m-d H:i:s");
-    // @VH: Replaced function and added some new param [V100072]
+    // OEMR - Replaced function and added some new param
     $appointments = ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider, $facility, $form_apptstatus, $form_apptcat, $form_patient_name, $form_patient_id, $limit, $pageno);
+    
     $appointments = sortAppointments($appointments, 'date', 'time');
     //grouping of the count of every status
-    // @VH: Commeted code 
+    // OEMR - commeted code
     //$appointments_status = getApptStatus($appointments);
 
-    // @VH: Changes [V100072]
-    // Get page details
+    /* OEMR - Changes */
+    //Get page details
     $page_details = ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider, $facility, $form_apptstatus, $form_apptcat, $form_patient_name, $form_patient_id, $limit, $pageno, "page_details");
 
-    // get app status
+    //get app status
     $app_status_details = ext_fetch_Patient_Tracker_Events($from_date, $to_date, $provider, $facility, $form_apptstatus, $form_apptcat, $form_patient_name, $form_patient_id, $limit, $pageno, "app_status");
     $appointments_status = ext_getApptStatus($page_details, $app_status_details);
     //$appointments_signatures_data = fetch_appt_signatures_data($appointments);
-    // End
+    /* End */
 
     $chk_prov = array();  // list of providers with appointments
     // Scan appointments for additional info
@@ -749,11 +757,11 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     <table class="table table-bordered">
                     <thead class="table-primary">
                     <tr class="small font-weight-bold text-center">
-                        <!-- @VH: Commeted -->
+                        <!-- OEMR - Commeted -->
                         <?php //if ($GLOBALS['ptkr_show_pid']) { ?>
-                            <!-- <td class="dehead text-center text-ovr-dark" name="kiosk_hide"> -->
+                            <!-- <td class="dehead text-center text-ovr-dark" name="kiosk_hide">
                                 <?php //echo xlt('PID'); ?>
-                            <!-- </td> -->
+                            </td> -->
                         <?php //} ?>
                         <td class="dehead text-center" style="max-width:50px;">
                         </td>
@@ -761,6 +769,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                             <?php echo xlt('PID'); ?>
                         </td>
                         <!-- End -->
+
                         <td class="dehead text-center text-ovr-dark" style="max-width: 150px;">
                             <?php echo xlt('Patient'); ?>
                         </td>
@@ -850,10 +859,14 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                             $other_title = '';
                             $title = '';
                             $icon2_here = '';
+                            $icon_CALL = '';
+                            $icon_4_CALL = '';
                             $appt['stage'] = '';
                             $icon_here = array();
                             $prog_text = '';
+                            $CALLED = '';
                             $FINAL = '';
+                            $icon_CALL = '';
 
                             $query = "SELECT * FROM medex_outgoing WHERE msg_pc_eid =? ORDER BY medex_uid asc";
                             $myMedEx = sqlStatement($query, array($appointment['eid']));
@@ -897,6 +910,11 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                 } elseif (($row['msg_reply'] == "CONFIRMED") || ($appointment[$row['msg_type']]['stage'] == "CONFIRMED")) {
                                     $appointment[$row['msg_type']]['stage'] = "CONFIRMED";
                                     $icon_here[$row['msg_type']]  = $icons[$row['msg_type']]['CONFIRMED']['html'];
+                                } elseif ($row['msg_type'] == "NOTES") {
+                                    $CALLED = "1";
+                                    $FINAL = $icons['NOTES']['CALLED']['html'];
+                                    $icon_CALL = str_replace("Call Back: COMPLETED", attr(oeFormatShortDate($row['msg_date'])) . " :: " . xla('Callback Performed') . " | " . xla('NOTES') . ": " . $row['msg_extra_text'] . " | ", $FINAL);
+                                    continue;
                                 } elseif (($row['msg_reply'] == "READ") || ($appointment[$row['msg_type']]['stage'] == "READ")) {
                                     $appointment[$row['msg_type']]['stage'] = "READ";
                                     $icon_here[$row['msg_type']] = $icons[$row['msg_type']]['READ']['html'];
@@ -915,18 +933,29 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                     }
                                 }
                                 //these are additional icons if present
-                                if ($row['msg_reply'] == "CALL") {
-                                    $icon_here[$row['msg_type']] = $icons[$row['msg_type']]['CALL']['html'];
-                                    if (($appointment['allow_sms'] != "NO") && ($appointment['phone_cell'] > '')) {
-                                        $icon_4_CALL = "<span class='input-group-addon'
-                                                              onclick='SMS_bot(" . attr_js($row['msg_pid']) . ");'>
-                                                              <i class='fas fa-sms'></i>
-                                                        </span>";
-                                    }
+                                if (($row['msg_reply'] == "CALL") && (!$CALLED)) {
+                                    $icon_here = '';
+                                    $icon_4_CALL = $icons[$row['msg_type']]['CALL']['html'];
+                                    $icon_CALL = "<span onclick=\"doCALLback(" . attr_js($date_squash) . "," . attr_js($appointment['eid']) . "," . attr_js($appointment['pc_cattype']) . ")\">" . $icon_4_CALL . "</span>
+                                    <span class='hidden' name='progCALLback_" . attr($appointment['eid']) . "' id='progCALLback_" . attr($appointment['eid']) . "'>
+                                      <form id='notation_" . attr($appointment['eid']) . "' method='post'
+                                      action='#'>
+                                        <input type='hidden' name='csrf_token_form' value='" . attr(CsrfUtils::collectCsrfToken()) . "' />
+                                        <h4>" . xlt('Call Back Notes') . ":</h4>
+                                        <input type='hidden' name='pc_eid' id='pc_eid' value='" . attr($appointment['eid']) . "'>
+                                        <input type='hidden' name='pc_pid' id='pc_pid' value='" . attr($appointment['pc_pid']) . "'>
+                                        <input type='hidden' name='campaign_uid' id='campaign_uid' value='" . attr($row['campaign_uid']) . "'>
+                                        <textarea name='txtCALLback' id='txtCALLback' rows=6 cols=20></textarea>
+                                        <input type='submit' name='saveCALLback' id='saveCALLback' value='" . xla("Save") . "'>
+                                      </form>
+                                    </span>
+                                      ";
                                 } elseif ($row['msg_reply'] == "STOP") {
                                     $icon2_here .= $icons[$row['msg_type']]['STOP']['html'];
                                 } elseif ($row['msg_reply'] == "Other") {
                                     $icon2_here .= $icons[$row['msg_type']]['Other']['html'];
+                                } elseif ($row['msg_reply'] == "CALLED") {
+                                    $icon2_here .= $icons[$row['msg_type']]['CALLED']['html'];
                                 }
                             }
                             //if pc_apptstatus == '-', update it now to=status
@@ -941,18 +970,18 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                             continue;
                         }
                         $ptname = $appointment['lname'] . ', ' . $appointment['fname'] . ' ' . $appointment['mname'];
-                        // @VH: Patient name [V100071]
+                        // OEMR - Change
                         $patientName = $appointment['fname'] . ' ' . $appointment['lname'];
                         $ptname_short = $appointment['fname'][0] . " " . $appointment['lname'][0];
                         $appt_enc = $appointment['encounter'];
                         $appt_eid = (!empty($appointment['eid'])) ? $appointment['eid'] : $appointment['pc_eid'];
                         $appt_pid = (!empty($appointment['pid'])) ? $appointment['pid'] : $appointment['pc_pid'];
 
-                        // @VH: Changes [V100071]
+                        /* OEMR - Changes */
                         if ($appt_enc != 0 && $appt_pid != 0) {
                             $patientData = getPatientData($appt_pid, "fname, mname, lname, pubpid, billing_note, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
                         }
-                        // End
+                        /* End */
 
                         if ($appt_pid == 0) {
                             continue; // skip when $appt_pid = 0, since this means it is not a patient specific appt slot
@@ -991,7 +1020,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
                         if ($GLOBALS['ptkr_show_pid']) {
                             ?>
-                            <!-- @VH: Commented -->
+                            <!-- OEMR - Change -->
                             <!-- <td class="detail text-center" name="kiosk_hide"> -->
                                 <?php //echo text($appt_pid); ?>
                             <!-- </td> -->
@@ -1000,7 +1029,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         }
 
                         ?>
-                        <!-- @VH: Added to show pubpid -->
+                        <!-- OEMR - Change -->
                         <td>
                             <input type="checkbox" data-trackerid="<?php echo $tracker_id; ?>" name="sel_item[<?php echo attr_js($tracker_id); ?>]" class="sel_item" value="1" />
                         </td>
@@ -1026,7 +1055,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <?php } ?>
                         <?php if ($GLOBALS['ptkr_show_encounter']) { ?>
                             <td class="detail text-center" name="kiosk_hide">
-                                <!-- @VH: To Show encounter signed or not and gotoencounter -->
+                                <!-- OEMR - Change -->
                                 <?php 
                                     if ($appt_enc != 0) {
                                         $eSignClass = getESignClass(text($appt_enc));
@@ -1038,17 +1067,20 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <?php } ?>
                         <?php if ($GLOBALS['ptkr_date_range'] == '1') { ?>
                             <td class="detail text-center" name="kiosk_hide">
+
+                                
+
                                 <?php echo text(oeFormatShortDate($appointment['pc_eventDate']));
                                 ?>
-                                <!-- @VH: To Show appt note -->
                                 <?php if(isset($appointment['pc_hometext']) && !empty($appointment['pc_hometext'])): ?>
                                 <span style="white-space: pre-line;" title="<?php echo text($appointment['pc_hometext']); ?>"><i class="fa fas fa-exclamation-circle ml-1"></i></span> 
                                 <?php endif;?>
-                                <!-- END -->
+                                 
+                                 
                             </td>
                         <?php } ?>
                         <td class="detail text-center">
-                            <?php echo text(oeFormatTime($appt_time)); ?>
+                            <a href="#" onclick="oldEvt(<?php echo $appt_eid; ?>)"><?php echo text(oeFormatTime($appt_time)); ?></a>
                         </td>
                         <td class="detail text-center">
                             <?php
@@ -1094,8 +1126,8 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         }
                         if (($yestime == '1') && ($timecheck >= 1) && (strtotime($newarrive) != '')) {
                             echo text($timecheck . ' ' . ($timecheck >= 2 ? xl('minutes') : xl('minute')));
-                        } elseif (($icon_here ?? null) || ($icon2_here ?? null)) {
-                            echo "<span style='font-size:0.7rem;' onclick='return calendarpopup(" . attr_js($appt_eid) . "," . attr_js($date_squash) . ")'>" . implode($icon_here) . $icon2_here . "</span> " . $icon_4_CALL;
+                        } elseif (($icon_here ?? null) || ($icon2_here ?? null) || ($icon_CALL ?? null)) {
+                            echo "<span style='font-size:0.7rem;' onclick='return calendarpopup(" . attr_js($appt_eid) . "," . attr_js($date_squash) . ")'>" . implode($icon_here) . $icon2_here . "</span> " . $icon_CALL;
                         } elseif ($logged_in ?? null) {
                             $pat = $MedEx->display->possibleModalities($appointment);
                             echo "<span style='font-size:0.7rem;' onclick='return calendarpopup(" . attr_js($appt_eid) . "," . attr_js($date_squash) . ")'>" . $pat['SMS'] . $pat['AVM'] . $pat['EMAIL'] . "</span>";
@@ -1133,7 +1165,6 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <td class="detail text-center">
                             <?php
                             if (strtotime($newend) != '') {
-                                // @VH: Commented original code
                                 //echo text(oeFormatTime(substr($newend, 11))) ;
                                 echo oeFormatTime($newend);
                             }
@@ -1191,7 +1222,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
     <?php
 }
 
-// @VH: Pagination
+// OEMR - Pagination
 generatePagination($page_details, $pageno);
 
 if (!($_REQUEST['flb_table'] ?? null)) { ?>
@@ -1225,14 +1256,14 @@ function myLocalJS()
         $("[name='kiosk_hide']").show();
         $("[name='kiosk_show']").hide();
 
-        // @VH: change page
+        /* OEMR - Changes */
         function changePage(page_no) {
             if(page_no && page_no != '') {
                 $('#page_no').val(page_no);
                 $('#flb').submit();
             }
         }
-        // End
+        /* End */
 
         function print_FLB() {
             window.print();
@@ -1248,6 +1279,7 @@ function myLocalJS()
                     }
                 }
             });
+
             if (selectedItemsList.length > 15) {
                 alert("Please don't select more than 15 items.");
             } else if (selectedItemsList.length > 0) {
@@ -1304,7 +1336,7 @@ function myLocalJS()
 
             var startRequestTime = Date.now();
             top.restoreSession();
-            // @VH: added page_no param
+            // OEMR - added page_no
             var posting = $.post('../patient_tracker/patient_tracker.php', {
                 flb_table: '1',
                 form_from_date: $("#form_from_date").val(),
@@ -1361,7 +1393,7 @@ function myLocalJS()
          * It is called on initial load, on refresh and 'onchange/onkeyup' of a flow board parameter.
          */
         function refineMe() {
-            // @VH: Return true
+            // OEMR - Return
             return true;
 
             var apptcatV = $("#form_apptcat").val();
@@ -1422,12 +1454,22 @@ function myLocalJS()
             }
         }
 
+        function doCALLback(eventdate, eid, pccattype) {
+            $("#progCALLback_" + eid).parent().removeClass('js-blink-infinite').css('animation-name', 'none');
+            $("#progCALLback_" + eid).removeClass("hidden");
+            clearInterval(auto_refresh);
+        }
+
         // opens the demographic and encounter screens in a new window
         function openNewTopWindow(newpid, newencounterid) {
             document.fnew.patientID.value = newpid;
             document.fnew.encounterID.value = newencounterid;
             top.restoreSession();
             document.fnew.submit();
+        }
+        
+        function oldEvt(eventid) {
+            dlgopen('../main/calendar/add_edit_event.php?eid=' + encodeURIComponent(eventid), 'blank', 775, 500);
         }
 
         //opens the two-way SMS phone app
@@ -1501,7 +1543,7 @@ function myLocalJS()
                 parsetime = (parsetime[0] * 60) + (parsetime[1] * 1) * 1000;
                 if (auto_refresh) clearInteral(auto_refresh);
                 auto_refresh = setInterval(function () {
-                    // @VH: Wrap with in if condition
+                    // OEMR - Wrap with in condition
                     if(getActiveTab() == "flb") {
                         refreshMe(true) // this will run after every parsetime seconds
                     }
@@ -1577,20 +1619,25 @@ function myLocalJS()
                 boundary: 'window',
                 trigger: 'manual'
             });
+
             // Set a delay time (in milliseconds)
             var delayTime = 500; // 1000ms = 1 second
             var tooltipTimer;
+
             // Loop through each tooltip link
             $('[data-toggle1="tooltip"]').each(function() {
                 var $this = $(this);
+
                 // On mouse enter, start the timer to show the tooltip after the delay
                 $this.on('mouseenter', function() {
                     tooltipTimer = setTimeout(function() {
                         $this.tooltip('show');  // Show the tooltip after the delay
+
                         // Get data loading status
                         let isLoading = $this.attr('data-loading');
                         let dLoadingText =  "Loading....";
                         let eidVal = $this.attr('data-eid');
+
                         if (eidVal && eidVal != "") {
                             if (isLoading == undefined || isLoading == "0" ) {
                                 // Set data loading status
@@ -1600,6 +1647,7 @@ function myLocalJS()
                                 
                                 // Manually show the tooltip after updating the title
                                 $this.tooltip('show');
+
                                 $.ajax({
                                     url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?patient_info=1&coverage_info=1&pending_form_info=1&pending_order_info=1&eid=' + eidVal,
                                     type: 'POST',
@@ -1634,6 +1682,7 @@ function myLocalJS()
                         }
                     }, delayTime);
                 });
+
                 // On mouse leave, clear the timer and hide the tooltip if it was shown
                 $this.on('mouseleave', function() {
                     // Set is not visible
@@ -1642,6 +1691,7 @@ function myLocalJS()
                     clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
                     $this.tooltip('hide');      // Hide the tooltip if it was shown
                 });
+
                 // Before the tooltip shows, replace \n with <br>
                 $this.on('show.bs.tooltip', function () {
                     // Set is not visible
@@ -1664,7 +1714,7 @@ function myLocalJS()
         // @VH: Custom tooltip
         initTooltip();
 
-        // @VH: get active tab information
+        /* OEMR - Added function */
         function getActiveTab() {
             var tabName = "";
             for(var tabIdx=0;tabIdx<top.app_view_model.application_data.tabs.tabsList().length;tabIdx++){
@@ -1676,7 +1726,7 @@ function myLocalJS()
             }
             return tabName;
         }
-        // End
+        /* End */
 
     </script>
 
@@ -1691,5 +1741,6 @@ function myLocalJS()
             });
         });
     </script>
+
 <?php }
 ?>

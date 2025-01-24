@@ -550,6 +550,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                         <!-- @VH: Select item for status update -->
                         <td class="dehead text-center" style="max-width:50px;">
                         </td>
+
                         <td class="dehead text-center" style="max-width:150px;" name="kiosk_hide">
                             <?php echo xlt('PID'); ?>
                         </td>
@@ -595,7 +596,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     $date_squash = str_replace("-", "", $date_appt);
 
                     $ptname = $appointment['lname'] . ', ' . $appointment['fname'] . ' ' . $appointment['mname'];
-                    // @VH - Change
+                    // OEMR - Change
                     $patientName = $appointment['fname'] . ' ' . $appointment['lname'];
                     $ptname_short = $appointment['fname'][0] . " " . $appointment['lname'][0];
                     $appt_enc = $appointment['encounter'];
@@ -646,6 +647,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     <td>
                         <input type="checkbox" data-trackerid="<?php echo $tracker_id; ?>" name="sel_item[<?php echo attr_js($tracker_id); ?>]" class="sel_item" value="1" />
                     </td>
+
                     <!-- @VH: Select item for status update -->
                     <td class="detail hidden-xs" align="center" name="kiosk_hide">
                         <?php echo text($appointment['pubpid']); ?>
@@ -676,7 +678,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                     <?php } ?>
 
                     <td class="detail text-center" name="kiosk_hide">
-                        <?php echo text(oeFormatTime($appt_time)); ?>
+                        <a href="#" onclick="oldEvt(<?php echo $appt_eid; ?>)"><?php echo text(oeFormatTime($appt_time)); ?></a>
                     </td>
                     <td class="detail text-center" name="kiosk_hide">
                         <?php
@@ -762,7 +764,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
 
 } //end of second !$_REQUEST['flb_table']
 
-// @VH - Pagination
+// OEMR - Pagination
 generatePagination($page_details, $pageno);
 
 if (!($_REQUEST['flb_table'] ?? null)) { ?> 
@@ -829,7 +831,7 @@ function myLocalJS()
                 alert('Please select items for update status.');
             }
         }
-        
+
         /* End */
 
         function print_FLB() {
@@ -852,7 +854,7 @@ function myLocalJS()
 
             var startRequestTime = Date.now();
             top.restoreSession();
-            // @VH - added page_no
+            // OEMR - added page_no
             var posting = $.post('../patient_tracker/telemedicine_waiting_room.php', {
                 flb_table: '1',
                 form_from_date: $("#form_from_date").val(),
@@ -907,7 +909,7 @@ function myLocalJS()
          * It is called on initial load, on refresh and 'onchange/onkeyup' of a Telemedicine Waiting Room parameter.
          */
         function refineMe() {
-            // @VH - Return
+            // OEMR - Return
             return true;
 
             var apptcatV = $("#form_apptcat").val();
@@ -950,6 +952,10 @@ function myLocalJS()
             top.restoreSession();
             dlgopen('<?php echo $GLOBALS['webroot']; ?>/interface/main/calendar/add_edit_event.php?eid=' + encodeURIComponent(eid) + '&date=' + encodeURIComponent(date_squash), '_blank', 775, 500);
             return false;
+        }
+
+        function oldEvt(eventid) {
+            dlgopen('<?php echo $GLOBALS['webroot']; ?>/interface/main/calendar/add_edit_event.php?eid=' + encodeURIComponent(eventid), 'blank', 775, 500);
         }
 
         // used to display the patient demographic and encounter screens
@@ -1039,7 +1045,7 @@ function myLocalJS()
                 parsetime = (parsetime[0] * 60) + (parsetime[1] * 1) * 1000;
                 if (auto_refresh) clearInteral(auto_refresh);
                 auto_refresh = setInterval(function () {
-                    // @VH- Wrap with in condition
+                    // OEMR - Wrap with in condition
                     if(getActiveTab() == "flb1") {
                         refreshMe(true) // this will run after every parsetime seconds
                     }
@@ -1140,20 +1146,25 @@ function myLocalJS()
                 boundary: 'window',
                 trigger: 'manual'
             });
+
             // Set a delay time (in milliseconds)
             var delayTime = 1000; // 1000ms = 1 second
             var tooltipTimer;
+
             // Loop through each tooltip link
             $('[data-tooltip="tooltip"]').each(function() {
                 var $this = $(this);
+
                 // On mouse enter, start the timer to show the tooltip after the delay
                 $this.on('mouseenter', function() {
                     tooltipTimer = setTimeout(function() {
                         $this.tooltip('show');  // Show the tooltip after the delay
+
                         // Get data loading status
                         let isLoading = $this.attr('data-loading');
                         let dLoadingText =  "Loading....";
                         let eidVal = $this.attr('data-eid');
+
                         if (eidVal && eidVal != "") {
                             if (isLoading == undefined || isLoading == "0" ) {
                                 // Set data loading status
@@ -1163,6 +1174,7 @@ function myLocalJS()
                                 
                                 // Manually show the tooltip after updating the title
                                 $this.tooltip('show');
+
                                 $.ajax({
                                     url: '<?php echo $GLOBALS['webroot'] . "/interface/main/calendar/ajax/calendar_ajax.php" ?>?patient_info=1&coverage_info=1&pending_form_info=1&pending_order_info=1&eid=' + eidVal,
                                     type: 'POST',
@@ -1172,7 +1184,7 @@ function myLocalJS()
                                         let currentTitle = $this.attr('data-original-title');
                                         //data = data.replace(/<br\s*\/?>/, '').replace(/<br\s*\/?>/, '');
                                         $this.attr('data-original-title',currentTitle.replace(dLoadingText, data));
-                                        
+
                                         let isvisible = $this.attr('data-isvisible');
                                         if (isvisible == "1") {
                                             $this.tooltip('show');
@@ -1197,6 +1209,7 @@ function myLocalJS()
                         }
                     }, delayTime);
                 });
+
                 // On mouse leave, clear the timer and hide the tooltip if it was shown
                 $this.on('mouseleave', function() {
                     // Set is not visible
@@ -1205,6 +1218,7 @@ function myLocalJS()
                     clearTimeout(tooltipTimer);  // Clear the timer if mouse leaves before delay
                     $this.tooltip('hide');      // Hide the tooltip if it was shown
                 });
+
                 // Before the tooltip shows, replace \n with <br>
                 $this.on('show.bs.tooltip', function () {
                     // Set is not visible
