@@ -185,6 +185,24 @@ $columnList = array(
             "visible" => false,
             "width" => "0"
 		)
+	),
+	array(
+		"name" => "action_item",
+		"title" => "Action Items",
+		"data" => array(
+            "defaultValue" => getHtmlString('<i class="defaultValueText">Empty</i>'),
+            "visible" => false,
+            "width" => "0"
+		)
+	),
+	array(
+		"name" => "patient_alert_info",
+		"title" => "Patient Alert Info",
+		"data" => array(
+            "defaultValue" => getHtmlString('<i class="defaultValueText">Empty</i>'),
+            "visible" => false,
+            "width" => "0"
+		)
 	)
 );
 
@@ -671,7 +689,7 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 						$rto_date = (isset($odItem['date']) && !empty($odItem['date'])) ? date('m/d/Y', strtotime($odItem['date'])) : "";
 						$rto_status = isset($odItem['rto_status']) ? $odItem['rto_status'] : "";
 						$rto_class = (isset($orderStatusListClass[$rto_status])) ? $orderStatusListClass[$rto_status] : '';
-						// $rto_status_title = isset($odItem['rto_status_title']) ? $odItem['rto_status_title'] : "";
+						$rto_status_title = isset($odItem['rto_status_title']) ? $odItem['rto_status_title'] : "";
 						// $tooltip_html = "";
 
 						// $patientData = getPatientData($odItem['pid'], "fname, mname, lname, pubpid, billing_note, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
@@ -684,7 +702,7 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 						// }
 
 						// ob_start();
-						// getRTOSummary($odItem['id'], $odItem['pid'], $odItem);
+						// getRTOSummary($odItem{'id'}, $odItem{'pid'}, $odItem);
 						// $orderSummaryHtml = ob_get_clean();
 
 						// if($orderSummaryHtml != "") {
@@ -693,7 +711,7 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 
 						// $fieldHtml[] = "<a href=\"#!\" onclick=\"handleGoToOrder('".$odItem['id']."','".$odItem['pid']."','".$patientPubpid."','".$patientName."','".$patientDOB."')\"><span data-toggle='tooltip' class='$rto_class tooltip_text' title=''>".$rto_action_title." ".$rto_date."<div class='hidden_content'style='display:none;'>".$tooltip_html."</div></span></a>";
 
-						$fieldHtml[] = "<a href=\"#!\" onclick=\"handleGoToOrder('".$odItem['id']."','".$odItem['pid']."')\" class='$rto_class tooltip_text'><div data-toggle='PopOverOrder' data-orderpid='" . $odItem['pid'] . "' data-orderid='" . $odItem['id'] . "'  data-original-title='Order <i>Click or change focus to dismiss</i>' style='display:inline-block;'>" . $rto_action_title . " " . $rto_date . "</div></a>";
+						$fieldHtml[] = "<a href=\"#!\" onclick=\"handleGoToOrder('".$odItem['id']."','".$odItem['pid']."')\" class='$rto_class tooltip_text'><div data-toggle='PopOverOrder' data-orderpid='" . $odItem['pid'] . "' data-orderid='" . $odItem['id'] . "'  data-original-title='Order <i>Click or change focus to dismiss</i>' style='display:inline-block;'>" . $rto_action_title . " - " . $rto_status_title . " - " . $rto_date . "</div></a>";
 					}
 					
 				}
@@ -855,6 +873,27 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 
 				$rowData[$cItem['name']] = (isset($fieldHtml) && !empty($fieldHtml)) ? getHtmlString($fieldHtml) : "";
 				continue;
+			} else if($cItem['name'] == "action_item") {
+				$fieldHtml = array();
+
+				$actionItemsRes = sqlStatement("SELECT * FROM `vh_action_items_details` vaid WHERE vaid.case_id = ?", array($row_item['case_id']));
+				$actionItems = array();
+				while($row = sqlFetchArray($actionItemsRes)) {
+					$fieldHtml[] = $row['action_item'] ?? "";
+				}
+
+				if(!empty($fieldHtml)) {
+					$fieldHtml = implode(", ", $fieldHtml);
+				} else {
+					$fieldHtml = "";
+				}
+
+				$rowData[$cItem['name']] = (isset($fieldHtml) && $fieldHtml != "") ? getHtmlString($fieldHtml) : "";
+				continue;
+			} else if($cItem['name'] == "patient_alert_info") {
+				$fieldHtml = $row_item['alert_info'];
+				$rowData[$cItem['name']] = (isset($fieldHtml) && $fieldHtml != "") ? getHtmlString($fieldHtml) : "";
+				continue;
 			}
 			
 			$rowData[$cItem['name']] = (isset($row_item[$cItem['name']]) && !empty($row_item[$cItem['name']])) ? getHtmlString($row_item[$cItem['name']]) : "";
@@ -907,7 +946,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 	}
 
 	$result = sqlStatement(generateSqlQuery(array(
-		"select" => "ope.pc_eid, cast(concat(ope.pc_eventDate, ' ', ope.pc_startTime) as datetime) as appt_datetime, CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), ' (', pd.pubpid ,')') as patient_name, pd.pid, ope.pc_catid, ope.pc_aid, concat(u.lname, ', ', u.fname) as provider_name, ope.pc_case as case_id, ope.pc_hometext ",
+		"select" => "ope.pc_eid, cast(concat(ope.pc_eventDate, ' ', ope.pc_startTime) as datetime) as appt_datetime, CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), ' (', pd.pubpid ,')') as patient_name, pd.pid, pd.alert_info, ope.pc_catid, ope.pc_aid, concat(u.lname, ', ', u.fname) as provider_name, ope.pc_case as case_id, ope.pc_hometext ",
 		"where" => $searchQuery,
 		"order" => $columnName,
 		"order_type" => $columnSortOrder,
@@ -1472,6 +1511,8 @@ if(!empty($page_action)) {
 		var auth_num_visit_val = decodeHtmlString(d.auth_num_visit);
 		var auth_provider_val = decodeHtmlString(d.auth_provider);
 		var auth_notes_val = decodeHtmlString(d.auth_notes);
+		var action_item_val = decodeHtmlString(d.action_item);
+		var patient_alert_info_val = decodeHtmlString(d.patient_alert_info);
 
 		var authInfoStr1 = '<tr>'+
 								'<td width="180" height="10">'+
@@ -1571,6 +1612,20 @@ if(!empty($page_action)) {
 						'</td>'+
 					'</tr>'+
 					authInfoHtml+
+					'<tr>'+
+						'<td width="180" height="10">'+
+							'<span>Action Item :</span>'+
+						'</td>'+
+						'<td>'+
+							'<div>'+(action_item_val != "" ? action_item_val : defaultVal) +'</div>'+
+						'</td>'+
+						'<td width="200" height="10">'+
+							'<span>Alerts:</span>'+
+						'</td>'+
+						'<td>'+
+							'<div>'+(patient_alert_info_val != "" ? patient_alert_info_val : defaultVal) +'</div>'+
+						'</td>'+
+					'</tr>'+
 			    '</tbody></table></div>';
 	}
 
