@@ -146,6 +146,19 @@ if($mode == 'new') {
 } 
 
 if($mode == 'rto_close' || $mode == 'save' || $mode == 'save_new') {
+	$drto_id = $_REQUEST['rto_id'] ?? "";
+	$dpid = $_REQUEST['pid'] ?? "";
+	$drto_encounter = $_REQUEST['rto_encounter'] ?? "";
+	$deleterto = $_REQUEST['deleterto'] ?? "";
+	if ($deleterto == "1" && !empty($drto_id) && !empty($dpid)) {
+		// $cnt = trim($_GET['itemID']);
+		DeleteRTO($dpid, $drto_id);
+		if (!empty($drto_encounter)) {
+			// Delete Form Entry
+			addRTOFormEntry($dpid, $drto_encounter, $drto_id);
+		}
+	}
+	
 	?>
     <!DOCTYPE html>
     <html>
@@ -288,7 +301,17 @@ if(!empty($encounter_id)) {
 		}
 
 		function formClose() {
+			let deleterto = false;
+			<?php if ($newordermode === true && !empty($rto_id)) { ?>
+				if (confirm("Order details not found , do you want to delete the order ?")) {
+					deleterto = true;
+				}
+			<?php } ?>
 			var url = '<?php echo $save_url; ?>'+'&mode=rto_close';
+			if (deleterto === true) {
+				url += "&deleterto=1";
+			}
+			
 			$('form[name="form_rto"]').attr('action', url).submit();
 		}
 
