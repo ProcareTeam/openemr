@@ -317,10 +317,13 @@ function getESignClass($eid = null) {
 /* End */
 
 // @VH: Set temp provider value
+if (!empty($_POST['form_provider'] ?? '') && !is_array($_POST['form_provider'])) {
+    $_POST['form_provider'] = array($_POST['form_provider']);
+}
 if (isset($_POST['form_provider']) && is_array($_POST['form_provider'])) {
-    if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'])) {
+    if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'] ?? array())) {
         $_POST['form_provider_tmp'] = $_POST['form_provider'][0];
-    } else if(in_array("all", $_POST['form_provider'])) {
+    } else if(in_array("all", $_POST['form_provider'] ?? array())) {
         $_POST['form_provider_tmp'] = "";
     }
 }
@@ -341,7 +344,7 @@ $provider = prevSetting($uspfx, 'form_provider_tmp', 'form_provider', $_SESSION[
 
 // @VH: Set provider value
 if (isset($_POST['form_provider']) && is_array($_POST['form_provider'])) {
-    if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'])) {
+    if (!empty($_POST['form_provider']) && !in_array("all", $_POST['form_provider'] ?? array())) {
         $provider = $_POST['form_provider'];
     }
 }
@@ -580,7 +583,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                     $provid = $urow['id'];
                                     ($select_provs ?? null) ? $select_provs : $select_provs = '';
                                     $select_provs .= "    <option value='" . attr($provid) . "'";
-                                    if (isset($_POST['form_provider']) && in_array($provid, $_POST['form_provider'])) {
+                                    if (isset($_POST['form_provider']) && in_array($provid, $_POST['form_provider'] ?? array())) {
                                         $select_provs .= " selected";
                                     } elseif (!isset($_POST['form_provider']) && $_SESSION['userauthorized'] && $provid == $_SESSION['authUserID']) {
                                         $select_provs .= " selected";
@@ -597,7 +600,7 @@ if (!($_REQUEST['flb_table'] ?? null)) {
                                         echo "disabled";
                                     }
                                     ?> onchange="refineMe('provider');">
-                                      <option value="all" <?php echo in_array("all", $_REQUEST['form_provider']) ? "selected" : "" ?>><?php echo xlt('All Providers'); ?></option>
+                                      <option value="all" <?php echo in_array("all", $_REQUEST['form_provider'] ?? array()) ? "selected" : "" ?>><?php echo xlt('All Providers'); ?></option>
 
                                       <?php
                                         echo $select_provs;
