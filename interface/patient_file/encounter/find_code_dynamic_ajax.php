@@ -53,6 +53,34 @@ if ($what == 'codes') {
     }
 }
 
+// @VH: Generate filter params
+$codetype_filter_elements = array();
+if ($what == 'codes') {
+    if (!empty($_REQUEST['patient_id'] ?? "")) {
+        global $code_types;
+        if (!empty($code_types)) {
+            $code_table_id = isset($code_types[$codetype]['external']) ? intval(($code_types[$codetype]['external'])) : -9999 ;
+            $code_table_info = $code_external_tables[$code_table_id];
+            if (!empty($code_table_info)) {
+                $code_type_table_name = $code_table_info[EXT_TABLE_NAME];
+                $code_type_table_code_col = $code_table_info[EXT_COL_CODE];
+                if (!empty($code_type_table_name) && !empty($code_type_table_code_col)) {
+                    $code_external_tables[$code_table_id][EXT_JOINS] = array(
+                        array(
+                            JOIN_TABLE => "billing",
+                            JOIN_FIELDS => array(
+                                "billing.code = " . $code_type_table_name .".". $code_type_table_code_col,
+                                "billing.pid = " . $_REQUEST['patient_id'],
+                                "billing.id = (SELECT b1.id from billing b1 WHERE b1.code_type = '". $codetype ."' AND b1.code = ". $code_type_table_name ."." . $code_type_table_code_col . " AND b1.pid = ". $_REQUEST['patient_id'] ." limit 1)"
+                            )
+                        )
+                    );
+                }
+            }
+        }
+    }
+}
+
 $form_encounter_layout = array(
   array('field_id'     => 'date',
         'title'        => xl('Visit Date'),
@@ -268,8 +296,13 @@ if ($what == 'fields' && $source == 'V') {
     $iTotal = count($form_encounter_layout);
     $iFilteredTotal = count($fe_array);
 } elseif ($what == 'codes') {
-    $iTotal = main_code_set_search($codetype, '', null, null, !$include_inactive, null, true);
-    $iFilteredTotal = main_code_set_search($codetype, $searchTerm, null, null, !$include_inactive, null, true);
+    if (!empty($_REQUEST['patient_id'] ?? "") && !empty($codetype_filter_elements)) {
+        $iTotal = main_code_set_search($codetype, '', null, null, !$include_inactive, null, true, null, null, $codetype_filter_elements);
+        $iFilteredTotal = main_code_set_search($codetype, $searchTerm, null, null, !$include_inactive, null, true, null, null, $codetype_filter_elements);
+    } else {
+        $iTotal = main_code_set_search($codetype, '', null, null, !$include_inactive, null, true);
+        $iFilteredTotal = main_code_set_search($codetype, $searchTerm, null, null, !$include_inactive, null, true);
+    }
 } else {
   // Get total number of rows with no filtering.
     $iTotal = sqlNumRows(sqlStatement("SELECT $sellist FROM $from $where1 $orderby"));

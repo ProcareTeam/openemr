@@ -128,6 +128,17 @@ class BillingCodeType
         if (strpos($frow['edit_options'], 'E') !== false) {
             $className = 'EditOptionE';
         }
+
+        // @VH: Patient Id
+        global $pid;
+        $patient_pid = ($frow['blank_form'] ?? null) ? 0 : $pid;
+        // @VH: Patient Filter attribute
+        $element_attr_text = "";
+        if ($this->isOption($edit_options, 'BCPF') !== false) {
+            $element_attr_text = " data-patientfilter='" . $patient_pid . "' ";
+        }
+        // END
+
         //
         if ($this->isOption($edit_options, '2') !== false) {
             // Option "2" generates a hidden input for the codes, and a matching visible field
@@ -162,6 +173,7 @@ class BillingCodeType
                 " name='form_$field_id_esc" . "__desc'" .
                 " size='$fldlength'" .
                 " title='$description'" .
+                $element_attr_text . 
                 " value='$currdescstring'";
             if (!$disabled) {
                 $result[] = " onclick='sel_related(this," . attr_js($codetype) . ")'";
@@ -178,6 +190,7 @@ class BillingCodeType
                 " size='$fldlength'" .
                 " $string_maxlength" .
                 " title='$description'" .
+                $element_attr_text .  
                 " value='$currescaped'";
             if (!$disabled) {
                 $result[] = " onclick='sel_related(this," . attr_js($codetype) . ")'";

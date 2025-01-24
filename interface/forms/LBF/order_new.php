@@ -865,6 +865,12 @@ if (
             current_sel_name = elem ? elem.name : '';
             var url = '<?php echo $rootdir ?>/patient_file/encounter/find_code_dynamic.php';
             if (codetype) url += '?codetype=' + encodeURIComponent(codetype);
+
+            // @VH: Set patient for patient filter
+            let patient_filter_id = elem.getAttribute('data-patientfilter');
+            if (codetype && patient_filter_id != null) url += '&patient_id=' + patient_filter_id;
+            if (!codetype && patient_filter_id != null) url += '?patient_id=' + patient_filter_id;
+
             dlgopen(url, '_blank', 800, 500);
         }
 

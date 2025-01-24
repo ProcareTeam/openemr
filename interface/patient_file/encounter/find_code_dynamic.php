@@ -86,6 +86,11 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
                 <?php } elseif ($what == 'groups') { ?>
                 aoData.push({"name": "layout_id", "value": <?php echo js_escape($layout_id); ?>});
                 <?php } ?>
+
+                // @VH: Filter based on patient id
+                <?php if (!empty($_REQUEST['patient_id'] ?? "")) { ?>
+                 aoData.push({"name": "patient_id", "value": <?php echo js_escape($_REQUEST['patient_id']); ?>});   
+                <?php } ?>
             },
             // Drawing a row, apply styling if it is previously selected.
             "fnCreatedRow": function (nRow, aData, iDataIndex) {
