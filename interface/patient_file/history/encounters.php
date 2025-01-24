@@ -602,7 +602,6 @@ function toencounter(rawdata) {
 
     top.restoreSession();
     parent.left_nav.setEncounter(datestr, enc, window.name);
-    parent.left_nav.loadFrame('enc2', window.name, 'patient_file/encounter/encounter_top.php?set_encounter=' + encodeURIComponent(enc));
 
     // @VH: Commented load encounter [V100061]
     //parent.left_nav.loadFrame('enc22', window.name, 'patient_file/encounter/encounter_top.php?set_encounter=' + encodeURIComponent(enc));
