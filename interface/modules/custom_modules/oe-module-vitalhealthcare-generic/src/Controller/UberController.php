@@ -35,7 +35,9 @@ class UberController
 	const UPCOMING_STATUS_LIST = array();
 	const IN_PROGRESS_STATUS_LIST = array(self::IN_PROGRESS_LABEL);
 	const COMPLETED_STATUS_LIST = array(self::COMPLETED_LABEL);
-	const CANCELLED_STATUS_LIST = array(self::NO_DRIVERS_AVAILABLE_LABEL, self::DRIVER_CANCELED_LABEL, self::RIDER_CANCELED_LABEL, self::FAILED_LABEL, self::OFFERED_LABEL, self::EXPIRED_LABEL);
+	const CANCELLED_STATUS_LIST = array(self::NO_DRIVERS_AVAILABLE_LABEL, self::DRIVER_CANCELED_LABEL, self::RIDER_CANCELED_LABEL, self::FAILED_LABEL, self::OFFERED_LABEL, EXPIRED_LABEL);
+	const GOOGLE_MAP_KEY = 'AIzaSyAkva4wBBRFzCbShT5_auGTo9CQ9MxRHek';
+
 
 	const STATUS_DESCRIPTION = array(
 		"processing" => "The request is matching to the most efficient available driver.",
@@ -284,8 +286,8 @@ class UberController
 			}
 
 			// Uber Estimate Time URL (v1.2 endpoint for time estimate)
-			$url = "https://sandbox-api.uber.com/v1/health/trips";
-			//$url = $this->uberApiUrl . "/v1/health/trips";
+			//$url = "https://sandbox-api.uber.com/v1/health/trips";
+			$url = $this->uberApiUrl . "/v1/health/trips";
 
 			// Initialize cURL session
 			$ch = curl_init();
@@ -310,9 +312,6 @@ class UberController
 			} else {
 				// Get the HTTP response code
 				$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-				$httpCode = 200;
-				$response = $this->dummyResponce()['create_trip2'];
 
 				// Decode the JSON response
 			    $resData = json_decode($response, true);
@@ -353,8 +352,8 @@ class UberController
 				throw new \Exception("Empty request id");
 			}
 
-			$url = "https://sandbox-api.uber.com/v1/health/trips/" . $request_id;
-			//$url = $this->uberApiUrl . "/v1/health/trips/" . $request_id;
+			//$url = "https://sandbox-api.uber.com/v1/health/trips/" . $request_id;
+			$url = $this->uberApiUrl . "/v1/health/trips/" . $request_id;
 
 			// Initialize cURL session
 			$ch = curl_init();
@@ -419,69 +418,8 @@ class UberController
 				throw new \Exception("Empty request id");
 			}
 
-			$url = "https://sandbox-api.uber.com/v1/health/trips/" . $request_id;
-			//$url = $this->uberApiUrl . "/v1/health/trips/" . $request_id;
-
-			// Initialize cURL session
-			$ch = curl_init();
-
-			// Set cURL options
-			curl_setopt($ch, CURLOPT_URL, $url);
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-			curl_setopt($ch, CURLOPT_HTTPHEADER, [
-				"Content-Type: application/json",  // Indicate the content type is JSON
-			    "Authorization: Bearer $this->ubAccessToken"  // Pass the access token in the Authorization header
-			]);
-
-			// Execute the cURL request and capture the response
-			$response = curl_exec($ch);
-
-			// Check for cURL errors
-			if (curl_errno($ch)) {
-				throw new \Exception(curl_error($ch));
-			} else {
-				// Get the HTTP response code
-				$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-				$httpCode = 200;
-				$response = $this->dummyResponce()['get_trip2'];
-
-				// // Decode the JSON response
-			    $resData = json_decode($response, true);
-
-				// Check if the HTTP response code is not valid (e.g., not 200 OK)
-				if ($httpCode != 200) {
-					if (isset($resData['message'])) {
-						throw new \Exception($resData['message']);
-					} else {
-					    // If the response code is not 200, throw an exception
-					    throw new \Exception('Request failed with status code: ' . $httpCode);
-					}
-				}
-
-				$responceData = $resData;
-			}
-
-			// Close the cURL session
-			curl_close($ch);
-
-		} catch (\Throwable $e) {
-			throw new \Exception($e->getMessage(), $e->getCode());
-		}
-
-		return $responceData;
-    }
-
-    public function getAllHealthTripsDetails($qtrStr= "") {
-    	$responceData = array();
-
-    	try {
-
-    		if (empty($this->ubAccessToken)) {
-				throw new \Exception("Empty access_token");
-			}
-
-			$url = $this->uberApiUrl . "/v1/health/trips?limit=50&" . $qtrStr;
+			//$url = "https://sandbox-api.uber.com/v1/health/trips/" . $request_id;
+			$url = $this->uberApiUrl . "/v1/health/trips/" . $request_id;
 
 			// Initialize cURL session
 			$ch = curl_init();
@@ -746,57 +684,200 @@ class UberController
 		}
     }
 
-    public function getFullTripsDetails($next_key = "", $ic = 0) {
-    	$tripListItems = $this->getAllHealthTripsDetails($next_key);
-    	$retunItems = array();
+    public static function getPatientAddress($patientData = array()) {
+		$patientaddress = array();
 
-    	if ($ic === 2) {
-    		return array();
-    	}
+		if (!empty($patientData)) {
+			if (!empty($patientData)) {
+				if (!empty($patientData['street'])) {
+					$patientaddress[] = $patientData['street'];
+				}
 
-    	if (!empty($tripListItems)) {
-    		if (!empty($tripListItems['trips'] ?? "")) {
-	    		$retunItems = $tripListItems['trips'];
-	    		print_r("\n" .count($retunItems));
-	    	}
+				if (!empty($patientData['city'])) {
+					$patientaddress[] = $patientData['city'];
+				}
 
-	    	if (!empty($tripListItems['next_key'] ?? "")) {
-	    		print_r("\n".$tripListItems['next_key']);
-	    		sleep(1);
-	    		$ic++;
-	    		$nextTripDetails = $this->getFullTripsDetails("start_key=" . $tripListItems['next_key'], $ic);
+				if (!empty($patientData['state'])) {
+					$patientaddress[] = $patientData['state'] ." ". $patientData['postal_code'];
+				}
+			}
+		}
 
-	    		if (!empty($nextTripDetails)) {
-	    			$retunItems = array_merge($retunItems, $nextTripDetails);
-	    		}
-	    	}
+		$patientaddress = implode(", ", $patientaddress);
 
-	    	echo "\n--------------------------------";
+		return $patientaddress;
+	}
 
-    	}
+	public static function getFacilityAddress($facility_id = "") {
+		$returnItems = array();
+		if (!empty($facility_id)) {
+			$facilityData = sqlQuery("SELECT * FROM `facility` f WHERE f.id = ? ", array($facility_id));
+			$facilityData = array($facilityData);
+		} else {
+			$res = sqlStatement("SELECT * FROM `facility` f", array());
+			$facilityData = array();
+			while($row = sqlFetchArray($res)) {
+				$facilityData[] = $row;
+			}
+		}
 
-    	return $retunItems;
-    }
+		if (!empty($facilityData)) {
+			foreach ($facilityData as $facilityDataItem) {
+				$facilityaddress = array();
+				$facilityName = "";
 
-    public function fetchUberTrips() {
-    	$tripListItems = $this->getFullTripsDetails("");
+				if (!empty($facilityDataItem['street'])) {
+					$facilityaddress[] = $facilityDataItem['street'];
+				}
 
-    	//print_r($tripListItems);
-    	echo count($tripListItems);
-    }
+				if (!empty($facilityDataItem['city'])) {
+					$facilityaddress[] = $facilityDataItem['city'];
+				}
 
-    // Dummy responce
-    public function dummyResponce() {
-    	return array(
-    		'token' => '{"access_token": "abcdefg","token_type": "Bearer","expires_in": "<EXPIRY_IN_EPOCH>","scope": "<SPACE_DELIMITED_LIST_OF_SCOPES>"}',
-    		'products' => '{"products":[{"product_id":"cbfbc5a1-c64f-4c16-a0e3-e7a64cba0f9f","display_name":"UberX","description":"Affordable, everyday rides","capacity":4,"price_details":{"base_fare":2.5,"cost_per_minute":0.18,"cost_per_mile":1.1,"currency_code":"USD"},"image_url":"https://d3i5bpy3jdd1l5.cloudfront.net/uberx.png","service_icon_url":"https://d3i5bpy3jdd1l5.cloudfront.net/uberx-icon.png"},{"product_id":"f9f9f9f9-c64f-4c16-a0e3-e7a64cba0f9f","display_name":"UberXL","description":"Rides for up to 6 people","capacity":6,"price_details":{"base_fare":3.5,"cost_per_minute":0.2,"cost_per_mile":1.5,"currency_code":"USD"},"image_url":"https://d3i5bpy3jdd1l5.cloudfront.net/uberxl.png","service_icon_url":"https://d3i5bpy3jdd1l5.cloudfront.net/uberxl-icon.png"}]}',
-    		'rideestimedtime' => '{"fare":{"value":4.32,"fare_id":"d67b07577b3c86fd23e483d50c84e5152e550b6abb03cece4fc3793c0c068f2e","expires_at":1477285210,"display":"$4.32","currency_code":"USD"},"trip":{"distance_unit":"mile","duration_estimate":600,"distance_estimate":2.39},"pickup_estimate":4}',
-    		'estimates' => '{"etas_unavailable":false,"fares_unavailable":false,"product_estimates":[{"estimate_info":{"fare":{"currency_code":"USD","display":"$11.96","expires_at":1558147984,"fare_breakdown":[{"name":"Base Fare","type":"base_fare","value":11.96}],"fare_id":"6e642142-27b8-49df-82e0-3d4a8633e79d","value":11.96},"fare_id":"6e642142-27b8-49df-82e0-3d4a8633e79d","pickup_estimate":4,"trip":{"distance_estimate":0.44,"distance_unit":"mile","duration_estimate":927,"travel_distance_estimate":0.45}},"product":{"background_image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/productImageBackgrounds/package_x_bg.png","capacity":4,"description":"Affordable rides, all to yourself","display_name":"UberX","image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/productImages/package_x_fg.png","parent_product_type_id":"6a8e56b8-914e-4b48-a387-e6ad21d9c00c","product_group":"uberx","product_id":"b8e5c464-5de2-4539-a35a-986d6e58f186","scheduling_enabled":true,"shared":false,"short_description":"UberX","upfront_fare_enabled":true,"vehicle_view_id":39,"cancellation":{"min_cancellation_fee":5,"cancellation_grace_period_threshold_sec":120}},"fulfillment_indicator":"GREEN","fulfillment_indicators":{"request_blocker":{"block_type":"NONE"},"availability_predictor":{"predictor_result":"GREEN"}}},{"estimate_info":{"fare":{"currency_code":"USD","display":"$11.96","expires_at":1558147984,"fare_breakdown":[{"name":"Base Fare","type":"base_fare","value":11.96}],"fare_id":"c143d9ab-57c5-4d35-981f-7a356a2f22e9","value":11.96},"fare_id":"c143d9ab-57c5-4d35-981f-7a356a2f22e9","pickup_estimate":8,"pricing_explanation":"Fares are higher due to increased demand","trip":{"distance_estimate":0.44,"distance_unit":"mile","duration_estimate":1178,"travel_distance_estimate":0.45}},"product":{"background_image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/productImageBackgrounds/package_wav_bg.png","capacity":4,"description":"Wheelchair-accessible rides","display_name":"WAV","image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/productImages/package_wav_fg.png","parent_product_type_id":"6a8e56b8-914e-4b48-a387-e6ad21d9c00c","product_group":"uberx","product_id":"3bca1cd3-df15-49d8-bd4f-93e014fc26ff","scheduling_enabled":true,"shared":false,"short_description":"WAV","upfront_fare_enabled":true,"vehicle_view_id":10000936,"cancellation":{"min_cancellation_fee":5,"cancellation_grace_period_threshold_sec":120}},"fulfillment_indicator":"YELLOW","fulfillment_indicators":{"request_blocker":{"block_type":"NONE"},"availability_predictor":{"predictor_result":"YELLOW"}}},{"estimate_info":{"fare":{"currency_code":"USD","display":"$28.00","expires_at":1574718553,"fare_breakdown":[{"name":"Base Fare","type":"base_fare","value":28}],"fare_id":"bbdce077-4088-449e-a898-a34df5c293c4","value":28},"fare_id":"bbdce077-4088-449e-a898-a34df5c293c4","no_cars_available":true,"trip":{"distance_estimate":0.44,"distance_unit":"mile","duration_estimate":1126,"travel_distance_estimate":0.45}},"product":{"background_image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/productImageBackgrounds/package_blackCar_bg.png","capacity":4,"description":"Premium rides in luxury cars","display_name":"Black","image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/productImages/package_blackCar_fg.png","parent_product_type_id":"f1faedb7-5825-484f-b236-24e2cd95ec23","product_group":"uberblack","product_id":"0e9d8dd3-ffec-4c2b-9714-537e6174bb88","scheduling_enabled":true,"shared":false,"short_description":"Black","upfront_fare_enabled":true,"vehicle_view_id":4,"cancellation":{"min_cancellation_fee":5,"cancellation_grace_period_threshold_sec":120}},"fulfillment_indicator":"GREEN","fulfillment_indicators":{"request_blocker":{"block_type":"NONE"},"availability_predictor":{"predictor_result":"GREEN"}}},{"estimate_info":{"fare_id":"f9f5d23e-3148-4632-8f61-727f654a265e","fare":{"fare_id":"f9f5d23e-3148-4632-8f61-727f654a265e","value":135.32,"currency_code":"USD","display":"$135.32","expires_at":1698073761,"fare_breakdown":[{"type":"base_fare","value":135.32,"name":"Base Fare"}],"hourly":{"tiers":[{"amount":135.32,"time_in_mins":120,"distance":30,"distance_unit":"mile","formatted_time_and_distance_package":"2 hrs/30 miles"},{"amount":195.32,"time_in_mins":180,"distance":45,"distance_unit":"mile","formatted_time_and_distance_package":"3 hrs/45 miles"},{"amount":255.32,"time_in_mins":240,"distance":60,"distance_unit":"mile","formatted_time_and_distance_package":"4 hrs/60 miles"}],"overage_rates":{"overage_rate_per_temporal_unit":1.4,"overage_rate_per_distance_unit":3.55,"temporal_unit":"TEMPORAL_UNIT_MINUTE","distance_unit":"mile","pricing_explainer":"Extra time will be charged to you at $1.40 per minute. Extra distance will be charged to you at  $3.55 per mi."}}},"trip":{"distance_unit":"mile","distance_estimate":2.71,"duration_estimate":0,"travel_distance_estimate":2.71}},"product":{"product_id":"aad1febe-9780-4b91-a92f-8f7c58d5cf54","display_name":"Black Hourly","description":"Luxury rides by the hour with professional drivers","short_description":"Black Hourly","product_group":"","image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/haloProductImages/v1.1/Black_v1.png","upfront_fare_enabled":true,"shared":false,"capacity":4,"scheduling_enabled":true,"background_image":"https://d1a3f4spazzrp4.cloudfront.net/car-types/haloProductImageBackgrounds/imageBackground@3x_v0.png","vehicle_view_id":20035361,"parent_product_type_id":"5354dad7-2f82-405b-b99a-9ff8acd70223","reserve_info":{"enabled":true,"scheduled_threshold_minutes":120,"free_cancellation_threshold_minutes":60,"add_ons":[],"valid_until_timestamp":1698097557000},"advance_booking_type":"RESERVE","cancellation":{"min_cancellation_fee":5,"cancellation_grace_period_threshold_sec":120}}}]}',
-    		'create_trip' => '{"code":"surge","message":"Fare is higher than normal, request again to confirm","metadata":{"fare_id":"dcf8a733-7f11-4544-a9c7-ddea71e46146","fare_display":"$12-15","multiplier":1.4,"expires_at":1501684062}}',
-    		'create_trip1' => '{"eta":7,"guest":{"email":"joe@example.com","first_name":"Joe","guest_id":"OVmNxPG1ENYSwn8QonwLapF3ZJl2KJipkUc0AP3C74U=","last_name":"Example","phone_number":"+15551234567"},"product_id":"a1111c8c-c720-46c3-8534-2fcdd730040d","request_id":"def481ba-f21b-43f8-9ab3-5bdbc603af0c","status":"processing"}',
-    		'create_trip2' => '{"eta":8,"guest":{"first_name":"Garland","guest_id":"2498b39a-f69e-51ba-a978-5e6e2ef76379","has_coordinator_consented":false,"last_name":"Boecking","locale":"en","phone_number":"+15127997890","unregistered_user_uuid":"d40dea0c-2d1c-5329-b4b9-e0e4b582a607"},"linked_request_id":"0da3bd5c-bc0a-4194-8e22-859fa34adbb6","product_id":"0b3f7b7f-6639-4c17-8671-553901bf2540","request_id":"6bd91b20-60ed-42af-b0c1-0c81b4aa7cba","status":"scheduled"}',
-    		'get_trip1' => '{"call_enabled":true,"city_id":"4","client_fare":"$39.99","destination":{"address":"1015 W 39 1\/2 St, Austin, TX","latitude":30.3074427,"longitude":-97.7426443,"place":{"place_id":"cfba536e-848e-bfe0-7c9c-6e0308711a8d","provider":"uber_global_hotspots"},"subtitle":"Austin, TX","timezone":"America\/Chicago","title":"1015 W 39 1\/2 St"},"expense_code":"AUS - CENTRAL AUSTIN","fare":{"currency_code":"USD","value":39.99},"guest":{"first_name":"Natacia","guest_id":"8dd1fdb2-8764-56b9-a5aa-3436a7727b7f","has_coordinator_consented":false,"last_name":"Gillum","locale":"en","member_info":{"member_id":"85823","member_org_name":"Pro-Care Medical Center","member_org_uuid":"ec4a42ae-a4b6-46de-b771-b9c151528928","member_uuid":"80550423-dfb3-5084-b61a-824e46c2c91c","plan_id":""},"phone_number":"+18303851580","unregistered_user_uuid":"e99dd4f1-36ea-5166-af50-dd775ccb2bb0"},"linked_trip_details":{"request_id":"50ec8dee-f5c7-4556-a90f-4891acd43b8e-1","status":"scheduled","trip_leg_number":1},"location_uuid":"ec4a42ae-a4b6-46de-b771-b9c151528928","pickup":{"address":"4100 Hazy Hills Dr, Spicewood, TX 78669-6584, US","latitude":30.3712363683003,"longitude":-98.07007456188425,"place":{"place_id":"here:af:streetsection:p4ouUgAO4JmFgpBluV5aiA:CgcIBCCMj7kVEAEaBDQxMDA","provider":"here_places"},"subtitle":"Spicewood, TX 78669-6584, US","timezone":"America\/Chicago","title":"4100 Hazy Hills Dr"},"policy_uuid":"3e71e6e4-f032-4a4c-80e1-69a8e1db93a0","product":{"display_name":"UberX","parent_product_type_id":"6a8e56b8-914e-4b48-a387-e6ad21d9c00c","product_id":"a795cfc4-14cf-4bdb-b1b9-787812516ff5"},"request_id":"576e1749-f1dc-4ed3-ac60-8e53eef9fc3b-1","requester_group":{"name":""},"requester_name":"Karli Anderson","requester_uuid":"c4020a35-7684-42c5-8128-d28b22792587","rider_tracking_u_r_l":"https:\/\/trip.uber.com\/yLgnFHm","scheduling":{"pickup_time":1735822800000},"spend_cap_details":{"trip_creation_spend_cap_status":"NOT_EXCEEDED"},"status":"scheduled","surge_multiplier":1,"total_trip_legs":2,"trip_leg_number":0}',
-    		'get_trip2' => '{"call_enabled":true,"city_id":"4","client_fare":"$39.99","destination":{"address":"1015 W 39 1\/2 St, Austin, TX","latitude":30.3074427,"longitude":-97.7426443,"place":{"place_id":"cfba536e-848e-bfe0-7c9c-6e0308711a8d","provider":"uber_global_hotspots"},"subtitle":"Austin, TX","timezone":"America\/Chicago","title":"1015 W 39 1\/2 St"},"expense_code":"AUS - CENTRAL AUSTIN","fare":{"currency_code":"USD","value":39.99},"guest":{"first_name":"Natacia","guest_id":"8dd1fdb2-8764-56b9-a5aa-3436a7727b7f","has_coordinator_consented":false,"last_name":"Gillum","locale":"en","member_info":{"member_id":"85823","member_org_name":"Pro-Care Medical Center","member_org_uuid":"ec4a42ae-a4b6-46de-b771-b9c151528928","member_uuid":"80550423-dfb3-5084-b61a-824e46c2c91c","plan_id":""},"phone_number":"+18303851580","unregistered_user_uuid":"e99dd4f1-36ea-5166-af50-dd775ccb2bb0"},"location_uuid":"ec4a42ae-a4b6-46de-b771-b9c151528928","pickup":{"address":"4100 Hazy Hills Dr, Spicewood, TX 78669-6584, US","latitude":30.3712363683003,"longitude":-98.07007456188425,"place":{"place_id":"here:af:streetsection:p4ouUgAO4JmFgpBluV5aiA:CgcIBCCMj7kVEAEaBDQxMDA","provider":"here_places"},"subtitle":"Spicewood, TX 78669-6584, US","timezone":"America\/Chicago","title":"4100 Hazy Hills Dr"},"policy_uuid":"3e71e6e4-f032-4a4c-80e1-69a8e1db93a0","product":{"display_name":"UberX","parent_product_type_id":"6a8e56b8-914e-4b48-a387-e6ad21d9c00c","product_id":"a795cfc4-14cf-4bdb-b1b9-787812516ff5"},"request_id":"576e1749-f1dc-4ed3-ac60-8e53eef9fc3b-12","requester_group":{"name":""},"requester_name":"Karli Anderson","requester_uuid":"c4020a35-7684-42c5-8128-d28b22792587","rider_tracking_u_r_l":"https:\/\/trip.uber.com\/yLgnFHm","scheduling":{"pickup_time":1735822800000},"spend_cap_details":{"trip_creation_spend_cap_status":"NOT_EXCEEDED"},"status":"scheduled","surge_multiplier":1,"total_trip_legs":1,"trip_leg_number":0}'
-    	);
-    }
+				if (!empty($facilityDataItem['state'])) {
+					$facilityaddress[] = $facilityDataItem['state'] ." ". $facilityDataItem['postal_code'];
+				}
+
+				if (!empty($facilityDataItem['name'])) {
+					$facilityName = $facilityDataItem['name'];
+				}
+
+				$facilityaddress = implode(", ", $facilityaddress);
+				$returnItems[] = array("name" => $facilityName, "address" => $facilityaddress);
+			}
+		}
+
+
+		return $returnItems;
+	}
+
+	public static function getGeolocationDetails($address = '') {
+		try {
+
+			// Create a URL for the API request
+			$geocodeUrl = 'https://maps.googleapis.com/maps/api/geocode/json?address=' . urlencode($address) . '&key=' . UberController::GOOGLE_MAP_KEY;
+
+			// Initialize cURL session
+			$ch = curl_init();
+
+			// Set cURL options
+			curl_setopt($ch, CURLOPT_URL, $geocodeUrl);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+
+			// Execute the request and get the response
+			$response = curl_exec($ch);
+
+			// Close cURL session
+			curl_close($ch);
+
+			// Decode the JSON response
+			$responseData = json_decode($response, true);
+
+			// Check for cURL errors
+			if (curl_errno($ch)) {
+				throw new \Exception(curl_error($ch));
+			} else {
+
+				if ($responseData['status'] != "OK" || !isset($responseData['results'][0]['geometry']) || !isset($responseData['results'][0]['geometry']['location']) || !isset($responseData['results'][0]['address_components'])) {
+					throw new \Exception("Unable to fetch details");
+				}
+
+				$addressComponentStatus = 0;
+
+				foreach ($responseData['results'][0]['address_components'] as $addressComponentItems) {
+					if (!empty($addressComponentItems) && isset($addressComponentItems['types']) && !empty($addressComponentItems['long_name'] ?? "")) {
+						if (in_array("subpremise", $addressComponentItems['types'])) {
+							$addressComponentStatus++;
+						} else if (in_array("street_number", $addressComponentItems['types'])) {
+							$addressComponentStatus++;
+						} else if (in_array("route", $addressComponentItems['types'])) {
+							$addressComponentStatus++;
+						}
+					}
+				}
+
+				if ($addressComponentStatus !== 3 && $addressComponentStatus !== 2) {
+					throw new \Exception("Not valid address");
+				}
+				
+
+				$geometryDetails = $responseData['results'][0]['geometry']['location'];
+
+				return $geometryDetails;
+			}
+
+			// Close the cURL session
+			curl_close($ch);
+
+		} catch (\Throwable $e) {
+			throw new \Exception($e->getMessage(), $e->getCode());
+		}
+
+		return false;
+	}
+
+	public static function getDistancematrix($origins = '', $destinations = '') {
+		try {
+
+			if (empty($origins) || empty($destinations)) {
+				throw new \Exception("Valid Addresses not available.");
+			}
+
+			// Create a URL for the API request
+			$geocodeUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json?origins=' . urlencode($origins) . '&destinations=' . urlencode($destinations) . '&key=' . UberController::GOOGLE_MAP_KEY;
+
+			// Initialize cURL session
+			$ch = curl_init();
+
+			// Set cURL options
+			curl_setopt($ch, CURLOPT_URL, $geocodeUrl);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+
+			// Execute the request and get the response
+			$response = curl_exec($ch);
+
+			// Close cURL session
+			curl_close($ch);
+
+			// Decode the JSON response
+			$responseData = json_decode($response, true);
+
+			// Check for cURL errors
+			if (curl_errno($ch)) {
+				throw new \Exception(curl_error($ch));
+			} else {
+
+				if ($responseData['status'] != "OK" || !isset($responseData['rows'][0]['elements'])) {
+					throw new \Exception("Unable to fetch details");
+				}
+				
+				return $responseData['rows'][0]['elements'];
+			}
+
+			// Close the cURL session
+			curl_close($ch);
+
+		} catch (\Throwable $e) {
+			throw new \Exception($e->getMessage(), $e->getCode());
+		}
+
+		return false;
+	}
+
+	public static function saveGeoLocation($formatted_address = '', $lat = 0, $lng = 0) {
+		$isLocationExists = sqlQuery("SELECT count(id) as total_count FROM `vh_addresses_geocode` WHERE formatted_address = ? LIMIT 1", array($formatted_address ?? ''));
+
+		if (!empty($isLocationExists) && $isLocationExists['total_count'] == 0) {
+			return sqlInsert(
+				"INSERT INTO `vh_addresses_geocode` ( formatted_address, lat, lng ) VALUES (?, ?, ?) ", 
+				array(
+					$formatted_address ?? '',
+					$lat ?? '',
+					$lng ?? ''
+				)
+			);
+		}
+
+		return false;
+	}
 }

@@ -90,7 +90,7 @@ function generateSqlQuery($data = array(), $isSearch = false) {
 	$limit_qry = isset($data['limit']) && $data['limit'] > 0 ? $data['limit'] : "0"; 
 	$offset_qry = isset($data['offset']) && $data['offset'] != "-1" ? $data['offset'] : "5";
 
-	$sql = "SELECT $select_qry FROM vh_uber_health_trips vuht ";
+	$sql = "SELECT $select_qry FROM vh_uber_health_trips vuht left join `users` u on u.id = vuht.user_id ";
 
 	if($isSearch === false) {
 	}
@@ -497,7 +497,12 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 
 										
 										<?php if (!empty($tripResponce['requester_name'] ?? "")) { ?>
-										<span class="text-secondary">Requested by: <?php echo $tripResponce['requester_name']; ?></span>
+										<span class="text-secondary">Requested by: <?php echo !empty($row_item['requester_name']) ? $row_item['requester_name'] : $tripResponce['requester_name']; ?></span>
+										<br/>
+										<?php } ?>
+
+										<?php if (!empty($tripResponce['expense_memo'] ?? "")) { ?>
+										<span class="text-secondary">Expense memo: <?php echo !empty($row_item['expense_memo']) ? $row_item['expense_memo'] : ""; ?></span>
 										<br/>
 										<?php } ?>
 
@@ -560,7 +565,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 	// $totalRecordwithFilter  = $records['allcount'];
 
 	$result = sqlStatement(generateSqlQuery(array(
-		"select" => "vuht.*",
+		"select" => "vuht.*, CONCAT(IFNULL(SUBSTR(u.`fname`,1,1),''), '. ', u.`lname`) AS 'requester_name' ",
 		"where" => $searchQuery,
 		"order" => $columnName,
 		"order_type" => $columnSortOrder,

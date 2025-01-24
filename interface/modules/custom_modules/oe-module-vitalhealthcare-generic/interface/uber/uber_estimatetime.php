@@ -13,9 +13,24 @@ use OpenEMR\Core\Header;
 $form_pid = isset($_REQUEST['form_pid']) ? $_REQUEST['form_pid'] : "";
 $form_eid = isset($_REQUEST['form_eid']) && !empty($_REQUEST['form_eid']) ? $_REQUEST['form_eid'] : "";
 $form_default_date = isset($_REQUEST['default_date']) && !empty($_REQUEST['default_date']) ? $_REQUEST['default_date'] : "";
+$form_default_time = isset($_REQUEST['default_time']) && !empty($_REQUEST['default_time']) ? $_REQUEST['default_time'] : "";
 $facility_id = isset($_REQUEST['facility_id']) ? $_REQUEST['facility_id'] : "";
 $trip_request_id = isset($_REQUEST['trip_request_id']) ? $_REQUEST['trip_request_id'] : "";
 $request_mode = isset($_REQUEST['request_mode']) ? $_REQUEST['request_mode'] : "";
+
+$form_appt_date = isset($_REQUEST['appt_date']) && !empty($_REQUEST['appt_date']) ? $_REQUEST['appt_date'] : "";
+$form_appt_time = isset($_REQUEST['appt_time']) && !empty($_REQUEST['appt_time']) ? $_REQUEST['appt_time'] : "";
+
+if (!empty($form_appt_date)) {
+	$form_default_date = $form_appt_date;
+}
+
+$appt_datetime = "";
+if (!empty($form_appt_date) && !empty($form_appt_time)) {
+	$form_default_time = date('h:i', strtotime($form_appt_date ." ". $form_appt_time));
+	$form_default_hr = date('H', strtotime($form_appt_date ." ". $form_appt_time));
+	$appt_datetime = oeTimestampFormatDateTime(strtotime($form_appt_date ." ". $form_appt_time));
+}
 
 function getPatientDetails($form_pid = "") {
 	if (empty($form_pid)) {
@@ -34,7 +49,7 @@ function getPatientDetails($form_pid = "") {
 		$returnData['phonenumber'] = $patientData['phone_cell'] ?? "";
 
 		// Get Patient Address
-		$defaultLocationName = getPatientAddress($patientData);
+		$defaultLocationName = UberController::getPatientAddress($patientData);
 		$dropoffGeocode = !empty($defaultLocationName) ? getAddressGeocode($defaultLocationName) : array();
 
 		if (!empty($dropoffGeocode) && !empty($dropoffGeocode['lat']) && !empty($dropoffGeocode['lng'])) {
@@ -53,26 +68,37 @@ function getPatientDetails($form_pid = "") {
 }
 
 function getFacilityDetails($facility_id = "") {
-	if (empty($facility_id)) {
-		return false;
+	$returnItems = array();
+	$facilityItems = UberController::getFacilityAddress($facility_id);
+
+	foreach ($facilityItems as $facilityData) {
+		$returnData = array();
+		$defaultLocationName = $facilityData['address'] ?? "";
+
+		if (!empty($defaultLocationName)) {
+			$returnData['location_name'] = $defaultLocationName;
+		}
+
+		if (!empty($facilityData['name'] ?? "")) {
+			$returnData['facility_name'] = $facilityData['name'];
+		}
+
+		$pickupGeocode = getAddressGeocode($defaultLocationName);
+		if (!empty($pickupGeocode) && !empty($pickupGeocode['lat']) && !empty($pickupGeocode['lng'])) {
+			$returnData['location'] = array(
+				"lat" => (float) $pickupGeocode['lat'],
+				"lng" => (float) $pickupGeocode['lng']
+			);
+		}
+
+		$returnItems[] = $returnData;
 	}
 
-	$returnData = array();
-	$defaultLocationName = getFacilityAddress($facility_id);
-
-	if (!empty($defaultLocationName)) {
-		$returnData['location_name'] = $defaultLocationName;
+	if (count($returnItems) === 1) {
+		return $returnItems[0];
+	} else {
+		return $returnItems;
 	}
-
-	$pickupGeocode = getAddressGeocode($defaultLocationName);
-	if (!empty($pickupGeocode) && !empty($pickupGeocode['lat']) && !empty($pickupGeocode['lng'])) {
-		$returnData['location'] = array(
-			"lat" => (float) $pickupGeocode['lat'],
-			"lng" => (float) $pickupGeocode['lng']
-		);
-	}
-
-	return $returnData;
 }
 
 function getDefaultDateTimePicker() {
@@ -120,56 +146,6 @@ function getTimeStampsec($datetimeStr = "") {
 	return $timestampInSeconds * 1000;
 }
 
-function getPatientAddress($patientData = array()) {
-	$patientaddress = array();
-
-	if (!empty($patientData)) {
-		if (!empty($patientData)) {
-			if (!empty($patientData['street'])) {
-				$patientaddress[] = $patientData['street'];
-			}
-
-			if (!empty($patientData['city'])) {
-				$patientaddress[] = $patientData['city'];
-			}
-
-			if (!empty($patientData['state'])) {
-				$patientaddress[] = $patientData['state'] ." ". $patientData['postal_code'];
-			}
-		}
-	}
-
-	$patientaddress = implode(", ", $patientaddress);
-
-	return $patientaddress;
-}
-
-function getFacilityAddress($facility_id) {
-	$facilityaddress = array();
-
-	if (!empty($facility_id)) {
-		$facilityData = sqlQuery("SELECT * FROM `facility` f WHERE f.id = ? ", array($facility_id));
-
-		if (!empty($facilityData)) {
-			if (!empty($facilityData['street'])) {
-				$facilityaddress[] = $facilityData['street'];
-			}
-
-			if (!empty($facilityData['city'])) {
-				$facilityaddress[] = $facilityData['city'];
-			}
-
-			if (!empty($facilityData['state'])) {
-				$facilityaddress[] = $facilityData['state'] ." ". $facilityData['postal_code'];
-			}
-		}
-	}
-
-	$facilityaddress = implode(", ", $facilityaddress);
-
-	return $facilityaddress;
-}
-
 function getAddressGeocode($formatted_address = "") {
 	$geocodeDetails = sqlQuery("SELECT * FROM `vh_addresses_geocode` WHERE formatted_address = ? LIMIT 1", array($formatted_address));
 
@@ -181,13 +157,14 @@ function getAddressGeocode($formatted_address = "") {
 }
 
 function prepareDefaultData($request_id = "") {
-	global $todayDate, $currentTime;
+	global $todayDate, $currentTime, $currentAmPm;
 
 	$initialTripObject = array(
 		"riderFirstName" => "",
 		"riderLastName" => "",
 		"riderPhoneNumber" => "",
-		"tripType" => "oneway",
+		"tripType" => "roundtrip",
+		"expenseMemo" => "",
 		"oneway" => array(
 			"startLocationName" => "",
 			"startLocation" => null,
@@ -198,6 +175,7 @@ function prepareDefaultData($request_id = "") {
 	    	"flexibleRideDate" => $todayDate,
 	    	"futureRideDate" => $todayDate,
 	    	"futureRideTime" => $currentTime,
+	    	"futureRideampm" => $currentAmPm,
 	    	"messageToDriver" => "",
 	    	"vehicleTypeOptions" => null,
 	    	"vehicleType" => ""
@@ -209,10 +187,11 @@ function prepareDefaultData($request_id = "") {
 				"endLocationName" => "",
 		    	"endLocation" => null,
 		    	"whenToRide" => "futuretrip",
-		    	"scheduleType" => "flexible",
+		    	"scheduleType" => "schedule",
 		    	"flexibleRideDate" => $todayDate,
 		    	"futureRideDate" => $todayDate,
 		    	"futureRideTime" => $currentTime,
+		    	"futureRideampm" => $currentAmPm,
 		    	"messageToDriver" => "",
 		    	"vehicleTypeOptions" => null,
 		    	"vehicleType" => ""
@@ -227,6 +206,7 @@ function prepareDefaultData($request_id = "") {
 		    	"flexibleRideDate" => $todayDate,
 		    	"futureRideDate" => $todayDate,
 		    	"futureRideTime" => $currentTime,
+		    	"futureRideampm" => $currentAmPm,
 		    	"messageToDriver" => "",
 		    	"vehicleTypeOptions" => null,
 		    	"vehicleType" => ""
@@ -442,9 +422,11 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 					$optionTitle .= "In " . $productEstimate['estimate_info']['pickup_estimate'] . " mins";
 				}
 
+				$estimated_time = "";
 				if (isset($productEstimate['estimate_info']['trip']) && isset($productEstimate['estimate_info']['trip']['duration_estimate']) && !empty($productEstimate['estimate_info']['trip']['duration_estimate'])) {
 					//$optionTitle1 .= " • Estimated drop-off: " . convertSecondsToMMSS($productEstimate['estimate_info']['trip']['duration_estimate']);
-					$optionTitle .= " • Estimated drop-off: " . convertSecondsToMMSS($productEstimate['estimate_info']['trip']['duration_estimate']);
+					$estimated_time = convertSecondsToMMSS($productEstimate['estimate_info']['trip']['duration_estimate']);
+					$optionTitle .= " • Estimated drop-off: " . $estimated_time;
 				}
 
 				if (!empty($optionTitle1)) $optionTitle1 = "<span class='estimate_info'>" . $optionTitle1 . "</span>";
@@ -457,10 +439,42 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 
 				//$optionTitle = "<div class='sel2-vehicle-container'><div><div>" . $optionTitle . "</div><div>" . $optionTitle1 . "</div></div><div>" .$optionTitle2. "</div></div>";
 
-				$productEstimates[] = array(
+				if ($_REQUEST['path'] == "roundtrip.first_leg" || $_REQUEST['path'] == "oneway") {
+					if (!empty($form_appt_date) && !empty($form_appt_time)) {
+						$appttimestampInMilliseconds = getTimeStampsec($form_appt_date . " " . $form_appt_time);
+
+						if (isset($timestampInMilliseconds) && !empty($appttimestampInMilliseconds) && $timestampInMilliseconds === $appttimestampInMilliseconds) {
+							// Split the string into hours and minutes
+							list($etminutes, $etseconds) = explode(":", $estimated_time);
+
+							// Convert hours and minutes into seconds
+							$etsecondsToSubtract = (($etminutes * 60) + $etseconds) + 300;
+
+							// Subtract the calculated seconds from the timestamp
+							$etnewTimestamp = strtotime($form_appt_date ." ". $form_appt_time) - $etsecondsToSubtract;
+
+							$etnewTime = date("H:i", $etnewTimestamp);
+							$etnewAmPm = date("H", $etnewTimestamp) > 12 ? 2 : 1;
+						}
+					}
+				}
+
+				$productEstimateItem = array(
 					"name" => $optionTitle,
-					"id" => $productEstimate['estimate_info']['fare_id'] . "~" . $productEstimate['product']['product_id']
+					"id" => $productEstimate['estimate_info']['fare_id'] . "~" . $productEstimate['product']['product_id'],
+					"estimated_time" => $estimated_time ?? "",
 				);
+
+				if (!empty($etnewTime) && !empty($etnewAmPm)) {
+					$productEstimateItem["new_appt_time"] = $etnewTime ?? "";
+					$productEstimateItem["new_appt_time_ampm"] = $etnewAmPm ?? "";
+				}
+
+				if (isset($productEstimate['product']['display_name'])) {
+					$productEstimateItem["display_name"] = $productEstimate['product']['display_name'] ?? "";
+				}
+
+				$productEstimates[] = $productEstimateItem;
 			}
 		}
 
@@ -567,6 +581,10 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 				"phone_number" => "+" . $cleanedPhoneNumber
 			)
 		);
+
+		if (!empty($_REQUEST['expense_memo'] ?? "")) {
+			$tripPayload['expense_memo'] = $_REQUEST['expense_memo'] ?? "";
+		}
 
 		if ($_REQUEST['trip_type'] == "oneway") {
 			$onewayTripDetails = isset($tripTypeDetails['oneway']['items']) ? $tripTypeDetails['oneway']['items'] : array();
@@ -893,22 +911,12 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 			throw new \Exception("Invalid 'lat' or 'lng' values.");
 		}
 
-		$isLocationExists = sqlQuery("SELECT count(id) as total_count FROM `vh_addresses_geocode` WHERE formatted_address = ? LIMIT 1", array($_REQUEST['formatted_address'] ?? ''));
+		$in_sql = UberController::saveGeoLocation($_REQUEST['formatted_address'] ?? '', $_REQUEST['lat'] ?? '', $_REQUEST['lng'] ?? '');
 
-		if (!empty($isLocationExists) && $isLocationExists['total_count'] == 0) {
-			$in_sql = sqlInsert(
-				"INSERT INTO `vh_addresses_geocode` ( formatted_address, lat, lng ) VALUES (?, ?, ?) ", 
-				array(
-					$_REQUEST['formatted_address'] ?? '',
-					$_REQUEST['lat'] ?? '',
-					$_REQUEST['lng'] ?? ''
-				)
-			);
-
-			if (!empty($in_sql)) {
-				$response['data'] = $in_sql;
-			}
+		if (!empty($in_sql)) {
+			$response['data'] = $in_sql;
 		}
+
 	} catch (\Throwable $e) {
 		http_response_code(400); // Bad Request
 
@@ -978,6 +986,115 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 
 	echo json_encode($response);
 	exit();
+} else if (isset($_REQUEST['action']) && $_REQUEST['action'] == "fetch_geocode_details") {
+	$response = array();
+
+	try {
+
+		$patientId = $_REQUEST['patient_id'] ?? "";
+
+		if (empty($patientId)) {
+			throw new \Exception("Empty patient id");
+		}
+
+		// Get patient data
+		$patientData = getPatientDetails($patientId);
+
+		// Get facility data
+		$facilityData = getFacilityDetails();
+
+		$pointA = "";
+		$pointsB = array();
+		$pointBList = array();
+
+		try {
+			if (empty($patientData['location'] ?? array()) && !empty($patientData['location_name'] ?? "")) {
+				$patientLocationDetails = UberController::getGeolocationDetails($patientData['location_name']);
+			} else if (!empty($patientData['location'] ?? array())) {
+				$patientLocationDetails = $patientData['location'];
+			}
+
+			if (!empty($patientLocationDetails) && !empty($patientLocationDetails['lat'] ?? "") && !empty($patientLocationDetails['lng'] ?? "")) {
+				$pointA = $patientLocationDetails['lat'] .",". $patientLocationDetails['lng'];
+
+				// Save patient geo info
+				UberController::saveGeoLocation($patientData['location_name'], $patientLocationDetails['lat'], $patientLocationDetails['lng']);
+			}
+		} catch (\Throwable $e) {
+		}
+
+		foreach ($facilityData as $facilityItem) {
+			try {
+				if (empty($facilityItem['location'] ?? array()) && !empty($facilityItem['location_name'] ?? "")) {
+					$locationDetails = UberController::getGeolocationDetails($facilityItem['location_name']);
+				} else if (!empty($facilityItem['location'] ?? array())) {
+					$locationDetails = $facilityItem['location'];
+				}
+
+				if (!empty($locationDetails) && !empty($locationDetails['lat'] ?? "") && !empty($locationDetails['lng'] ?? "")) {
+					$pointsB[] = $locationDetails['lat'].",".$locationDetails['lng'];
+					$pointBList[] = $facilityItem;
+
+					// Save facility geo info
+					UberController::saveGeoLocation($facilityItem['location_name'], $locationDetails['lat'], $locationDetails['lng']);
+				}
+			} catch (\Throwable $e) {
+			}
+		}
+
+		$origins = $pointA;
+		$destinations = implode('|', $pointsB);
+		$elementItem = UberController::getDistancematrix($origins, $destinations);
+
+		if (!empty($elementItem)) {
+			foreach ($pointBList as $pIndex => $pItem) {
+				if (isset($elementItem[$pIndex]) && !empty($elementItem[$pIndex])) {
+					$pointBList[$pIndex]['distance_data'] = $elementItem[$pIndex];
+				}
+			}
+		}
+
+		// Remove invalid elements (those without valid distance)
+	    $validPointB = array_filter($pointBList, function ($item) {
+	    	if (!isset($item['distance_data']) || $item['distance_data']['status'] != "OK" || empty($item['distance_data']['distance']['value'] ?? '')) {
+	    		return false;
+	    	}
+	        return true;
+	    });
+
+		// Sort the distances array by distance in ascending order
+	    usort($validPointB, function ($a, $b) {
+	        return $a['distance_data']['distance']['value'] - $b['distance_data']['distance']['value'];
+	    });
+
+	    $ic = 1;
+		foreach ($validPointB as $validPointBItem) {
+			if ($ic > 3) {
+				continue;
+			}
+
+			if (!empty($validPointBItem['facility_name'] ?? "") && !empty($validPointBItem['distance_data']['distance']['text'] ?? "")) {
+				// Convert to miles
+			    $miles = $validPointBItem['distance_data']['distance']['value'] / 1609.344;
+			    // Round to the specified number of decimals
+			    $miles = round($miles, $decimals);
+			    
+				$response[] = $validPointBItem['facility_name'] . " - (" . $miles . " miles)";
+				$ic++;
+			}
+		}
+
+	} catch (\Throwable $e) {
+		http_response_code(400); // Bad Request
+
+		$response = array(
+			"error" => 1,
+			"message" => $e->getMessage()
+		);
+	}
+
+	echo json_encode($response);
+	exit();
 }
 
 // Get Default date time param
@@ -992,6 +1109,12 @@ if (!empty($form_default_date)) {
 }
 
 $currentTime = date("H:i");
+$currentAmPm = date("H") > 12 ? 2 : 1;
+
+if (!empty($form_default_time) && !empty($form_default_hr)) {
+	$currentAmPm = $form_default_hr > 12 ? 2 : 1;
+	$currentTime = $form_default_time;
+}
 
 // Prepare default data
 $initialTripObject = prepareDefaultData($trip_request_id);
@@ -1043,6 +1166,10 @@ if (empty($trip_request_id)) {
 				$initialTripObject['roundtrip']['first_leg']['endLocation'] = $defaultstartLocation;
 				$initialTripObject['roundtrip']['return_leg']['startLocation'] = $defaultstartLocation;
 			}
+
+			if (!empty($fData["facility_name"] ?? "")) {
+				$initialTripObject['expenseMemo'] = $fData["facility_name"];
+			}
 		}
 	}
 }
@@ -1058,10 +1185,11 @@ if (empty($trip_request_id)) {
 
 	<title><?php echo xlt('Uber'); ?></title>
 
-	<script src="https://maps.googleapis.com/maps/api/js?key=?&libraries=places&v=beta" async defer></script>
+	<script src="https://maps.googleapis.com/maps/api/js?key=<?php echo UberController::GOOGLE_MAP_KEY; ?>&libraries=places&v=beta" async defer></script>
 
 	<script type="text/javascript">
-		let map, directionsService, directionsRenderer, startAutocomplete, endAutocomplete, startMarker, endMarker, uberView;
+		let map, directionsService, directionsRenderer, startAutocomplete, endAutocomplete, startMarker, endMarker, uberView, middlepath, estimateOverlay;
+		let overlays = [];
 		var defaultDataSet = {
 			startLocationName : "",
 			startLocation : null,
@@ -1209,9 +1337,14 @@ if (empty($trip_request_id)) {
         function initEstimatedTrip() {
         	// For oneway
 			if (uberView.tripType() == "oneway") {
-				getTripsEstimates('oneway');
+				getTripsEstimates('oneway', function() {
+					setDefaultVehicleType('oneway');
+				});
 			} else if (uberView.tripType() == "roundtrip") {
-				getTripsEstimates('roundtrip.first_leg');
+				getTripsEstimates('roundtrip.first_leg', function() {
+					setDefaultVehicleType('roundtrip.first_leg');
+				});
+
 				getTripsEstimates('roundtrip.return_leg');
 			}
         }
@@ -1227,9 +1360,10 @@ if (empty($trip_request_id)) {
 
         	$('.future_ride_time').datetimepicker('destroy');
         	$('.future_ride_time').datetimepicker({
-        		format: 'H:i',  // Time format (24-hour format)
+        		format: 'h:i',  // Time format (24-hour format)
 		        datepicker: false,  // Disable the date picker
-        		step: 5  // Set step interval for the time picker (e.g., 5-minute intervals)
+        		step: 5,  // Set step interval for the time picker (e.g., 5-minute intervals)
+        		hours12: true
         	});
         }
 
@@ -1302,6 +1436,10 @@ if (empty($trip_request_id)) {
         	uberView.oneway.flexibleRideDate.subscribe(function() { getTripsEstimates('oneway'); });
         	uberView.oneway.futureRideDate.subscribe(function() { getTripsEstimates('oneway'); });
         	uberView.oneway.futureRideTime.subscribe(function() { getTripsEstimates('oneway'); });
+        	uberView.oneway.futureRideampm.subscribe(function() { getTripsEstimates('oneway'); });
+        	uberView.oneway.vehicleType.subscribe(function() { updateApptTime('oneway'); });
+        	uberView.oneway.vehicleType.subscribe(function() { updateTripsEstimateTime('oneway'); });
+        	
 
         	uberView.roundtrip.first_leg.startLocation.subscribe(function() {
             	uberView.roundtrip.return_leg.endLocationName(uberView.roundtrip.first_leg.startLocationName());
@@ -1320,6 +1458,10 @@ if (empty($trip_request_id)) {
         	uberView.roundtrip.first_leg.flexibleRideDate.subscribe(function() { getTripsEstimates('roundtrip.first_leg'); });
         	uberView.roundtrip.first_leg.futureRideDate.subscribe(function() { getTripsEstimates('roundtrip.first_leg'); });
         	uberView.roundtrip.first_leg.futureRideTime.subscribe(function() { getTripsEstimates('roundtrip.first_leg'); });
+        	uberView.roundtrip.first_leg.futureRideampm.subscribe(function() { getTripsEstimates('roundtrip.first_leg'); });
+        	uberView.roundtrip.first_leg.vehicleType.subscribe(function() { updateApptTime('roundtrip.first_leg'); });
+        	uberView.roundtrip.first_leg.vehicleType.subscribe(function() { updateTripsEstimateTime('roundtrip.first_leg'); });
+
 
         	uberView.roundtrip.return_leg.startLocation.subscribe(function() { getTripsEstimates('roundtrip.return_leg'); });
         	uberView.roundtrip.return_leg.endLocation.subscribe(function() { getTripsEstimates('roundtrip.return_leg'); });
@@ -1328,6 +1470,8 @@ if (empty($trip_request_id)) {
         	uberView.roundtrip.return_leg.flexibleRideDate.subscribe(function() { getTripsEstimates('roundtrip.return_leg'); });
         	uberView.roundtrip.return_leg.futureRideDate.subscribe(function() { getTripsEstimates('roundtrip.return_leg'); });
         	uberView.roundtrip.return_leg.futureRideTime.subscribe(function() { getTripsEstimates('roundtrip.return_leg'); });
+        	uberView.roundtrip.return_leg.futureRideampm.subscribe(function() { getTripsEstimates('roundtrip.return_leg'); });
+        	uberView.roundtrip.return_leg.vehicleType.subscribe(function() { updateTripsEstimateTime('roundtrip.return_leg'); });
 
         	// Update return leg route
         	uberView.roundtrip.first_leg.startLocation.subscribe(updateRoute);
@@ -1403,54 +1547,54 @@ if (empty($trip_request_id)) {
 	        		}
 
             		if (uberView.tripType() == "oneway") {
-	        			if (defaultDataSet.hasOwnProperty('startLocationName') && defaultDataSet['startLocationName'] != "") {
-	        				uberView.oneway.startLocationName(defaultDataSet['startLocationName']);
+	        			if (initialTripObject['oneway'].hasOwnProperty('startLocationName') && initialTripObject['oneway']['startLocationName'] != "") {
+	        				uberView.oneway.startLocationName(initialTripObject['oneway']['startLocationName']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('startLocation') && defaultDataSet['startLocation'] != null) {
-	        				uberView.oneway.startLocation(defaultDataSet['startLocation']);
+	        			if (initialTripObject['oneway'].hasOwnProperty('startLocation') && initialTripObject['oneway']['startLocation'] != null) {
+	        				uberView.oneway.startLocation(initialTripObject['oneway']['startLocation']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('endLocationName') && defaultDataSet['endLocationName'] != "") {
-	        				uberView.oneway.endLocationName(defaultDataSet['endLocationName']);
+	        			if (initialTripObject['oneway'].hasOwnProperty('endLocationName') && initialTripObject['oneway']['endLocationName'] != "") {
+	        				uberView.oneway.endLocationName(initialTripObject['oneway']['endLocationName']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('endLocation') && defaultDataSet['endLocation'] != null) {
-	        				uberView.oneway.endLocation(defaultDataSet['endLocation']);
+	        			if (initialTripObject['oneway'].hasOwnProperty('endLocation') && initialTripObject['oneway']['endLocation'] != null) {
+	        				uberView.oneway.endLocation(initialTripObject['oneway']['endLocation']);
 	        			}
         			} else if (uberView.tripType() == "roundtrip") {
         				// Set location value for first_leg
-        				if (defaultDataSet.hasOwnProperty('startLocationName') && defaultDataSet['startLocationName'] != "") {
-	        				uberView.roundtrip.first_leg.startLocationName(defaultDataSet['startLocationName']);
+        				if (initialTripObject['roundtrip']['first_leg'].hasOwnProperty('startLocationName') && initialTripObject['roundtrip']['first_leg']['startLocationName'] != "") {
+	        				uberView.roundtrip.first_leg.startLocationName(initialTripObject['roundtrip']['first_leg']['startLocationName']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('startLocation') && defaultDataSet['startLocation'] != null) {
-	        				uberView.roundtrip.first_leg.startLocation(defaultDataSet['startLocation']);
+	        			if (initialTripObject['roundtrip']['first_leg'].hasOwnProperty('startLocation') && initialTripObject['roundtrip']['first_leg']['startLocation'] != null) {
+	        				uberView.roundtrip.first_leg.startLocation(initialTripObject['roundtrip']['first_leg']['startLocation']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('endLocationName') && defaultDataSet['endLocationName'] != "") {
-	        				uberView.roundtrip.first_leg.endLocationName(defaultDataSet['endLocationName']);
+	        			if (initialTripObject['roundtrip']['first_leg'].hasOwnProperty('endLocationName') && initialTripObject['roundtrip']['first_leg']['endLocationName'] != "") {
+	        				uberView.roundtrip.first_leg.endLocationName(initialTripObject['roundtrip']['first_leg']['endLocationName']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('endLocation') && defaultDataSet['endLocation'] != null) {
-	        				uberView.roundtrip.first_leg.endLocation(defaultDataSet['endLocation']);
+	        			if (initialTripObject['roundtrip']['first_leg'].hasOwnProperty('endLocation') && initialTripObject['roundtrip']['first_leg']['endLocation'] != null) {
+	        				uberView.roundtrip.first_leg.endLocation(initialTripObject['roundtrip']['first_leg']['endLocation']);
 	        			}
 
 	        			// Set location value for return_leg
-        				if (defaultDataSet.hasOwnProperty('startLocationName') && defaultDataSet['startLocationName'] != "") {
-	        				uberView.roundtrip.return_leg.startLocationName(defaultDataSet['endLocationName']);
+        				if (initialTripObject['roundtrip']['return_leg'].hasOwnProperty('startLocationName') && initialTripObject['roundtrip']['return_leg']['startLocationName'] != "") {
+	        				uberView.roundtrip.return_leg.startLocationName(initialTripObject['roundtrip']['return_leg']['startLocationName']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('startLocation') && defaultDataSet['startLocation'] != null) {
-	        				uberView.roundtrip.return_leg.startLocation(defaultDataSet['endLocation']);
+	        			if (initialTripObject['roundtrip']['return_leg'].hasOwnProperty('startLocation') && initialTripObject['roundtrip']['return_leg']['startLocation'] != null) {
+	        				uberView.roundtrip.return_leg.startLocation(initialTripObject['roundtrip']['return_leg']['startLocation']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('endLocationName') && defaultDataSet['endLocationName'] != "") {
-	        				uberView.roundtrip.return_leg.endLocationName(defaultDataSet['startLocationName']);
+	        			if (initialTripObject['roundtrip']['return_leg'].hasOwnProperty('endLocationName') && initialTripObject['roundtrip']['return_leg']['endLocationName'] != "") {
+	        				uberView.roundtrip.return_leg.endLocationName(initialTripObject['roundtrip']['return_leg']['endLocationName']);
 	        			}
 
-	        			if (defaultDataSet.hasOwnProperty('endLocation') && defaultDataSet['endLocation'] != null) {
-	        				uberView.roundtrip.return_leg.endLocation(defaultDataSet['startLocation']);
+	        			if (initialTripObject['roundtrip']['return_leg'].hasOwnProperty('endLocation') && initialTripObject['roundtrip']['return_leg']['endLocation'] != null) {
+	        				uberView.roundtrip.return_leg.endLocation(initialTripObject['roundtrip']['return_leg']['endLocation']);
 	        			}
         			}
 
@@ -1540,6 +1684,9 @@ if (empty($trip_request_id)) {
 
         // Clear marker
         function clearMarker() {
+        	// Clear Overlays
+        	clearOverlays();
+
         	// Clear Start Marker
             if (startMarker) {
                 startMarker.setMap(null); // Remove the old end marker if exists
@@ -1550,6 +1697,15 @@ if (empty($trip_request_id)) {
                 endMarker.setMap(null); // Remove the old end marker if exists
             }
         }
+
+        // Clear all overlays (custom labels) from the map
+	    function clearOverlays() {
+        	// Loop through the overlays and remove each one
+		    for (var i = 0; i < overlays.length; i++) {
+		        overlays[i].setMap(null); // This will remove the overlay from the map
+		    }
+		    overlays = []; // Clear the overlays array
+	    }
 
         function clearMapRoute() {
         	// Clear Marker on map
@@ -1597,10 +1753,19 @@ if (empty($trip_request_id)) {
 	                    directionsRenderer.setDirections(result);
 
                         // Place Start Marker
-                        startMarker = placeMarker('START', result.routes[0].legs[0].start_location, uberView.oneway.startLocationName());
+                        startMarker = placeMarker('START', result.routes[0].legs[0].start_location, result.routes[0].legs[0].start_address);
 
                         // Place End Marker
-                        endMarker = placeMarker('END', result.routes[0].legs[0].end_location, uberView.oneway.endLocationName());
+                        endMarker = placeMarker('END', result.routes[0].legs[0].end_location, result.routes[0].legs[0].end_address);
+
+                        let duration = result.routes[0].legs[0].duration.text;
+          				let polylinePath = result.routes[0].overview_path;
+         				middlepath = polylinePath[Math.floor(polylinePath.length / 2)];
+
+                        // Add pickup-up location label
+             			addCustomLabel(result.routes[0].legs[0].start_location, "From " + result.routes[0].legs[0].start_address);
+             			// Add dropoff-up location label
+             			addCustomLabel(result.routes[0].legs[0].end_location, "To " + result.routes[0].legs[0].end_address);
 
                         // Zoom to fit the route bounds
 	                    const route = result.routes[0];
@@ -1622,6 +1787,9 @@ if (empty($trip_request_id)) {
 
 		        // Place Start Marker
                 startMarker = placeMarker('START', startCoords, uberView.oneway.startLocationName());
+
+                // Add pickup-up location label
+             	addCustomLabel(startCoords, "From " + uberView.oneway.startLocationName());
         	} else if (startCoords == null && endCoords != null){
         		// Set the map to the starting location only
 		      	map.setCenter(endCoords);
@@ -1635,10 +1803,66 @@ if (empty($trip_request_id)) {
 
 		      	// Place End Marker
                 endMarker = placeMarker('END', endCoords, uberView.oneway.endLocationName());
+
+                // Add pickup-up location label
+             	addCustomLabel(endCoords, "To " + uberView.oneway.endLocationName());
         	} else {
         		clearMapRoute();
         	}
         }
+
+        function addCustomLabel(latLng, address) {
+	        // Create a custom label
+	        const labelDiv = document.createElement("div");
+	        labelDiv.className = "address-label";
+	        labelDiv.innerHTML = `${address}`;
+	        labelDiv.setAttribute('title', address);
+
+	        // Create an OverlayView to manage the custom label positioning
+	        const overlay = new google.maps.OverlayView();
+	        overlay.onAdd = function () {
+	          const panes = this.getPanes();
+	          panes.overlayLayer.appendChild(labelDiv);
+
+	          // Convert LatLng to pixel coordinates
+	          const projection = this.getProjection();
+	          const point = projection.fromLatLngToDivPixel(latLng);
+
+	          // Measure the label size dynamically and adjust its position
+	          const labelWidth = labelDiv.offsetWidth;
+	          const labelHeight = labelDiv.offsetHeight;
+
+	          labelDiv.style.left = point.x + (labelWidth / 2) + 15 + "px";
+	          labelDiv.style.top = point.y - labelHeight / 2 + "px";
+	        };
+
+	        overlay.draw = function () {
+	          const projection = this.getProjection();
+	          const point = projection.fromLatLngToDivPixel(latLng);
+
+	          // Measure the label size dynamically and adjust its position
+	          const labelWidth = labelDiv.offsetWidth;
+	          const labelHeight = labelDiv.offsetHeight;
+
+	          labelDiv.style.left = point.x + (labelWidth / 2) + 15 + "px";
+	          labelDiv.style.top = point.y - labelHeight / 2 + "px";
+	        };
+
+	        overlay.onRemove = function() {
+		      if (labelDiv) {
+		        labelDiv.parentNode.removeChild(labelDiv);
+		      }
+		    };
+
+	        if (map) {
+	        	overlay.setMap(map);
+	    	}
+
+	        // Store the overlay to clear it later
+        	overlays.push(overlay);
+
+        	return overlay;
+      }
 
         // Place marker
         function placeMarker(type, location, title = "") {
@@ -1683,9 +1907,11 @@ if (empty($trip_request_id)) {
         	if (type != "") {
         		// Flag to control if we should skip notifying subscribers
             	skipNotification = true;
-            	uberView.getFieldValue(path, false).flexibleRideDate(uberView.defaultTodayDate);
-        		uberView.getFieldValue(path, false).futureRideDate(uberView.defaultTodayDate);
-        		uberView.getFieldValue(path, false).futureRideTime(uberView.defaultCurrentTime);
+
+            	uberView.getFieldValue(path, false).flexibleRideDate(uberView.getValueByPath(initialTripObject, path + '.flexibleRideDate'));
+        		uberView.getFieldValue(path, false).futureRideDate(uberView.getValueByPath(initialTripObject, path + '.futureRideDate'));
+        		uberView.getFieldValue(path, false).futureRideTime(uberView.getValueByPath(initialTripObject, path + '.futureRideTime'));
+        		uberView.getFieldValue(path, false).futureRideampm(uberView.getValueByPath(initialTripObject, path + '.futureRideampm'));
         		uberView.getFieldValue(path, false).whenToRide(type);
 
         		// Flag to control if we should skip notifying subscribers
@@ -1703,22 +1929,94 @@ if (empty($trip_request_id)) {
 			if (type != "") {
         		// Flag to control if we should skip notifying subscribers
             	skipNotification = true;
-            	uberView.getFieldValue(path, false).flexibleRideDate(uberView.defaultTodayDate);
-        		uberView.getFieldValue(path, false).futureRideDate(uberView.defaultTodayDate);
-        		uberView.getFieldValue(path, false).futureRideTime(uberView.defaultCurrentTime);
+
+            	uberView.getFieldValue(path, false).flexibleRideDate(uberView.getValueByPath(initialTripObject, path + '.flexibleRideDate'));
+        		uberView.getFieldValue(path, false).futureRideDate(uberView.getValueByPath(initialTripObject, path + '.futureRideDate'));
+        		uberView.getFieldValue(path, false).futureRideTime(uberView.getValueByPath(initialTripObject, path + '.futureRideTime'));
+        		uberView.getFieldValue(path, false).futureRideampm(uberView.getValueByPath(initialTripObject, path + '.futureRideampm'));
         		uberView.getFieldValue(path, false).scheduleType(type);
 
         		// Flag to control if we should skip notifying subscribers
             	skipNotification = false;
 
             	// For oneway
-				getTripsEstimates(path);
+				getTripsEstimates(path, function() {
+					setDefaultVehicleType(path);
+				});
         		
         	}
 
         	initFutureSection();
 
 			return true;
+	    }
+
+	    function setDefaultVehicleType(path = '') {
+	    	// Set Default
+			let typeOptions = uberView.getFieldValue(path, false).vehicleTypeOptions();
+        	if (Array.isArray(typeOptions)) {
+	        	typeOptions.forEach(function (rsitem, rsindex) {
+					if (rsitem["display_name"] != "" && rsitem["display_name"] == "UberX") {
+						if (rsitem.hasOwnProperty('new_appt_time') && rsitem.hasOwnProperty('new_appt_time_ampm') && rsitem['new_appt_time'] != "" && rsitem['new_appt_time_ampm'] != "") {
+							uberView.getFieldValue(path, false).vehicleType(rsitem["id"]);
+						}
+					}
+				});
+        	}
+	    }
+
+	    function updateApptTime(path = '') {
+			let sTypeValue = uberView.getFieldValue(path, false).scheduleType();
+			if (sTypeValue == "schedule") {
+				let vtSelectedOptionItem = uberView.getVehicleTypeOptionItem(path)();
+				
+				if (vtSelectedOptionItem.hasOwnProperty('new_appt_time') && vtSelectedOptionItem.hasOwnProperty('new_appt_time_ampm') && vtSelectedOptionItem['new_appt_time'] != "" && vtSelectedOptionItem['new_appt_time_ampm'] != "") {
+					
+					// Flag to control if we should skip notifying subscribers
+    				skipNotification = true;
+					uberView.getFieldValue(path, false).futureRideTime(vtSelectedOptionItem['new_appt_time']);
+					uberView.getFieldValue(path, false).futureRideampm(vtSelectedOptionItem['new_appt_time']);
+
+					// Flag to control if we should skip notifying subscribers
+    				skipNotification = false;
+
+    				getTripsEstimates(path);
+				}
+			}
+	    }
+
+	    function updateFirstLegEstimateTime(path = '') {
+	    	getTripsEstimates(path);
+	    }
+
+	    function updateTripsEstimateTime(path = '') {
+	    	let currentOtherDetails = "";
+    		if (path == "roundtrip.first_leg" || path == "roundtrip.return_leg") {
+    			let vtOptionItem1 = uberView.getVehicleTypeOptionItem("roundtrip.first_leg")();
+    			if (vtOptionItem1.hasOwnProperty('estimated_time') && vtOptionItem1['estimated_time'] != "") {
+    				currentOtherDetails += "<span><b>First leg: </b> "+ vtOptionItem1['estimated_time'] +" mins</span></br/>";
+    			}
+
+    			let vtOptionItem2 = uberView.getVehicleTypeOptionItem("roundtrip.return_leg")();
+    			if (vtOptionItem2.hasOwnProperty('estimated_time') && vtOptionItem2['estimated_time'] != "") {
+    				currentOtherDetails += "<span><b>Return leg:</b> "+ vtOptionItem2['estimated_time'] +" mins</span></br/>";
+    			}
+    		} else if (path == "oneway") {
+    			let vtOptionItem3 = uberView.getVehicleTypeOptionItem("oneway")();
+    			if (vtOptionItem3.hasOwnProperty('estimated_time') && vtOptionItem3['estimated_time'] != "") {
+    				currentOtherDetails = "<span><b>Estimate time:</b> "+ vtOptionItem3['estimated_time'] +" mins</span></br/>";
+    			}
+    		}
+
+    		if (estimateOverlay) {
+    			estimateOverlay.setMap(null);
+    		}
+
+    		if (currentOtherDetails != "") {
+    			estimateOverlay = addCustomLabel(middlepath, currentOtherDetails);
+    		}
+
+    		uberView.otherInfo(currentOtherDetails);
 	    }
 
         function getTripsEstimates(path = '', callbackfun = null) {
@@ -1756,12 +2054,26 @@ if (empty($trip_request_id)) {
 	                	if (response != '') {
 	                		let responseJson = JSON.parse(response);
 	                		if (Array.isArray(responseJson)) {
+	                			// Get current product id
+								const vtProductId = uberView.getVehicleTypeItemProductId(path)();
+
 	                			//uberView.vehicleTypeOptions(responseJson);
 	                			uberView.getFieldValue(path, false).vehicleTypeOptions(responseJson);
+
+	                			// Set product id
+	                			if (vtProductId != "") {
+	                				let vtoItem = uberView.getVehicleTypeOptionItem(path, vtProductId)();
+	                				if (vtoItem.hasOwnProperty('id')) {
+	                					uberView.getFieldValue(path, false).vehicleType(vtoItem['id']);
+	                				} else {
+	                					uberView.getFieldValue(path, false).vehicleType("");
+	                				}
+	                			}
 	                		} else {
 	                			// Clear Vehicle Type Options
 	                			//uberView.vehicleTypeOptions([]);
 	                			uberView.getFieldValue(path, false).vehicleTypeOptions(null);
+	                			uberView.getFieldValue(path, false).vehicleType("");
 	                		}
 	                	}
 	                } catch (e) {
@@ -1769,6 +2081,7 @@ if (empty($trip_request_id)) {
 
 	                	// Clear Vehicle Type Options
                         uberView.getFieldValue(path, false).vehicleTypeOptions(null);
+                        uberView.getFieldValue(path, false).vehicleType("");
 	                }
 
 	                // Set errorcode false
@@ -1790,11 +2103,13 @@ if (empty($trip_request_id)) {
 
                         // Clear Vehicle Type Options
                         uberView.getFieldValue(path, false).vehicleTypeOptions(null);
+                        uberView.getFieldValue(path, false).vehicleType("");
                     } catch (e) {
                         alert("Something went wrong with the estimate request.");
 
                         // Clear Vehicle Type Options
                         uberView.getFieldValue(path, false).vehicleTypeOptions(null);
+                        uberView.getFieldValue(path, false).vehicleType("");
                     }
 
                     // Set errorcode false
@@ -1964,8 +2279,11 @@ if (empty($trip_request_id)) {
         }
 
         function UberViewModel() {
-        	this.defaultTodayDate = '<?php echo $todayDate; ?>';
-        	this.defaultCurrentTime = '<?php echo $currentTime; ?>';
+        	//this.defaultTodayDate = '<?php echo $todayDate; ?>';
+        	//this.defaultCurrentTime = '<?php echo $currentTime; ?>';
+        	//this.defaultCurrentAmPm = '<?php echo $currentAmPm; ?>';
+
+        	this.otherInfo = ko.observable("");
 
         	this.isLoading = ko.observable(1);
         	this.isDefaultValueSet = ko.observable(0);
@@ -1978,6 +2296,7 @@ if (empty($trip_request_id)) {
         	// Ride plan
 	    	this.defaultLocation = ko.observable({lat: 30.3072916, lng: -97.7427565});
 	    	this.tripType = ko.observable('<?php echo $initialTripObject['tripType'] ?? ""; ?>');
+	    	this.expenseMemo = ko.observable('<?php echo $initialTripObject['expenseMemo'] ?? ""; ?>');
 
 	    	initialTripObject = { 
 	    		"oneway": <?php echo json_encode($initialTripObject['oneway'] ?? "") ?>,
@@ -2146,6 +2465,67 @@ if (empty($trip_request_id)) {
 		        	}
 
 		        	return optList;
+		        }, self);
+		    };
+
+		    this.getVehicleTypeItemProductId = function(path ='') {
+		    	return ko.computed(function() {
+		        	let tmpvt = uberView.getFieldValue(path, false).vehicleType();
+						tmpvt = tmpvt != "" ? tmpvt.split("~") : [];
+					return tmpvt.length == 2 ? tmpvt[1] : "";
+		        }, self);
+		    };
+
+		    this.getVehicleTypeOptionItem = function(path ='', productId = '') {
+		    	return ko.computed(function() {
+		    		if (productId == "") {
+		        		productId = self.getVehicleTypeItemProductId(path)();
+		        	}
+		        	let typeOptions = self.getFieldValue(path, false).vehicleTypeOptions();
+		        	let returnItem = {};
+
+		        	if (productId != "" && Array.isArray(typeOptions)) {
+        				typeOptions.forEach(function (rsitem, rsindex) {
+        					if (rsitem["id"] != "") {
+        						let rsProductId = rsitem["id"].split("~");
+
+        						if (rsProductId.length == 2 && rsProductId[1] == productId) {
+        							returnItem = rsitem
+        						}
+        					}
+        				});
+        			}
+
+        			return returnItem;
+		        }, self);
+		    };
+
+		    this.getFutureTime24hr = function(path = '') {
+		        return ko.computed(function() {
+		        	//appt_form_hour = appt_form_hour != "" ? Number(appt_form_hour) : "";
+        			//appt_form_minute = appt_form_minute != "" ? Number(appt_form_minute) : "";
+        			let futureridetime = self.getFieldValue(path, false).futureRideTime();
+		        	let futureampm =  self.getFieldValue(path, false).futureRideampm();
+
+		        	if (futureridetime != "" && futureampm != "") {
+			        	const futuretimeParts = futureridetime.split(":");
+			        	if (futuretimeParts.length == 2) {
+			        			futuretime_hour = futuretimeParts[0] != "" ? Number(futuretimeParts[0]) : "";
+						        futuretime_minute = futuretimeParts[1] != "" ? Number(futuretimeParts[1]) : "";
+
+						        if (futuretime_hour.toString() != "" && futuretime_minute.toString() != "" && !Number.isNaN(futuretime_hour) && !Number.isNaN(futuretime_minute)) {
+							        if (futureampm == "2" && futuretime_hour < 12) {
+							            futuretime_hour += 12;
+							        } else if (futureampm == "1" && futuretime_hour == 12) {
+							        	futuretime_hour -= 12;
+							        }
+
+							        return futuretime_hour.toString().padStart(2, '0') + ":" + futuretime_minute.toString().padStart(2, '0');
+						        }
+			        	}
+		        	}
+
+		        	return "";
 		        }, self);
 		    };
 
@@ -2434,7 +2814,7 @@ if (empty($trip_request_id)) {
 				                		let lastresult = itempath.slice(0, lastDotIndex);
 
 				                		if (this.isScheduleTrip(lastresult)() === true && this.isFutureTrip(lastresult)() === true) {
-				                			if (this.getFieldValue(itempath) == "") {
+				                			if (this.getFieldValue(itempath) == "" || this.getFutureTime24hr(lastresult)() == "") {
 					                			let futureRideTimeErrorList = this.getFieldValue(itempath, true, this.errors);
 					                			futureRideTimeErrorList = futureRideTimeErrorList == null ? futureRideTimeErrorList : [];
 
@@ -2459,10 +2839,10 @@ if (empty($trip_request_id)) {
 				                		let rlScheduleTypeValue = this.getFieldValue("roundtrip.return_leg.scheduleType");
 
 				                		let flfutureDateValue = this.getFieldValue("roundtrip.first_leg.futureRideDate");
-				                		let flfutureTimeValue = this.getFieldValue("roundtrip.first_leg.futureRideTime");
+				                		let flfutureTimeValue = this.getFutureTime24hr("roundtrip.first_leg")();
 
 				                		let rlfutureDateValue = this.getFieldValue("roundtrip.return_leg.futureRideDate");
-				                		let rlfutureTimeValue = this.getFieldValue("roundtrip.return_leg.futureRideTime");
+				                		let rlfutureTimeValue = this.getFutureTime24hr("roundtrip.return_leg")();
 
 				                		let flflexibleRideDateValue = this.getFieldValue("roundtrip.first_leg.flexibleRideDate");
 
@@ -2484,7 +2864,7 @@ if (empty($trip_request_id)) {
 					                		}
 				                		} else if (flScheduleTypeValue == "flexible" && rlScheduleTypeValue == "schedule") {
 				                			if (flflexibleRideDateValue != "" && rlfutureDateValue != "" && rlfutureTimeValue != "") {
-				                				let flFlexibleRideDate = flflexibleRideDateValue + " 00:00";
+				                				let flFlexibleRideDate = flflexibleRideDateValue + " " + rlfutureTimeValue;
 				                				let rlFutureDateTime = rlfutureDateValue + " " + rlfutureTimeValue;
 
 				                				const datetime1 = new Date(flFlexibleRideDate);  // Date object for the combined datetime
@@ -2507,7 +2887,7 @@ if (empty($trip_request_id)) {
 				                		let rlflexibleRideDateValue = this.getFieldValue("roundtrip.return_leg.flexibleRideDate");
 
 				                		let flfutureDateValue = this.getFieldValue("roundtrip.first_leg.futureRideDate");
-				                		let flfutureTimeValue = this.getFieldValue("roundtrip.first_leg.futureRideTime");
+				                		let flfutureTimeValue = this.getFutureTime24hr("roundtrip.first_leg")();
 
 				                		if (flScheduleTypeValue == "flexible" && rlScheduleTypeValue == "flexible") {
 					                		if (flflexibleRideDateValue != "" && rlflexibleRideDateValue != "") {
@@ -2528,7 +2908,7 @@ if (empty($trip_request_id)) {
 				                		} else if (flScheduleTypeValue == "schedule" && rlScheduleTypeValue == "flexible") {
 				                			if (rlflexibleRideDateValue != "" && flfutureDateValue != "" && flfutureTimeValue != "") {
 				                				let flFutureDateTime = flfutureDateValue + " " + flfutureTimeValue;
-				                				let rlFlexibleRideDate = rlflexibleRideDateValue + " 00:00";
+				                				let rlFlexibleRideDate = rlflexibleRideDateValue + " " + flfutureTimeValue;
 
 				                				const datetime1 = new Date(flFutureDateTime);  // Date object for the combined datetime
 	    										const datetime2 = new Date(rlFlexibleRideDate);  // Date object for the comparison datetime
@@ -2609,6 +2989,31 @@ if (empty($trip_request_id)) {
 
 				        	  	if (responseJson.hasOwnProperty('location') && responseJson['location']['lat'] != "" && responseJson['location']['lng'] != "") {
 				        	  		defaultDataSet['startLocation'] = { "lat": responseJson['location']['lat'], "lng": responseJson['location']['lng'] };
+				        		} else if (defaultDataSet['startLocationName'] != "") {
+				        			// Set value status
+        	    					uberView.isDefaultValueSet(uberView.isDefaultValueSet() + 1);
+
+				        			const geocoder1 = new google.maps.Geocoder();
+								    // Perform geocode (convert address to Lat/Lng)
+								    geocoder1.geocode({ address: defaultDataSet['startLocationName'] }, function(results, status) {
+								        if (status === google.maps.GeocoderStatus.OK) {
+								          	// Get the latitude and longitude from the geocode result
+								          	const lat = results[0].geometry.location.lat();
+								          	const lng = results[0].geometry.location.lng();
+
+							        	  	if (lat != "" && lng != "") {
+							        	  		defaultDataSet['startLocation'] = { "lat": lat, "lng": lng };
+							        	  		// Save geocode
+							          			saveGeocode(defaultDataSet['startLocationName'], lat, lng);
+							        		}
+
+								        } else {
+								          console.log("Geocode failed: " + status);
+								        }
+
+								        // Set value status
+        	    						uberView.isDefaultValueSet(uberView.isDefaultValueSet() - 1);
+								    });
 				        		}
 
 				        		// Set pid
@@ -2670,6 +3075,10 @@ if (empty($trip_request_id)) {
 	                	if (response != '') {
 	                		let responseJson = JSON.parse(response);
 
+	                		if (responseJson.hasOwnProperty('facility_name')) {
+	                			uberView.expenseMemo(responseJson['facility_name']);
+	                		}
+
 	                		if (responseJson.hasOwnProperty('location_name')) {
 	                			needSetLoadingStatus = false;
 
@@ -2680,6 +3089,31 @@ if (empty($trip_request_id)) {
 
 				        	  	if (responseJson.hasOwnProperty('location') && responseJson['location']['lat'] != "" && responseJson['location']['lng'] != "") {
 				        	  		defaultDataSet['endLocation'] = { "lat": responseJson['location']['lat'], "lng": responseJson['location']['lng'] };
+				        		} else if (defaultDataSet['endLocationName'] != "") {
+				        			// Set value status
+        	    					uberView.isDefaultValueSet(uberView.isDefaultValueSet() + 1);
+
+				        			const geocoder2 = new google.maps.Geocoder();
+								    // Perform geocode (convert address to Lat/Lng)
+								    geocoder2.geocode({ address: defaultDataSet['endLocationName'] }, function(results, status) {
+								        if (status === google.maps.GeocoderStatus.OK) {
+								          	// Get the latitude and longitude from the geocode result
+								          	const lat = results[0].geometry.location.lat();
+								          	const lng = results[0].geometry.location.lng();
+
+							        	  	if (lat != "" && lng != "") {
+							        	  		defaultDataSet['endLocation'] = { "lat": lat, "lng": lng };
+							        	  		// Save geocode
+							          			saveGeocode(defaultDataSet['endLocationName'], lat, lng);
+							        		}
+							        		
+								        } else {
+								          console.log("Geocode failed: " + status);
+								        }
+
+								        // Set value status
+        	    						uberView.isDefaultValueSet(uberView.isDefaultValueSet() - 1);
+								    });
 				        		}
 
 				        		// Set value status
@@ -2785,6 +3219,26 @@ if (empty($trip_request_id)) {
         input[readonly].form-control {
 		  pointer-events: none;  /* Disables all mouse interactions */
 		}
+
+		.otherDetails {
+			float: left;
+		}
+
+		.address-label {
+	        background-color: white;
+	        padding: 5px;
+	        border: 1px solid #333;
+	        font-size: 14px;
+	        font-weight: bold;
+	        color: #333;
+	        position: absolute;
+	        transform: translate(-50%, -100%); /* Position the label above the marker */
+	        z-index: 100;
+	        max-width: 280px;
+	        white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+      }
     </style>
 </head>
 <body>
@@ -2809,6 +3263,10 @@ if (empty($trip_request_id)) {
 				  	<div class="card-body px-3 py-3">
 				  		<input type="hidden" name="form_pid" value="<?php echo $form_pid; ?>">
 				  		<input type="hidden" name="form_eid" value="<?php echo $form_eid; ?>">
+
+				  		<input type="hidden" name="appt_date" value="<?php echo $form_appt_date; ?>">
+				  		<input type="hidden" name="appt_time" value="<?php echo $form_appt_time; ?>">
+
 				  		<div class="form-row">
 						    <div class="form-group col-md-6">
 						      <label for="rider_first_name"><?php echo xlt("Rider first name"); ?></label>
@@ -2835,6 +3293,10 @@ if (empty($trip_request_id)) {
 					          <div data-bind="text: $data"></div>
 					        </div>
 					        <input type="hidden" name="rider_phone_number" data-bind="value: getCleanedPhoneNumber">
+						</div>
+
+						<div>
+							<label><b><?php echo xlt("Appointment Datetime"); ?></b>:</br><?php echo $appt_datetime; ?></label>
 						</div>
 				  	</div>
 				</div>
@@ -2957,7 +3419,7 @@ if (empty($trip_request_id)) {
 							    		<div class="form-group">
 										    <label><?php echo xlt("Choose when they'll ride"); ?></label>
 										    <div class="form-row">
-										    	<div class="col-7">
+										    	<div class="col-5">
 										    		<input type="text" class="form-control datepicker future_ride_date" name="roundtrip[first_leg][future_ride_date]" id="roundtrip_firstleg_future_ride_date" placeholder="Date" data-bind="value: roundtrip.first_leg.futureRideDate, css: { 'is-invalid': errors.roundtrip.first_leg.futureRideDate().length > 0 }">
 
 										    		<!-- Multiple error messages -->
@@ -2966,13 +3428,21 @@ if (empty($trip_request_id)) {
 											        </div>
 
 										    	</div>
-										    	<div class="col-5">
-										    		<input type="text" class="form-control datepicker future_ride_time" name="roundtrip[first_leg][future_ride_time]" id="roundtrip_firstleg_future_ride_time" placeholder="Date" data-bind="value: roundtrip.first_leg.futureRideTime, css: { 'is-invalid': errors.roundtrip.first_leg.futureRideTime().length > 0 }">
+										    	<div class="col-4">
+										    		<input type="text" class="form-control datepicker future_ride_time"  id="roundtrip_firstleg_future_ride_time" placeholder="Date" data-bind="value: roundtrip.first_leg.futureRideTime, css: { 'is-invalid': errors.roundtrip.first_leg.futureRideTime().length > 0 }">
 
 										    		<!-- Multiple error messages -->
 											        <div class="invalid-feedback" data-bind="foreach: errors.roundtrip.first_leg.futureRideTime">
 											          <div data-bind="text: $data"></div>
 											        </div>
+
+											        <input type="hidden" name="roundtrip[first_leg][future_ride_time]" data-bind="value: getFutureTime24hr.bind($data, 'roundtrip.first_leg')()">
+										    	</div>
+										    	<div class="col-3">
+										    		<select class="form-control" data-bind="value: roundtrip.first_leg.futureRideampm">
+										    			<option value="1"><?php echo xlt("AM"); ?></option>
+										    			<option value="2"><?php echo xlt("PM"); ?></option>
+										    		</select>
 										    	</div>
 										    </div>
 										</div>
@@ -3086,7 +3556,7 @@ if (empty($trip_request_id)) {
 							    		<div class="form-group">
 										    <label><?php echo xlt("Choose when they'll ride"); ?></label>
 										    <div class="form-row">
-										    	<div class="col-7">
+										    	<div class="col-5">
 										    		<input type="text" class="form-control datepicker future_ride_date" name="roundtrip[return_leg][future_ride_date]" id="roundtrip_returnleg_future_ride_date" placeholder="Date" data-bind="value: roundtrip.return_leg.futureRideDate, css: { 'is-invalid': errors.roundtrip.return_leg.futureRideDate().length > 0 }">
 
 										    		<!-- Multiple error messages -->
@@ -3095,13 +3565,22 @@ if (empty($trip_request_id)) {
 											        </div>
 
 										    	</div>
-										    	<div class="col-5">
-										    		<input type="text" class="form-control datepicker future_ride_time" name="roundtrip[return_leg][future_ride_time]" id="roundtrip_returnleg_future_ride_time" placeholder="Date" data-bind="value: roundtrip.return_leg.futureRideTime, css: { 'is-invalid': errors.roundtrip.return_leg.futureRideTime().length > 0 }">
+										    	<div class="col-4">
+										    		<input type="text" class="form-control datepicker future_ride_time"  id="roundtrip_returnleg_future_ride_time" placeholder="Date" data-bind="value: roundtrip.return_leg.futureRideTime, css: { 'is-invalid': errors.roundtrip.return_leg.futureRideTime().length > 0 }">
 
 										    		<!-- Multiple error messages -->
 											        <div class="invalid-feedback" data-bind="foreach: errors.roundtrip.return_leg.futureRideTime">
 											          <div data-bind="text: $data"></div>
 											        </div>
+										    	
+										    		<input type="hidden" name="roundtrip[return_leg][future_ride_time]" data-bind="value: getFutureTime24hr.bind($data, 'roundtrip.return_leg')()">
+										    	</div>
+
+										    	<div class="col-3">
+										    		<select class="form-control" data-bind="value: roundtrip.return_leg.futureRideampm">
+										    			<option value="1"><?php echo xlt("AM"); ?></option>
+										    			<option value="2"><?php echo xlt("PM"); ?></option>
+										    		</select>
 										    	</div>
 										    </div>
 										</div>
@@ -3155,7 +3634,6 @@ if (empty($trip_request_id)) {
 
 							  	</div>
 							</div>
-
 					  	</div>
 				  	</div>
 		    	</div>
@@ -3258,7 +3736,7 @@ if (empty($trip_request_id)) {
 						    		<div class="form-group">
 									    <label><?php echo xlt("Choose when they'll ride"); ?></label>
 									    <div class="form-row">
-									    	<div class="col-7">
+									    	<div class="col-5">
 									    		<input type="text" class="form-control datepicker future_ride_date" name="oneway[future_ride_date]" id="oneway_future_ride_date" placeholder="Date" data-bind="value: oneway.futureRideDate, css: { 'is-invalid': errors.oneway.futureRideDate().length > 0 }">
 
 									    		<!-- Multiple error messages -->
@@ -3267,13 +3745,22 @@ if (empty($trip_request_id)) {
 										        </div>
 
 									    	</div>
-									    	<div class="col-5">
-									    		<input type="text" class="form-control datepicker future_ride_time" name="oneway[future_ride_time]" id="oneway_future_ride_time" placeholder="Date" data-bind="value: oneway.futureRideTime, css: { 'is-invalid': errors.oneway.futureRideTime().length > 0 }">
+									    	<div class="col-4">
+									    		<input type="text" class="form-control datepicker future_ride_time" id="oneway_future_ride_time" placeholder="Date" data-bind="value: oneway.futureRideTime, css: { 'is-invalid': errors.oneway.futureRideTime().length > 0 }">
 
 									    		<!-- Multiple error messages -->
 										        <div class="invalid-feedback" data-bind="foreach: errors.oneway.futureRideTime">
 										          <div data-bind="text: $data"></div>
 										        </div>
+									    		
+									    		<input type="hidden" name="oneway[future_ride_time]" data-bind="value: getFutureTime24hr.bind($data, 'oneway')()">
+										    </div>
+
+									    	<div class="col-3">
+									    		<select class="form-control" data-bind="value: oneway.futureRideampm">
+									    			<option value="1"><?php echo xlt("AM"); ?></option>
+									    			<option value="2"><?php echo xlt("PM"); ?></option>
+									    		</select>
 									    	</div>
 									    </div>
 									</div>
@@ -3312,6 +3799,16 @@ if (empty($trip_request_id)) {
 				</div>
 				</div>
 
+				<div class="card mb-3">
+				  	<div class="card-header"><?php echo xlt('Extra'); ?></div>
+				  	<div class="card-body px-3 py-3">
+						<div class="form-group">
+						    <label><?php echo xlt("Expense memo"); ?></label>
+						    <textarea type="text" class="form-control" name="expense_memo" id="expense_memo" placeholder="Enter details" data-bind="value: expenseMemo" maxlength="64" readonly></textarea>
+						</div>
+					</div>
+				</div>
+
 				<div class="form-group">
 				    <button type="button" class="btn btn-primary" data-bind="click: submitBookTrip.bind($data, '<?php echo $request_mode ?? ""; ?>')"><?php echo xlt("Set up Trip"); ?></button>
 				</div>
@@ -3320,6 +3817,8 @@ if (empty($trip_request_id)) {
 		<div class="mapDetailsContainer">
 			<div class="mapContainer">
 				<div id="map"></div>
+				<div class="otherDetails mt-2" data-bind="html: otherInfo">
+				</div>
 			</div>
 		</div>
 	</div>

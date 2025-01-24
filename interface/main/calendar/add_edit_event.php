@@ -1348,6 +1348,68 @@ if ($groupid) {
     });
     <?php } ?>
 
+    <?php if(!$_GET['prov']) { ?>
+        $(document).ready(function() {
+            $('[data-toggle-distance="tooltip"]').tooltip({
+                items: "[title]",
+                content: function () {
+                    // Get the title attribute
+                    var title = $(this).attr('title');
+                    // Remove the title attribute to prevent default tooltip
+                    $(this).removeAttr('title');
+                    return title; // Return title as HTML content
+                },
+                open: function (event, ui) {
+                    // Prevent the default tooltip behavior
+                    ui.tooltip.hover(
+                        function () {
+                            $(this).fadeTo(400, 1);
+                        },
+                        function () {
+                            $(this).fadeTo(400, 0.1);
+                        }
+                    );
+                }
+            });
+            
+            // Get geocode details
+            getGeocodedetails();
+        });
+    <?php } ?>
+    // Get geocode details
+    function getGeocodedetails() {
+        // Get patient id
+        let patientId = $('input[name="form_pid"]').val();
+        if (patientId == "" || patientId == 0) {
+            $('.facility_distance').attr("title", "<div class='facility_distance_container'><span>No valid patient information.</span></div>");
+        }
+        $('.facility_distance').attr("title", "<div class='facility_distance_container'><span><i><?php echo xla('Loading...'); ?></i></span></div>");
+        $.ajax({
+            url: '<?php echo $GLOBALS['webroot'] . '/interface/modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/uber_estimatetime.php?action=fetch_geocode_details' ?>&patient_id=' + patientId, // The URL where you want to send the request
+            type: 'POST',
+            success: function (response) {
+                let responseJson = JSON.parse(response);
+                let distanceInfo = "<div class='facility_distance_container'>";
+                if (responseJson.length > 0) {
+                    distanceInfo += "<ul>";
+                    responseJson.forEach(function (item, index) {
+                      distanceInfo += "<li>" + item + "</li>";
+                    });
+                    distanceInfo += "</ul>";
+                } else {
+                    distanceInfo += "<span>No facility available.</span>";
+                }
+                distanceInfo += "</div>";
+                $('.facility_distance').attr("title", distanceInfo);
+            },
+            error: function(xhr, status, error) {
+                // Try to parse the JSON response from the server
+                var errorResponse = JSON.parse(xhr.responseText);
+                $('.facility_distance').attr("title", "<div class='facility_distance_container'><span>"+ errorResponse.message +" </span></div>");
+            }
+        });
+    }
+
     // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
     async function getTotalCancelledPatientAppt(pid = '', caseId = '', totalCount = 1, futureAppt = 1, rehabProgress = 1, pendingForms = 1) {
         if(pid && pid != '') {
@@ -1665,6 +1727,11 @@ function setpatient(pid, lname, fname, dob = '', alert_info = '', p_data = {}) {
     }
     // END
 
+    <?php if(!$_GET['prov']) { ?>
+        // Get geocode details
+        getGeocodedetails();
+    <?php } ?>
+
     let event = new CustomEvent('openemr:appointment:patient:set', {
         bubbles: true
         ,detail: {form: f, pid: pid, lname: lname, fname: fname, dob: dob}
@@ -1980,6 +2047,8 @@ $(document).ready(function(){
     .futureApptUlList { padding-left: 18px; margin-bottom: 0px; }
     .pendingApptUlList { padding-left: 18px; margin-bottom: 0px; margin-top: 8px; }
     .pendingApptUlList li { text-align: left; }
+    .facility_distance_container { font-size: 13px; }
+    .facility_distance_container ul { padding-left: 20px; margin-bottom:0px; }
     /* END  */
 </style>
 </head>
@@ -2097,7 +2166,9 @@ $classpati = '';
 </div>
 <div class="form-row mx-2">
     <div class="col-sm form-group">
-        <label for="facility"><?php echo xlt('Facility'); ?>:</label>
+        <label for="facility"><?php echo xlt('Facility'); ?>: 
+            <span class="facility_distance" data-toggle-distance='tooltip' title="<div class='facility_distance_container'><span><i><?php echo xla('Loading...'); ?></i></span></div>"><i class="fa fa-info-circle" aria-hidden="true"></i></span>
+        </label>
         <select class="form-control" name="facility" id="facility">
             <?php
             $facils = getUserFacilities($_SESSION['authUserID']);
