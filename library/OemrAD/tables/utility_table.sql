@@ -213,6 +213,10 @@ ALTER TABLE `documents` ADD COLUMN `case_id` bigint(20) default 0 AFTER `importe
 ALTER TABLE `insurance_companies` ADD COLUMN `parent_company` bigint(20) default 0;
 #EndIf
 
+#IfMissingColumn notif_log to_direct
+ALTER TABLE `notif_log` ADD COLUMN `to_direct` varchar(255) default NULL AFTER `user_type`;
+#EndIf
+
 #IfNotTable vh_uber_sync_log
 CREATE TABLE `vh_uber_sync_log` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,

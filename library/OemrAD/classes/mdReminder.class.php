@@ -1814,6 +1814,52 @@ class Reminder {
 					'sent_time' => date('Y-m-d H:i:s')
 				));
 			}
+		} else if (!empty($data['to_direct'] ?? "")) {
+			$final_pat_phone = MessagesLib::getPhoneNumbers($data['to_direct']);
+			$from_to_phone =  $final_pat_phone['msg_phone'];
+			$from_message = $data['message'];
+			$env_mode = self::getEnvMode();
+			if($env_mode == "test") {
+				$from_to_phone = self::getTestModeValue("phone");
+			}
+			
+			if($from_to_phone === false) {
+				return false;
+			}
+			if (!empty($from_message)) {
+				$result = @$smsObj->smsTransmit($from_to_phone, $from_message, 'text');
+				$msgId = $result['msgid'];
+				$msgStatus = isset($result['msgStatus']) ? $result['msgStatus'] : 'MESSAGE_SENT';	
+				if (!empty($msgId)) {
+					$raw_data = json_encode(EmailMessage::includeRequest(
+						array(
+							'pid' => $data['pid'], 
+							'message_tlp' => $data['template_id'], 
+							'phone' => $from_to_phone
+						), 
+						array(
+								'pid',
+								'message_tlp', 
+								'phone'
+						)
+					));
+					$datetime = strtotime('now');
+					$msg_date = date('Y-m-d H:i:s', $datetime);
+					$msgLogId = @$smsObj->logSMS('SMS_MESSAGE', $from_to_phone, $configList->send_phone, $data['pid'], $msgId, $msg_date, $msgStatus, $from_message, 'out', false, $raw_data);
+					
+					self::updatePreparedData($data['id'], array(
+						'msg_id' => !empty($msgLogId) ? $msgLogId : "",
+						'sent' => 1,
+						'sent_time' => date('Y-m-d H:i:s')
+					));
+					return true;
+				} else {
+					self::updatePreparedData($data['id'], array(
+						'sent' => 3
+					));
+					$rStatus = $result['error'];
+				}
+			}
 		}
 
 		return $rStatus;
