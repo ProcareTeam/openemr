@@ -4,9 +4,6 @@ include_once("../../../globals.php");
 require_once($GLOBALS['srcdir'].'/calendar.inc');
 require_once($GLOBALS['srcdir'].'/../interface/main/calendar/includes/pnAPI.php');
 require_once($GLOBALS['srcdir'].'/../interface/main/calendar/php/calendar_fun.php');
-require_once("$srcdir/wmt-v2/wmtstandard.inc");
-require_once("$srcdir/wmt-v2/wmt.msg.inc");
-require_once("$srcdir/OemrAD/oemrad.globals.php");
 require_once($GLOBALS['srcdir']."/wmt-v2/wmtstandard.inc");
 require_once($GLOBALS['srcdir']."/wmt-v2/wmt.msg.inc");
 require_once($GLOBALS['srcdir']."/OemrAD/oemrad.globals.php");
@@ -66,7 +63,7 @@ if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid
 		$link_title = $fname . " " . $lname . " \n";
 	    $link_title .= xl('Age') . ": " . $patient_age . "\n" . xl('DOB') . ": " . $patient_dob . " $comment" . "\n";
 	    $link_title .= "(" . xl('Click to view') . ")";
-
+	    
 	    if (!empty($apptData['alert_info'])) {
 	    	$link_title .="\n\s\n-- Alert Info -- \n".$apptData['alert_info'];
 		}
@@ -80,6 +77,7 @@ if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid
 			'eid' => isset($apptData['pc_eid']) ? $apptData['pc_eid'] : '',
 			'pid' => $pid
 		);
+
 		// Get coverage content
 		$coverage_info = getCoverageContent($event, $coverageData);
 		if (!empty($coverage_info) && isset($coverage_info['title'])) {
@@ -87,7 +85,6 @@ if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid
 		}
 	}
 
-	// Pending Forms
 	if ($pending_form_info_status === true) {
 		// Pending Forms
 		$pending_form_items = getPendingFormList($pid);
@@ -107,6 +104,7 @@ if (!empty($apptData) && !empty($apptData['pc_eid']) && !empty($apptData['pc_pid
 	if ($pending_order_info_status === true) {
 		// Pending Orders
 		$pending_order_items = getPendingOrderList($pid);
+
 		if (!empty($pending_order_items) && count($pending_order_items) > 0) {
 			$responce_text .= "\n--Pending Orders--";
 			$i = 1;
