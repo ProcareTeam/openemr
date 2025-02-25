@@ -87,7 +87,7 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
                 aoData.push({"name": "layout_id", "value": <?php echo js_escape($layout_id); ?>});
                 <?php } ?>
 
-                // @VH: Filter based on patient id
+                // @VH: Filter based on patient id - [27012025]
                 <?php if (!empty($_REQUEST['patient_id'] ?? "")) { ?>
                  aoData.push({"name": "patient_id", "value": <?php echo js_escape($_REQUEST['patient_id']); ?>});   
                 <?php } ?>
@@ -281,7 +281,10 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
                     if (empty($value['label'])) {
                         continue;
                     }
-                    echo " <option value='" . attr($key) . "'";
+                    // @VH: Set default code type to ICD10 when patient billing filter applied - [27012025]
+                    $default_code_type = !empty($_REQUEST['patient_id'] ?? "") && $key == "ICD10" ? "selected" : "";
+
+                    echo " <option value='" . attr($key) . "'" . $default_code_type;
                     echo ">" . xlt($value['label']) . "</option>\n";
                 }
                 echo " <option value='PROD'";

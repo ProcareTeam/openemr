@@ -129,10 +129,10 @@ class BillingCodeType
             $className = 'EditOptionE';
         }
 
-        // @VH: Patient Id
+        // @VH: Patient Id - [27012025]
         global $pid;
         $patient_pid = ($frow['blank_form'] ?? null) ? 0 : $pid;
-        // @VH: Patient Filter attribute
+        // @VH: Patient Filter attribute - [27012025]
         $element_attr_text = "";
         if ($this->isOption($edit_options, 'BCPF') !== false) {
             $element_attr_text = " data-patientfilter='" . $patient_pid . "' ";

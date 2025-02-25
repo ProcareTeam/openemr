@@ -1791,7 +1791,7 @@ foreach ($sorted_datatypes as $key => $value) {
 <script>
 // @VH: Added options ('Email Verification', 'Mask PhoneNumber', 'Validate PhoneNumber').    
 /* Field modifier objects - heading towards context based. [V100075][V100076]
-    Used by Select2 so rtl may be enabled*/
+    Used by Select2 so rtl may be enabled - [27012025]*/
 <?php echo "var fldOptions = [";
 echo "{id: 'EP',text:" . xlj('Exclude in Portal') . "},
     {id: 'A',text:" . xlj('Age') . ",ctx:['4'],ctxExcp:['0']},

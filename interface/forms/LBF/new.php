@@ -774,12 +774,23 @@ if (
             return '';
         }
 
+        // @VH: Delete billing code - [27012025]
+        function del_related() {
+            if (!current_sel_name) {
+                return false;
+            }
+
+            let f = document.forms[0];
+            let frc = f[current_sel_name];
+            frc.value = "";
+        }
+
         // This invokes the "dynamic" find-code popup.
         function sel_related(elem, codetype) {
             current_sel_name = elem ? elem.name : '';
             var url = '<?php echo $rootdir ?>/patient_file/encounter/find_code_dynamic.php';
 
-            // @VH: Set patient for patient filter
+            // @VH: Set patient for patient filter - [27012025]
             let patient_filter_id = elem.getAttribute('data-patientfilter');
             if (codetype && patient_filter_id != null) url += '&patient_id=' + patient_filter_id;
             if (!codetype && patient_filter_id != null) url += '?patient_id=' + patient_filter_id;

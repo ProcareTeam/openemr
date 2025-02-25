@@ -53,7 +53,7 @@ if ($what == 'codes') {
     }
 }
 
-// @VH: Generate filter params
+// @VH: Generate filter params - [27012025]
 $codetype_filter_elements = array();
 if ($what == 'codes') {
     if (!empty($_REQUEST['patient_id'] ?? "")) {
@@ -296,6 +296,7 @@ if ($what == 'fields' && $source == 'V') {
     $iTotal = count($form_encounter_layout);
     $iFilteredTotal = count($fe_array);
 } elseif ($what == 'codes') {
+    // @VH: Wraped into condition to filter results based on patient id - [27012025]
     if (!empty($_REQUEST['patient_id'] ?? "") && !empty($codetype_filter_elements)) {
         $iTotal = main_code_set_search($codetype, '', null, null, !$include_inactive, null, true, null, null, $codetype_filter_elements);
         $iFilteredTotal = main_code_set_search($codetype, $searchTerm, null, null, !$include_inactive, null, true, null, null, $codetype_filter_elements);
@@ -333,6 +334,22 @@ if ($what == 'fields' && $source == 'V') {
         $start  = (int) $iDisplayStart;
         $number = (int) $iDisplayLength;
     }
+
+    // @VH: Wraped into condition to filter results based on patient id - [27012025]
+    if (!empty($_REQUEST['patient_id'] ?? "") && !empty($codetype_filter_elements)) {
+    $res = main_code_set_search(
+        $codetype,
+        $searchTerm,
+        null,
+        null,
+        !$include_inactive,
+        $ordermode,
+        false,
+        $start,
+        $number,
+        $codetype_filter_elements
+    );
+    } else {
     $res = main_code_set_search(
         $codetype,
         $searchTerm,
@@ -344,6 +361,7 @@ if ($what == 'fields' && $source == 'V') {
         $start,
         $number
     );
+    }
     if (!empty($res)) {
         while ($row = sqlFetchArray($res)) {
             $dynCodeType = $codetype;
