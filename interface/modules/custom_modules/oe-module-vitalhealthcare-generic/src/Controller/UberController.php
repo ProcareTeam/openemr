@@ -338,6 +338,68 @@ class UberController
 
 		return $responceData;
     }
+	
+	public function handelCancelHealthTrip($trip_request_id = "") {
+    	$response = array();
+
+    	try {
+
+    		if (empty($trip_request_id)) {
+				throw new \Exception("Empty request_id");
+			}
+
+			$cancelledUberTrip = $this->cancelHealthTripDetails($trip_request_id);
+
+			if (empty($cancelledUberTrip) || $cancelledUberTrip['message'] != "cancelled") {
+				throw new \Exception("Unable to cancel trip.");
+			}
+
+			// Get and fetch trip details.
+			$fullTripDetails = $this->getHealthTripDetails($trip_request_id);
+
+			if (empty($fullTripDetails)) {
+				throw new \Exception("Unable to fetch trip details after cancel");
+			}
+
+			// Prepared Data For log
+			$preparedDataForLog = $this->prepareDataForLog($fullTripDetails);
+			$updateBinds = array(
+				$preparedDataForLog['rider_first_name'] ?? NULL,
+				$preparedDataForLog['rider_last_name'] ?? NULL,
+				$preparedDataForLog['rider_phone_number'] ?? NULL,
+				$preparedDataForLog["pickup_lat"] ?? 0,
+				$preparedDataForLog["pickup_lng"] ?? 0,
+				$preparedDataForLog["pickup_address"] ?? NULL,
+				$preparedDataForLog["dropoff_lat"] ?? 0,
+				$preparedDataForLog["dropoff_lng"] ?? 0,
+				$preparedDataForLog["dropoff_address"] ?? NULL,
+				$preparedDataForLog["trip_type"] ?? NULL,
+				$preparedDataForLog["trip_leg_number"] ?? 0,
+				$preparedDataForLog["trip_status"] ?? NULL,
+				$preparedDataForLog["linked_request_id"] ?? NULL,
+				$preparedDataForLog["trip_schedule_date"] ?? NULL,
+				$preparedDataForLog["trip_schedule_time"] ?? NULL,
+				$preparedDataForLog["trip_response"] ?? NULL,
+				$trip_request_id ?? $preparedDataForLog['request_id'],
+			);
+
+			// Update
+			$tripUpdateLog = sqlQueryNoLog("UPDATE `vh_uber_health_trips` SET `rider_first_name` = ?, `rider_last_name` = ?, `rider_phone_number` = ?, `pickup_lat` = ?, `pickup_lng` = ?, `pickup_address` = ?, `dropoff_lat` = ?, `dropoff_lng` = ?, `dropoff_address` = ?, `trip_type` = ?, `trip_leg_number` = ?, `trip_status` = ?, `linked_request_id` = ?, `trip_schedule_date` = ?, `trip_schedule_time` = ?, `trip_response` = ? WHERE request_id = ? ", $updateBinds, true);
+
+			// Responce trip log
+			$this->insertTripHistroyLog($trip_request_id, "cancelled", json_encode($fullTripDetails));
+
+			$response = array(
+				"data" => $preparedDataForLog,
+				"message" => "Cancelled trip details. \nTrip Request Id: " . $preparedDataForLog['request_id'] . "\nTrip Status: " . $preparedDataForLog['trip_status']
+			);
+
+    	} catch (\Throwable $e) {
+			throw new \Exception($e->getMessage(), $e->getCode());
+		}
+
+		return $response;
+    }
 
     public function cancelHealthTripDetails($request_id = "") {
     	$responceData = array();
@@ -403,6 +465,59 @@ class UberController
 		}
 
 		return $responceData;
+    }
+	
+	public function updateTripStatus($request_id = "") {
+    	$response = array();
+
+    	try {
+
+    		if (empty($request_id)) {
+				throw new \Exception("Empty request_id");
+			}
+
+			// Get and fetch trip details.
+			$fullTripDetails = $this->getHealthTripDetails($request_id);
+
+			if (empty($fullTripDetails)) {
+				throw new \Exception("Unable to fetch trip details");
+			}
+
+			// Prepared Data For log
+			$preparedDataForLog = $this->prepareDataForLog($fullTripDetails);
+			$updateBinds = array(
+				$preparedDataForLog['rider_first_name'] ?? NULL,
+				$preparedDataForLog['rider_last_name'] ?? NULL,
+				$preparedDataForLog['rider_phone_number'] ?? NULL,
+				$preparedDataForLog["pickup_lat"] ?? 0,
+				$preparedDataForLog["pickup_lng"] ?? 0,
+				$preparedDataForLog["pickup_address"] ?? NULL,
+				$preparedDataForLog["dropoff_lat"] ?? 0,
+				$preparedDataForLog["dropoff_lng"] ?? 0,
+				$preparedDataForLog["dropoff_address"] ?? NULL,
+				$preparedDataForLog["trip_type"] ?? NULL,
+				$preparedDataForLog["trip_leg_number"] ?? 0,
+				$preparedDataForLog["trip_status"] ?? NULL,
+				$preparedDataForLog["linked_request_id"] ?? NULL,
+				$preparedDataForLog["trip_schedule_date"] ?? NULL,
+				$preparedDataForLog["trip_schedule_time"] ?? NULL,
+				$preparedDataForLog["trip_response"] ?? NULL,
+				$request_id ?? $preparedDataForLog['request_id'],
+			);
+
+			// Update
+			$tripUpdateLog = sqlQueryNoLog("UPDATE `vh_uber_health_trips` SET `rider_first_name` = ?, `rider_last_name` = ?, `rider_phone_number` = ?, `pickup_lat` = ?, `pickup_lng` = ?, `pickup_address` = ?, `dropoff_lat` = ?, `dropoff_lng` = ?, `dropoff_address` = ?, `trip_type` = ?, `trip_leg_number` = ?, `trip_status` = ?, `linked_request_id` = ?, `trip_schedule_date` = ?, `trip_schedule_time` = ?, `trip_response` = ? WHERE request_id = ? ", $updateBinds, true);
+
+			// Responce trip log
+			$this->insertTripHistroyLog($request_id, "refreshed", json_encode($fullTripDetails));
+
+			$response = $preparedDataForLog;
+
+    	} catch (\Throwable $e) {
+			throw new \Exception($e->getMessage(), $e->getCode());
+		}
+
+		return $response;
     }
 
     public function getHealthTripDetails($request_id = "") {
@@ -683,6 +798,33 @@ class UberController
 			throw new \Exception($e->getMessage(), $e->getCode());
 		}
     }
+	
+	public function updateDriverLocationDetails($request_id = "", $locationData = array()) {
+    	$responceData = array();
+
+    	try {
+
+    		if (empty($request_id)) {
+				throw new \Exception("Not valid request id.");
+			}
+
+			$driverLocationlat = $locationData['latitude'] ?? "";
+			$driverLocationlng = $locationData['longitude'] ?? "";
+
+			if (empty($driverLocationlat) || empty($driverLocationlng)) {
+				throw new \Exception("Not valid location details");
+			}
+
+    		$tripData = sqlQuery("SELECT count(vuht.id) as total_count from vh_uber_health_trips vuht where vuht.request_id  = ?", array($request_id));
+
+    		if (!empty($tripData)) {
+    			sqlQuery("UPDATE `vh_uber_health_trips` SET `driver_location_lat` = ?, `driver_location_lng` = ? WHERE `request_id` = ?", array($driverLocationlat, $driverLocationlng, $request_id));
+    		}
+
+    	} catch (\Throwable $e) {
+			throw new \Exception($e->getMessage(), $e->getCode());
+		}
+    }
 
     public static function getPatientAddress($patientData = array()) {
 		$patientaddress = array();
@@ -708,7 +850,7 @@ class UberController
 		return $patientaddress;
 	}
 
-	public static function getFacilityAddress($facility_id = "") {
+	public static function getFacilityAddress($facility_id = "", $allowed_in_nearest_calculation = false) {
 		$returnItems = array();
 		if (!empty($facility_id)) {
 			$facilityData = sqlQuery("SELECT * FROM `facility` f WHERE f.id = ? ", array($facility_id));
@@ -726,17 +868,25 @@ class UberController
 				$facilityaddress = array();
 				$facilityName = "";
 
-				if (!empty($facilityDataItem['street'])) {
-					$facilityaddress[] = $facilityDataItem['street'];
+				if ($allowed_in_nearest_calculation === true && $facilityDataItem['vh_allowed_in_nearest_facility_calculation'] != "1") {
+					continue;
 				}
 
-				if (!empty($facilityDataItem['city'])) {
-					$facilityaddress[] = $facilityDataItem['city'];
+				if (!empty($facilityDataItem['vh_uber_facility_location'])) {
+					$facilityaddress[] = $facilityDataItem['vh_uber_facility_location'];
 				}
 
-				if (!empty($facilityDataItem['state'])) {
-					$facilityaddress[] = $facilityDataItem['state'] ." ". $facilityDataItem['postal_code'];
-				}
+				// if (!empty($facilityDataItem['street'])) {
+				// 	$facilityaddress[] = $facilityDataItem['street'];
+				// }
+
+				// if (!empty($facilityDataItem['city'])) {
+				// 	$facilityaddress[] = $facilityDataItem['city'];
+				// }
+
+				// if (!empty($facilityDataItem['state'])) {
+				// 	$facilityaddress[] = $facilityDataItem['state'] ." ". $facilityDataItem['postal_code'];
+				// }
 
 				if (!empty($facilityDataItem['name'])) {
 					$facilityName = $facilityDataItem['name'];

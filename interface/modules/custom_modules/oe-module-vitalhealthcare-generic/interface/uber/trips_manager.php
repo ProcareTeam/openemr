@@ -18,6 +18,7 @@ $default_mode = isset($_REQUEST['default_mode']) && !empty($_REQUEST['default_mo
 $form_pid = isset($_REQUEST['form_pid']) && !empty($_REQUEST['form_pid']) ? $_REQUEST['form_pid'] : "";
 $trip_status = isset($_REQUEST['trip_status']) ? $_REQUEST['trip_status'] : UberController::TODAY_IN_PROCESSING_LABEL;
 $trip_request_id = isset($_REQUEST['trip_request_id']) ? $_REQUEST['trip_request_id'] : "";
+$appt_eid = isset($_REQUEST['eid']) ? $_REQUEST['eid'] : "";
 $view_mode = isset($_REQUEST['view_mode']) && $_REQUEST['view_mode'] == "1" ? true : false;
 
 $page_action = isset($_REQUEST['action']) ? $_REQUEST['action'] : '';
@@ -48,6 +49,10 @@ function generateFilterQuery($filterData = array()) {
 			if (!empty($explodeReq)) {
 				$filterQryList[] = "vuht.request_id in ('" . implode("','", $explodeReq) . "')";
 			}
+		}
+
+		if(!empty($filterData['eid'] ?? "")) {
+			$filterQryList[] = "vuht.eid = " . $filterData['eid'] . " ";
 		}
 
 		if(isset($filterData['trip_status'])) {
@@ -330,7 +335,10 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 						    	<?php if (!empty($tripResponce)) { ?>
 						    	<!-- <button class="btn btn-sm btn-secondary" onclick="updateUberPopupWindow('<?php //echo $row_item['request_id'] ?? ""; ?>')"><?php //echo xlt('Edit'); ?></button> -->
 						    	<?php } ?>
+						    	<?php if (($tripResponce['status']) == "scheduled") { ?>
+						    	<button class="btn btn-sm btn-secondary" onclick="updateUberPopupWindow('<?php echo $row_item['request_id'] ?? ""; ?>')"><?php echo xlt('Edit'); ?></button>
 						    	<button class="btn btn-sm btn-secondary" onclick="cancelTrip('<?php echo $row_item['request_id'] ?? ""; ?>')"><?php echo xlt('Cancel'); ?></button>
+						    	<?php } ?>
 						    	<button class="btn btn-sm btn-secondary" style="height:31px;" onclick="fetchTripDetails('<?php echo $row_item['request_id'] ?? ""; ?>')"><i class="fa fa-refresh" aria-hidden="true"></i></button>
 						    </div>
 						    <div class="col-3 d-flex align-items-end justify-content-end">
@@ -514,6 +522,13 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 								    			<?php
 											}
 										}
+
+										if (!empty($tripResponce['rider_tracking_u_r_l'] ?? "")) {
+											?>
+											</br>
+											<span class="text-secondary">Rider tracking url: <a href="https://trip.uber.com/J6ngWazJg9w" target="_blank" onClick="window.open(this.href, '_blank', 'width=800,height=600,resizable=yes,scrollbars=yes'); return false;"><?php echo $tripResponce['rider_tracking_u_r_l'] ?? ""; ?></a> </span>
+											<?php
+										}
 										?>
 									</div>
 								</div>
@@ -618,41 +633,7 @@ if(!empty($page_action)) {
 
 			// Create uber controller
 			$ubController = new UberController();
-
-			// Get and fetch trip details.
-			$fullTripDetails = $ubController->getHealthTripDetails($trip_request_id);
-
-			if (empty($fullTripDetails)) {
-				throw new \Exception("Unable to fetch trip details");
-			}
-
-			// Prepared Data For log
-			$preparedDataForLog = $ubController->prepareDataForLog($fullTripDetails);
-			$updateBinds = array(
-				$preparedDataForLog['rider_first_name'] ?? NULL,
-				$preparedDataForLog['rider_last_name'] ?? NULL,
-				$preparedDataForLog['rider_phone_number'] ?? NULL,
-				$preparedDataForLog["pickup_lat"] ?? 0,
-				$preparedDataForLog["pickup_lng"] ?? 0,
-				$preparedDataForLog["pickup_address"] ?? NULL,
-				$preparedDataForLog["dropoff_lat"] ?? 0,
-				$preparedDataForLog["dropoff_lng"] ?? 0,
-				$preparedDataForLog["dropoff_address"] ?? NULL,
-				$preparedDataForLog["trip_type"] ?? NULL,
-				$preparedDataForLog["trip_leg_number"] ?? 0,
-				$preparedDataForLog["trip_status"] ?? NULL,
-				$preparedDataForLog["linked_request_id"] ?? NULL,
-				$preparedDataForLog["trip_schedule_date"] ?? NULL,
-				$preparedDataForLog["trip_schedule_time"] ?? NULL,
-				$preparedDataForLog["trip_response"] ?? NULL,
-				$trip_request_id ?? $preparedDataForLog['request_id'],
-			);
-
-			// Update
-			$tripUpdateLog = sqlQueryNoLog("UPDATE `vh_uber_health_trips` SET `rider_first_name` = ?, `rider_last_name` = ?, `rider_phone_number` = ?, `pickup_lat` = ?, `pickup_lng` = ?, `pickup_address` = ?, `dropoff_lat` = ?, `dropoff_lng` = ?, `dropoff_address` = ?, `trip_type` = ?, `trip_leg_number` = ?, `trip_status` = ?, `linked_request_id` = ?, `trip_schedule_date` = ?, `trip_schedule_time` = ?, `trip_response` = ? WHERE request_id = ? ", $updateBinds, true);
-
-			// Responce trip log
-			$ubController->insertTripHistroyLog($trip_request_id, "refreshed", json_encode($fullTripDetails));
+			$preparedDataForLog = $ubController->updateTripStatus($trip_request_id);
 
 			$response = array(
 				"data" => $preparedDataForLog,
@@ -676,58 +657,10 @@ if(!empty($page_action)) {
 		try {
 			$trip_request_id = $_REQUEST['request_id'] ?? "";
 
-			if (empty($trip_request_id)) {
-				throw new \Exception("Empty request_id");
-			}
-
 			// Create uber controller
 			$ubController = new UberController();
 
-			$cancelledUberTrip = $ubController->cancelHealthTripDetails($trip_request_id);
-
-			if (empty($cancelledUberTrip) || $cancelledUberTrip['message'] != "cancelled") {
-				throw new \Exception("Unable to cancel trip.");
-			}
-
-			// Get and fetch trip details.
-			$fullTripDetails = $ubController->getHealthTripDetails($trip_request_id);
-
-			if (empty($fullTripDetails)) {
-				throw new \Exception("Unable to fetch trip details after cancel");
-			}
-
-			// Prepared Data For log
-			$preparedDataForLog = $ubController->prepareDataForLog($fullTripDetails);
-			$updateBinds = array(
-				$preparedDataForLog['rider_first_name'] ?? NULL,
-				$preparedDataForLog['rider_last_name'] ?? NULL,
-				$preparedDataForLog['rider_phone_number'] ?? NULL,
-				$preparedDataForLog["pickup_lat"] ?? 0,
-				$preparedDataForLog["pickup_lng"] ?? 0,
-				$preparedDataForLog["pickup_address"] ?? NULL,
-				$preparedDataForLog["dropoff_lat"] ?? 0,
-				$preparedDataForLog["dropoff_lng"] ?? 0,
-				$preparedDataForLog["dropoff_address"] ?? NULL,
-				$preparedDataForLog["trip_type"] ?? NULL,
-				$preparedDataForLog["trip_leg_number"] ?? 0,
-				$preparedDataForLog["trip_status"] ?? NULL,
-				$preparedDataForLog["linked_request_id"] ?? NULL,
-				$preparedDataForLog["trip_schedule_date"] ?? NULL,
-				$preparedDataForLog["trip_schedule_time"] ?? NULL,
-				$preparedDataForLog["trip_response"] ?? NULL,
-				$trip_request_id ?? $preparedDataForLog['request_id'],
-			);
-
-			// Update
-			$tripUpdateLog = sqlQueryNoLog("UPDATE `vh_uber_health_trips` SET `rider_first_name` = ?, `rider_last_name` = ?, `rider_phone_number` = ?, `pickup_lat` = ?, `pickup_lng` = ?, `pickup_address` = ?, `dropoff_lat` = ?, `dropoff_lng` = ?, `dropoff_address` = ?, `trip_type` = ?, `trip_leg_number` = ?, `trip_status` = ?, `linked_request_id` = ?, `trip_schedule_date` = ?, `trip_schedule_time` = ?, `trip_response` = ? WHERE request_id = ? ", $updateBinds, true);
-
-			// Responce trip log
-			$ubController->insertTripHistroyLog($trip_request_id, "cancelled", json_encode($fullTripDetails));
-
-			$response = array(
-				"data" => $preparedDataForLog,
-				"message" => "Cancelled trip details. \nTrip Request Id: " . $preparedDataForLog['request_id'] . "\nTrip Status: " . $preparedDataForLog['trip_status']
-			);
+			$response = $ubController->handelCancelHealthTrip($trip_request_id);
 
 		} catch (\Throwable $e) {
 			http_response_code(400); // Bad Request
@@ -974,6 +907,7 @@ if(!empty($page_action)) {
 				<form id="page_report_filter">
 					<input type='hidden' name='form_pid' value='<?php echo $form_pid; ?>' />
 					<input type="hidden" name="trip_request_id" value="<?php echo $trip_request_id; ?>">
+					<input type="hidden" name="eid" value="<?php echo $appt_eid; ?>">
 					<?php if ($view_mode === false) { ?>
 					<div class="filter-container">
 						<div class="btn-group btn-group-toggle" data-toggle="buttons">

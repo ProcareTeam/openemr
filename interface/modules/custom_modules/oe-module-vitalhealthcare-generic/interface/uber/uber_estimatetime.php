@@ -16,21 +16,12 @@ $form_default_date = isset($_REQUEST['default_date']) && !empty($_REQUEST['defau
 $form_default_time = isset($_REQUEST['default_time']) && !empty($_REQUEST['default_time']) ? $_REQUEST['default_time'] : "";
 $facility_id = isset($_REQUEST['facility_id']) ? $_REQUEST['facility_id'] : "";
 $trip_request_id = isset($_REQUEST['trip_request_id']) ? $_REQUEST['trip_request_id'] : "";
+$trip_linked_request_id = isset($_REQUEST['trip_linked_request_id']) ? $_REQUEST['trip_linked_request_id'] : "";
 $request_mode = isset($_REQUEST['request_mode']) ? $_REQUEST['request_mode'] : "";
 
 $form_appt_date = isset($_REQUEST['appt_date']) && !empty($_REQUEST['appt_date']) ? $_REQUEST['appt_date'] : "";
 $form_appt_time = isset($_REQUEST['appt_time']) && !empty($_REQUEST['appt_time']) ? $_REQUEST['appt_time'] : "";
 
-if (!empty($form_appt_date)) {
-	$form_default_date = $form_appt_date;
-}
-
-$appt_datetime = "";
-if (!empty($form_appt_date) && !empty($form_appt_time)) {
-	$form_default_time = date('h:i', strtotime($form_appt_date ." ". $form_appt_time));
-	$form_default_hr = date('H', strtotime($form_appt_date ." ". $form_appt_time));
-	$appt_datetime = oeTimestampFormatDateTime(strtotime($form_appt_date ." ". $form_appt_time));
-}
 
 function getPatientDetails($form_pid = "") {
 	if (empty($form_pid)) {
@@ -67,9 +58,9 @@ function getPatientDetails($form_pid = "") {
 	return $returnData;
 }
 
-function getFacilityDetails($facility_id = "") {
+function getFacilityDetails($facility_id = "", $allowed_in_nearest_calculation = false) {
 	$returnItems = array();
-	$facilityItems = UberController::getFacilityAddress($facility_id);
+	$facilityItems = UberController::getFacilityAddress($facility_id, $allowed_in_nearest_calculation);
 
 	foreach ($facilityItems as $facilityData) {
 		$returnData = array();
@@ -83,18 +74,20 @@ function getFacilityDetails($facility_id = "") {
 			$returnData['facility_name'] = $facilityData['name'];
 		}
 
-		$pickupGeocode = getAddressGeocode($defaultLocationName);
-		if (!empty($pickupGeocode) && !empty($pickupGeocode['lat']) && !empty($pickupGeocode['lng'])) {
-			$returnData['location'] = array(
-				"lat" => (float) $pickupGeocode['lat'],
-				"lng" => (float) $pickupGeocode['lng']
-			);
+		if (!empty($defaultLocationName)) {
+			$pickupGeocode = getAddressGeocode($defaultLocationName);
+			if (!empty($pickupGeocode) && !empty($pickupGeocode['lat']) && !empty($pickupGeocode['lng'])) {
+				$returnData['location'] = array(
+					"lat" => (float) $pickupGeocode['lat'],
+					"lng" => (float) $pickupGeocode['lng']
+				);
+			}
 		}
 
 		$returnItems[] = $returnData;
 	}
 
-	if (count($returnItems) === 1) {
+	if (!empty($facility_id) && count($returnItems) === 1) {
 		return $returnItems[0];
 	} else {
 		return $returnItems;
@@ -156,13 +149,14 @@ function getAddressGeocode($formatted_address = "") {
 	return $geocodeDetails;
 }
 
-function prepareDefaultData($request_id = "") {
+function prepareDefaultData($triplist = array()) {
 	global $todayDate, $currentTime, $currentAmPm;
 
 	$initialTripObject = array(
 		"riderFirstName" => "",
 		"riderLastName" => "",
 		"riderPhoneNumber" => "",
+		"riderLanguage" => "en_US",
 		"tripType" => "roundtrip",
 		"expenseMemo" => "",
 		"oneway" => array(
@@ -214,25 +208,20 @@ function prepareDefaultData($request_id = "") {
 		)
 	);
 
-	if (!empty($request_id)) {
-		$tripDetailsData = sqlQuery("SELECT vuht.* from vh_uber_health_trips vuht where vuht.request_id  = ?", array($request_id));
+	if (!empty($triplist)) {
 
 		// Get Default date time param
 		$defaultDateParam = getDefaultDateTimePicker();
 		$defaultDateFormat = !empty($defaultDateParam['format'] ?? "") ? $defaultDateParam['format'] : "Y-m-d";
 		
-		if (!empty($tripDetailsData['trip_response'] ?? "")) {
-			$tripResponceObj = json_decode($tripDetailsData['trip_response'], true);
+		if (count($triplist) >= 1) {
+			$tripResponceObj = $triplist[array_key_first($triplist)] ?? array();
 			$guestDetails = $tripResponceObj['guest'] ?? array();
-			$pickupDetails = $tripResponceObj["pickup"] ?? array();
-			$destinationDetails = $tripResponceObj["destination"] ?? array();
-			$deferredRideOptions = $tripResponceObj['deferred_ride_options'] ?? array();
-			$schedulingOptions = $tripResponceObj['scheduling'] ?? array();
 
-			if (isset($tripResponceObj["total_trip_legs"]) && $tripResponceObj["total_trip_legs"] == "1") {
-				$initialTripObject["tripType"] = "oneway";
-			} else {
+			if (count($triplist) > 1 && ($tripResponceObj["total_trip_legs"] ?? "") == "2") {
 				$initialTripObject["tripType"] = "roundtrip";
+			} else {
+				$initialTripObject["tripType"] = "oneway";
 			}
 
 			if (!empty($guestDetails['first_name'] ?? "")) {
@@ -247,56 +236,139 @@ function prepareDefaultData($request_id = "") {
 				$initialTripObject["riderPhoneNumber"] = $guestDetails['phone_number'];
 			}
 
-			$whenToRideVal = "pickupnow";
-			$scheduleTypeVal = "flexible";
-			$flexibleRideDate = "";
-			$futureRideDate = "";
-			$futureRideTime = "";
-
-			if (!empty($deferredRideOptions) || !empty($schedulingOptions)) {
-				$whenToRideVal = "futuretrip";
-
-				if (!empty($deferredRideOptions)) {
-					if (!empty($deferredRideOptions['expiration_time_m_s'])) {
-		    			$flexibleRideDate = date($defaultDateFormat, strtotime($deferredRideOptions['pickup_day']));
-					}
-				}
-
-				if (!empty($schedulingOptions)) {
-					$scheduleTypeVal = "schedule";
-
-					if (!empty($schedulingOptions['pickup_time'])) {
-		    			$futureRideDate = date($defaultDateFormat, $schedulingOptions['pickup_time'] / 1000);
-		    			$futureRideTime = date("H:i", $schedulingOptions['pickup_time'] / 1000);
-					}
-				}
+			if (!empty($guestDetails['locale'] ?? "")) {
+				//$initialTripObject["riderLanguage"] = $guestDetails['locale'];
 			}
 
-			if ($initialTripObject["tripType"] == "oneway") {
-				$initialTripObject["oneway"]["startLocationName"] = $pickupDetails['address'];
-				$initialTripObject["oneway"]["startLocation"] = array(
-					"lat" => $pickupDetails['latitude'] ?? 0, 
-					"lng" => $pickupDetails['longitude'] ?? 0
-				);
+			if (!empty($tripResponceObj['expense_memo'] ?? "")) {
+				$initialTripObject["expenseMemo"] = $tripResponceObj['expense_memo'];
+			}
 
-				$initialTripObject["oneway"]["endLocationName"] = $destinationDetails['address'];
-				$initialTripObject["oneway"]["endLocation"] = array(
-					"lat" => (float) $destinationDetails['latitude'] ?? 0, 
-					"lng" => (float) $destinationDetails['longitude'] ?? 0
-				);
-				$initialTripObject["oneway"]["whenToRide"] = $whenToRideVal; 
-				$initialTripObject["oneway"]["scheduleType"] = $scheduleTypeVal;
+			for ($ti=1; $ti <= 2 ; $ti++) { 
+				$tobj = $triplist["t". $ti] ?? array();
 
-				$initialTripObject["oneway"]["flexibleRideDate"] = $flexibleRideDate;
-				$initialTripObject["oneway"]["futureRideDate"] = $futureRideDate;
-				$initialTripObject["oneway"]["futureRideTime"] = $futureRideTime;
+				if (!empty($tobj)) {
+					$pickupDetails = $tobj["pickup"] ?? array();
+					$destinationDetails = $tobj["destination"] ?? array();
+					$deferredRideOptions = $tobj['deferred_ride_options'] ?? array();
+					$schedulingOptions = $tobj['scheduling'] ?? array();
+					$productDetails = $tobj['product'] ?? array();
 
+					$whenToRideVal = "pickupnow";
+					$scheduleTypeVal = "flexible";
+					$flexibleRideDate = "";
+					$futureRideDate = "";
+					$futureRideTime = "";
+					$futureRideampm = "";
+					$vehicleType = "";
 
-				if (!empty($tripResponceObj['note_for_driver'] ?? "")) {
-					$initialTripObject["oneway"]["messageToDriver"] = $guestDetails['note_for_driver'];
+					if (!empty($deferredRideOptions) || !empty($schedulingOptions)) {
+						$whenToRideVal = "futuretrip";
+
+						if (!empty($deferredRideOptions)) {
+							if (!empty($deferredRideOptions['expiration_time_m_s'])) {
+				    			$flexibleRideDate = date($defaultDateFormat, strtotime($deferredRideOptions['pickup_day']));
+							}
+						}
+
+						if (!empty($schedulingOptions)) {
+							$scheduleTypeVal = "schedule";
+
+							if (!empty($schedulingOptions['pickup_time'])) {
+				    			$futureRideDate = date($defaultDateFormat, $schedulingOptions['pickup_time'] / 1000);
+				    			$futureRideTime = date("h:i", $schedulingOptions['pickup_time'] / 1000);
+								$futureRideTimehr = date('H', $schedulingOptions['pickup_time'] / 1000);
+
+				    			if (!empty($futureRideTime) && !empty($futureRideTimehr)) {
+									$futureRideampm = $futureRideTimehr > 12 ? 2 : 1;
+								}
+							}
+						}
+					}
+
+					if ($initialTripObject["tripType"] == "oneway") {
+						$initialTripObject["oneway"]["startLocationName"] = $pickupDetails['address'];
+						$initialTripObject["oneway"]["startLocation"] = array(
+							"lat" => $pickupDetails['latitude'] ?? 0, 
+							"lng" => $pickupDetails['longitude'] ?? 0
+						);
+
+						$initialTripObject["oneway"]["endLocationName"] = $destinationDetails['address'];
+						$initialTripObject["oneway"]["endLocation"] = array(
+							"lat" => (float) $destinationDetails['latitude'] ?? 0, 
+							"lng" => (float) $destinationDetails['longitude'] ?? 0
+						);
+						$initialTripObject["oneway"]["whenToRide"] = $whenToRideVal; 
+						$initialTripObject["oneway"]["scheduleType"] = $scheduleTypeVal;
+
+						$initialTripObject["oneway"]["flexibleRideDate"] = $flexibleRideDate;
+						$initialTripObject["oneway"]["futureRideDate"] = $futureRideDate;
+						$initialTripObject["oneway"]["futureRideTime"] = $futureRideTime;
+
+						if (!empty($tobj['note_for_driver'] ?? "")) {
+							$initialTripObject["oneway"]["messageToDriver"] = $guestDetails['note_for_driver'];
+						}
+
+						if (!empty($productDetails['product_id'] ?? "")) {
+							$initialTripObject["oneway"]["vehicleTypeProductId"] = $productDetails['product_id'];
+						}
+					} else if ($initialTripObject["tripType"] == "roundtrip") {
+
+						if ($ti == "1") {
+							$initialTripObject["roundtrip"]["first_leg"]["startLocationName"] = $pickupDetails['address'];
+							$initialTripObject["roundtrip"]["first_leg"]["startLocation"] = array(
+								"lat" => $pickupDetails['latitude'] ?? 0, 
+								"lng" => $pickupDetails['longitude'] ?? 0
+							);
+
+							$initialTripObject["roundtrip"]["first_leg"]["endLocationName"] = $destinationDetails['address'];
+							$initialTripObject["roundtrip"]["first_leg"]["endLocation"] = array(
+								"lat" => (float) $destinationDetails['latitude'] ?? 0, 
+								"lng" => (float) $destinationDetails['longitude'] ?? 0
+							);
+							$initialTripObject["roundtrip"]["first_leg"]["whenToRide"] = $whenToRideVal; 
+							$initialTripObject["roundtrip"]["first_leg"]["scheduleType"] = $scheduleTypeVal;
+
+							$initialTripObject["roundtrip"]["first_leg"]["flexibleRideDate"] = $flexibleRideDate;
+							$initialTripObject["roundtrip"]["first_leg"]["futureRideDate"] = $futureRideDate;
+							$initialTripObject["roundtrip"]["first_leg"]["futureRideTime"] = $futureRideTime;
+
+							if (!empty($tobj['note_for_driver'] ?? "")) {
+								$initialTripObject["roundtrip"]["first_leg"]["messageToDriver"] = $guestDetails['note_for_driver'];
+							}
+
+							if (!empty($productDetails['product_id'] ?? "")) {
+								$initialTripObject["roundtrip"]["first_leg"]["vehicleTypeProductId"] = $productDetails['product_id'];
+							}
+						} else if ($ti == "2") {
+							$initialTripObject["roundtrip"]["return_leg"]["startLocationName"] = $pickupDetails['address'];
+							$initialTripObject["roundtrip"]["return_leg"]["startLocation"] = array(
+								"lat" => $pickupDetails['latitude'] ?? 0, 
+								"lng" => $pickupDetails['longitude'] ?? 0
+							);
+
+							$initialTripObject["roundtrip"]["return_leg"]["endLocationName"] = $destinationDetails['address'];
+							$initialTripObject["roundtrip"]["return_leg"]["endLocation"] = array(
+								"lat" => (float) $destinationDetails['latitude'] ?? 0, 
+								"lng" => (float) $destinationDetails['longitude'] ?? 0
+							);
+							$initialTripObject["roundtrip"]["return_leg"]["whenToRide"] = $whenToRideVal; 
+							$initialTripObject["roundtrip"]["return_leg"]["scheduleType"] = $scheduleTypeVal;
+
+							$initialTripObject["roundtrip"]["return_leg"]["flexibleRideDate"] = $flexibleRideDate;
+							$initialTripObject["roundtrip"]["return_leg"]["futureRideDate"] = $futureRideDate;
+							$initialTripObject["roundtrip"]["return_leg"]["futureRideTime"] = $futureRideTime;
+
+							if (!empty($tobj['note_for_driver'] ?? "")) {
+								$initialTripObject["roundtrip"]["return_leg"]["messageToDriver"] = $guestDetails['note_for_driver'];
+							}
+
+							if (!empty($productDetails['product_id'] ?? "")) {
+								$initialTripObject["roundtrip"]["return_leg"]["vehicleTypeProductId"] = $productDetails['product_id'];
+							}
+						}
+					}
 				}
-
-			} else if ($initialTripObject["tripType"] == "roundtrip") {
 			}
 		}
 	}
@@ -582,6 +654,11 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 			)
 		);
 
+		// rider language
+		if (!empty($_REQUEST['rider_language'] ?? '')) {
+			$tripPayload["guest"]["locale"] = $_REQUEST['rider_language'] ?? "";
+		}
+
 		if (!empty($_REQUEST['expense_memo'] ?? "")) {
 			$tripPayload['expense_memo'] = $_REQUEST['expense_memo'] ?? "";
 		}
@@ -734,7 +811,40 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 		// Create uber controller
 		$ubController = new UberController();
 
-		if ($_REQUEST['action'] == "create_trip") {
+		if ($_REQUEST['action'] == "create_trip" || $_REQUEST['action'] == "update_trip") {
+
+			if ($_REQUEST['action'] == "update_trip") {
+				if (empty($_REQUEST['trip_request_id'] ?? "")) {
+					throw new \Exception("Unable to re-setup trip");
+				}
+
+				$requestIdList = array();
+
+				if (!empty($_REQUEST['trip_request_id'] ?? "")) $requestIdList[] = $_REQUEST['trip_request_id'];
+				if (!empty($_REQUEST['trip_linked_request_id'] ?? "")) $requestIdList[] = $_REQUEST['trip_linked_request_id'];
+
+				$tresult = sqlStatement("SELECT vuht.request_id, vuht.trip_response from vh_uber_health_trips vuht where vuht.request_id IN ('" . implode("','", $requestIdList) . "')");
+
+				while($trow = sqlFetchArray($tresult)) {
+					if (empty($trow)) {
+						throw new \Exception("Unable to re-setup trip");
+					}
+
+					$trowobj = json_decode($trow['trip_response'] ?? "", true);
+
+					if (($trowobj['status'] ?? "") != "scheduled" || empty($trowobj['request_id'])) {
+						throw new \Exception("Unable to re-setup trip");
+					}
+
+					// Cancelled trip
+					$responseData1 = $ubController->handelCancelHealthTrip($trowobj['request_id']);
+
+					if (isset($responseData1['data'])  && !in_array($responseData1['data']['trip_status'], array("completed", "rider_canceled"))) {
+							throw new \Exception("Unable to cancel and re-set up ride.");
+					}
+				}
+			}
+
 			// Create Health trip
 			$createResponce = $ubController->createHealthTrip($tripPayload);
 
@@ -760,8 +870,8 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 						$fullTripDetailsFirstLeg = $flTripdetails;
 					}
 
-					if (!empty($createResponce['linked_trip_details'])) {
-						$rlTripdetails = $ubController->getHealthTripDetails($createResponce['linked_trip_details']);
+					if (!empty($createResponce['linked_request_id'])) {
+						$rlTripdetails = $ubController->getHealthTripDetails($createResponce['linked_request_id']);
 						if (!empty($rlTripdetails) && !empty($rlTripdetails['request_id'])) {
 							$fullTripDetailsReturnLeg = $rlTripdetails;
 						}
@@ -989,6 +1099,9 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 } else if (isset($_REQUEST['action']) && $_REQUEST['action'] == "fetch_geocode_details") {
 	$response = array();
 
+	echo json_encode($response);
+	exit();
+
 	try {
 
 		$patientId = $_REQUEST['patient_id'] ?? "";
@@ -1001,7 +1114,7 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 		$patientData = getPatientDetails($patientId);
 
 		// Get facility data
-		$facilityData = getFacilityDetails();
+		$facilityData = getFacilityDetails("", true);
 
 		$pointA = "";
 		$pointsB = array();
@@ -1097,8 +1210,88 @@ if (isset($_REQUEST['action']) && $_REQUEST['action'] == "estimates") {
 	exit();
 }
 
+// Get trip details
+$tdetails = array();
+$errorMessage = array();
+
+if (!empty($trip_request_id)) {
+	$tdetails = sqlQuery("SELECT vuht.request_id as request_id_1, vuht.trip_response as trip_response_1, vuht.pid, vuht.eid, vuht2.request_id as request_id_2, vuht2.trip_response as trip_response_2 from vh_uber_health_trips vuht left join vh_uber_health_trips vuht2 on vuht2.request_id = vuht.linked_request_id where vuht.request_id  = ?", array($trip_request_id));
+
+	$tlist = array();
+	$tcount = 0;
+	if (!empty($tdetails)) {
+
+		$form_pid = $tdetails['pid'] ?? "";
+		$form_eid = $tdetails['eid'] ?? "";
+
+		for ($ti=1; $ti <= 2 ; $ti++) { 
+			if (!empty($tdetails['trip_response_' . $ti] ?? "")) {
+				$t1 = json_decode($tdetails['trip_response_' . $ti], true);
+
+				if (($t1['status'] ?? "") == "scheduled") {
+					if (!empty(($t1['linked_trip_details']['request_id'] ?? "")) && $t1['request_id'] != $trip_request_id) {
+						$trip_linked_request_id = $t1['request_id'];
+					}
+
+					if (($t1['total_trip_legs'] ?? "") > 1) {
+						if (($t1['trip_leg_number'] ?? "") == "1") {
+							$tlist['t2'] = $t1;
+						} else if (($t1['trip_leg_number'] ?? "") == "0") {
+							$tlist['t1'] = $t1;
+						}
+					} else if (($t1['total_trip_legs'] ?? "") == 1) {
+						$tlist['t1'] = $t1;
+					}
+				}
+
+				$tcount++;
+			}	
+		}
+
+		if (empty($tlist)) {
+			?>
+			<!DOCTYPE html>
+            <html>
+            <head>
+                <?php Header::setupHeader(['opener']); ?>
+                <script type="text/javascript">
+                   	alert('<?php echo xlt("No trip available for edit"); ?>');
+                    window.close();
+                </script>
+            </head>
+            <body>
+            </body>
+            </html>
+			<?php
+			exit();
+		}
+
+		if (count($tlist) != $tcount) {
+			$errorMessage[] = 'One of trip leg "Started" or "Cancelled"';
+		}
+	}
+
+	if (!empty($form_eid)) {
+		$apptDetails = sqlQuery("SELECT ope.pc_eid, ope.pc_eventDate, ope.pc_startTime from openemr_postcalendar_events ope where ope.pc_eid = ?", array($form_eid));
+		$form_appt_date = attr(oeFormatShortDate($apptDetails['pc_eventDate']));
+		$form_appt_time = $apptDetails['pc_startTime'] ?? "";
+	}
+}
+//
+
 // Get Default date time param
 $defaultDateParam = getDefaultDateTimePicker();
+if (!empty($form_appt_date)) {
+	$form_default_date = $form_appt_date;
+}
+
+$appt_datetime = "";
+if (!empty($form_appt_date) && !empty($form_appt_time)) {
+	$form_default_time = date('h:i', strtotime($form_appt_date ." ". $form_appt_time));
+	$form_default_hr = date('H', strtotime($form_appt_date ." ". $form_appt_time));
+	$appt_datetime = oeTimestampFormatDateTime(strtotime($form_appt_date ." ". $form_appt_time));
+}
+
 $todayDate = "";
 if (!empty($defaultDateParam) && is_array($defaultDateParam) && isset($defaultDateParam['format']) && !empty($defaultDateParam['format'])) {
 	$todayDate = date($defaultDateParam['format']);
@@ -1115,9 +1308,10 @@ if (!empty($form_default_time) && !empty($form_default_hr)) {
 	$currentAmPm = $form_default_hr > 12 ? 2 : 1;
 	$currentTime = $form_default_time;
 }
+// END
 
 // Prepare default data
-$initialTripObject = prepareDefaultData($trip_request_id);
+$initialTripObject = prepareDefaultData($tlist);
 
 if (empty($trip_request_id)) {
 	if (!empty($form_pid)) {
@@ -1308,6 +1502,12 @@ if (empty($trip_request_id)) {
             },
         ];
 
+        <?php if (!empty($errorMessage)) { ?>
+        	$(document).ready(function() {
+        		alert('<?php echo xls(implode("\n", $errorMessage)); ?>');
+        	});
+        <?php } ?>
+
         function generateAutoCompleteField(inputElement = null, path = '', type = '') {
         	// Autocomplete for Start Location
             let autocomplete = new google.maps.places.Autocomplete(inputElement);
@@ -1338,14 +1538,26 @@ if (empty($trip_request_id)) {
         	// For oneway
 			if (uberView.tripType() == "oneway") {
 				getTripsEstimates('oneway', function() {
-					setDefaultVehicleType('oneway');
+					if (initialTripObject['oneway'].hasOwnProperty('vehicleTypeProductId')) {
+						setInitVehicleType('oneway', initialTripObject['oneway']['vehicleTypeProductId']);
+					} else {
+						setDefaultVehicleType('oneway');
+					}
 				});
 			} else if (uberView.tripType() == "roundtrip") {
 				getTripsEstimates('roundtrip.first_leg', function() {
-					setDefaultVehicleType('roundtrip.first_leg');
+					if (initialTripObject['roundtrip']['first_leg'].hasOwnProperty('vehicleTypeProductId')) {
+						setInitVehicleType('roundtrip.first_leg', initialTripObject['roundtrip']['first_leg']['vehicleTypeProductId']);
+					} else {
+						setDefaultVehicleType('roundtrip.first_leg');
+					}
 				});
 
-				getTripsEstimates('roundtrip.return_leg');
+				getTripsEstimates('roundtrip.return_leg', function() {
+					if (initialTripObject['roundtrip']['return_leg'].hasOwnProperty('vehicleTypeProductId')) {
+						setInitVehicleType('roundtrip.return_leg', initialTripObject['roundtrip']['return_leg']['vehicleTypeProductId']);	
+					}
+				});
 			}
         }
 
@@ -1391,7 +1603,15 @@ if (empty($trip_request_id)) {
                 zoom: 15,
                 center: uberView.defaultLocation(),
                 styles: uberLightMapStyle,
-                mapTypeControl: false,  // Disable the Map/Satellite view button
+                mapTypeControl: true, 
+		          mapTypeControlOptions: {
+		            style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, // Dropdown style
+		            position: google.maps.ControlPosition.RIGHT_TOP, // Position of the control
+		            mapTypeIds: [
+		              google.maps.MapTypeId.SATELLITE, // Only show Satellite
+		              google.maps.MapTypeId.ROADMAP,   // Only show Roadmap
+		            ],
+		          },
                 streetViewControl: false,  // Disable Street View control
                 zoomControl: true,  // Enable zoom control (the plus and minus buttons)
                 zoomControlOptions: {
@@ -1402,6 +1622,7 @@ if (empty($trip_request_id)) {
                 disableDefaultUI: true,  // Disable all default UI elements (including camera controls)
                 tilt: 0  // Set tilt to 0 (no tilt), keeping the map flat
             });
+            // map.setMapTypeId(google.maps.MapTypeId.SATELLITE);
 
             // Initialize Directions Service and Renderer
             directionsService = new google.maps.DirectionsService();
@@ -1652,7 +1873,7 @@ if (empty($trip_request_id)) {
 		      const geocoder1 = new google.maps.Geocoder();
 
 		      // Perform geocode (convert address to Lat/Lng)
-		      geocoder1.geocode({ address: endFormattedAddress }, function(results, status) {
+		      geocoder1.geocode({ address: "1015 West 39th 1/2 Street, Austin, TX 78756" }, function(results, status) {
 		        if (status === google.maps.GeocoderStatus.OK) {
 		          	// Get the latitude and longitude from the geocode result
 		          	const lat = results[0].geometry.location.lat();
@@ -1949,6 +2170,25 @@ if (empty($trip_request_id)) {
         	initFutureSection();
 
 			return true;
+	    }
+
+	    function setInitVehicleType(path = '', value = '') {
+	    	if (value == "") {
+	    		return false;
+	    	}
+
+	    	// Set Default
+			let typeOptions = uberView.getFieldValue(path, false).vehicleTypeOptions();
+			if (Array.isArray(typeOptions)) {
+	        	typeOptions.forEach(function (rsitem, rsindex) {
+	        		let optionId = rsitem['id'];
+	        		let productId = optionId.split("~")[1];
+
+	        		if (productId === value) {
+	        			uberView.getFieldValue(path, false).vehicleType(rsitem["id"]);
+	        		}
+	        	});
+	        }
 	    }
 
 	    function setDefaultVehicleType(path = '') {
@@ -2292,6 +2532,7 @@ if (empty($trip_request_id)) {
         	this.riderFirstName = ko.observable('<?php echo addslashes($initialTripObject['riderFirstName'] ?? ""); ?>');
         	this.riderLastName = ko.observable('<?php echo addslashes($initialTripObject['riderLastName'] ?? ""); ?>');
         	this.riderPhoneNumber = ko.observable(formatPhoneNumber('<?php echo $initialTripObject['riderPhoneNumber'] ?? ""; ?>'));
+        	this.riderLanguage = ko.observable('<?php echo addslashes($initialTripObject['riderLanguage'] ?? ""); ?>');
 
         	// Ride plan
 	    	this.defaultLocation = ko.observable({lat: 30.3072916, lng: -97.7427565});
@@ -2582,6 +2823,7 @@ if (empty($trip_request_id)) {
 
 		    this.getCleanedPhoneNumber = ko.computed(function() {
 		    	let phoneNumber = this.riderPhoneNumber();
+		    	//console.log(phoneNumber);
 		        return phoneNumber.replace(/[^\d]/g, '');
 		    }, self);
 
@@ -2937,6 +3179,12 @@ if (empty($trip_request_id)) {
 	    	let validateStatus = uberView.validateForm();
 
 	    	if (validateStatus === true) {
+	    		if (request_mode == "update") {
+	    			if (!confirm('<?php echo xlt("This will cancel the old trip and schedule the new one with the changes. Do you want to proceed ?"); ?>')) {
+	    				return false;
+	    			}
+	    		}
+
 	    		createHealthTrip(request_mode);
 	    	}
 	    }
@@ -2976,7 +3224,7 @@ if (empty($trip_request_id)) {
 	                		}
 
 	                		if (responseJson.hasOwnProperty('phonenumber')) {
-	                			uberView.riderPhoneNumber(responseJson['phonenumber']);
+	                			uberView.riderPhoneNumber(formatPhoneNumber(responseJson['phonenumber']));
 	                		}
 
 	                		if (responseJson.hasOwnProperty('location_name')) {
@@ -3247,6 +3495,7 @@ if (empty($trip_request_id)) {
 		    <form id="uber_trip" method="post">
 
 		    	<input type="hidden" name="trip_request_id" value="<?php echo $trip_request_id ?? "" ?>">
+		    	<input type="hidden" name="trip_linked_request_id" value="<?php echo $trip_linked_request_id ?? ""; ?>">
 		    	<input type="hidden" name="request_mode" value="<?php echo $request_mode ?? "" ?>">
 
 		    	<div class="form-row mb-3">
@@ -3293,6 +3542,20 @@ if (empty($trip_request_id)) {
 					          <div data-bind="text: $data"></div>
 					        </div>
 					        <input type="hidden" name="rider_phone_number" data-bind="value: getCleanedPhoneNumber">
+						</div>
+
+						<div class="form-group">
+						    <label for="rider_language"><?php echo xlt("Language"); ?></label>
+						    <select class="form-control" name="rider_language" data-bind="value: riderLanguage">
+							<?php
+							$langresult = sqlStatement("SELECT * from list_options lo where list_id = 'uber_rider_lang';");
+							while ($langtrip = sqlFetchArray($langresult)) {
+								?>
+								<option value="<?php echo $langtrip['option_id'] ?? ""; ?>"><?php echo $langtrip['title'] ?? ""; ?></option>
+								<?php
+							}
+							?>
+							</select>
 						</div>
 
 						<div>
@@ -3810,7 +4073,11 @@ if (empty($trip_request_id)) {
 				</div>
 
 				<div class="form-group">
+					<?php if ($request_mode == "update") { ?>
+					<button type="button" class="btn btn-primary" data-bind="click: submitBookTrip.bind($data, '<?php echo $request_mode ?? ""; ?>')"><?php echo xlt("Re-Set up Trip"); ?></button>
+					<?php } else { ?>
 				    <button type="button" class="btn btn-primary" data-bind="click: submitBookTrip.bind($data, '<?php echo $request_mode ?? ""; ?>')"><?php echo xlt("Set up Trip"); ?></button>
+					<?php } ?>
 				</div>
 			</form>
 		</div>
