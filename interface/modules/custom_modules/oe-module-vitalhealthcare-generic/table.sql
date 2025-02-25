@@ -26,6 +26,10 @@ ALTER TABLE `facility` ADD COLUMN `vh_inmoment_location` varchar(255) default NU
 ALTER TABLE `facility` ADD COLUMN `vh_uber_facility_location` varchar(255) default NULL;
 #EndIf
 
+#IfMissingColumn facility vh_allowed_in_nearest_facility_calculation
+ALTER TABLE `facility` ADD COLUMN `vh_allowed_in_nearest_facility_calculation` tinyint default 0;
+#EndIf
+
 #IfMissingColumn users calendar_interval
 #ALTER TABLE `users` ADD COLUMN `calendar_interval` varchar(10) default NULL;
 #EndIf

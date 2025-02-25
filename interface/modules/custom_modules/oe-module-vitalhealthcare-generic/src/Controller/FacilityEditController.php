@@ -70,6 +70,36 @@ class FacilityEditController
 
         <div class="row">
             <div class="col-6">
+                <div class="form-row">
+                    <div class="form-row custom-control custom-switch">
+                    <div class="col">
+                        <input type="checkbox" class="custom-control-input" name="allowed_in_nearest_facility_calculation" id="allowed_in_nearest_facility_calculation" value="1" <?php echo $fData['vh_allowed_in_nearest_facility_calculation'] == "1" ? 'checked="checked"' : '' ?>>
+                        <label for="allowed_in_nearest_facility_calculation" class="custom-control-label"><?php echo xlt('Use in Nearest facility Calculation'); ?></label>
+                    </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
+                <div class="form-row my-2">
+                    <div class="col-12">
+                        <label for="uber_facility_location" class="col-form-label col-form-label-sm"><?php echo xlt('Uber Facility Location'); ?></label>
+                    </div>
+                    <div class="col">
+                        <input type="text" class="form-control form-control-sm" name="uber_facility_location" value="<?php echo $fData['vh_uber_facility_location'] ?? ""; ?>">
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-6">
                 <div class="form-row my-2">
                     <div class="col-12">
                         <label for="inmoment_location" class="col-form-label col-form-label-sm"><?php echo xlt('Inmoment Location'); ?></label> <i class="fa fa-question-circle fa-lg" aria-hidden="true" data-toggle="tooltip" data-placement="top" title="Pro-Care Round Rock' then 'RoundRock'
@@ -134,9 +164,11 @@ class FacilityEditController
     public function saveFacilityData($data, $id) {
         $allowed_to_booked = isset($_POST['allowed_to_booked_online']) ? $_POST['allowed_to_booked_online'] : 0;
         $inmoment_location = isset($_POST['inmoment_location']) ? $_POST['inmoment_location'] : "";
+        $uber_facility_location = isset($_POST['uber_facility_location']) ? $_POST['uber_facility_location'] : "";
+        $allowed_in_nearest_facility_calculation = isset($_POST['allowed_in_nearest_facility_calculation']) ? $_POST['allowed_in_nearest_facility_calculation'] : 0;
 
         if(!empty($id)) {
-           sqlStatement("UPDATE facility SET allowed_to_booked_online=?, vh_inmoment_location=? WHERE id= ? ", array($allowed_to_booked, $inmoment_location, $id)); 
+           sqlStatement("UPDATE facility SET allowed_to_booked_online=?, vh_inmoment_location=?, vh_uber_facility_location=?, vh_allowed_in_nearest_facility_calculation=? WHERE id= ? ", array($allowed_to_booked, $inmoment_location, $uber_facility_location, $allowed_in_nearest_facility_calculation, $id));
         }
     }
 }
