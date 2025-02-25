@@ -803,7 +803,7 @@ function prepareDataTableData($row_item = array(), $columns = array()) {
 						$rto_date = (isset($odItem['date']) && !empty($odItem['date'])) ? date('m/d/Y', strtotime($odItem['date'])) : "";
 						$rto_status = isset($odItem['rto_status']) ? $odItem['rto_status'] : "";
 						$rto_class = (isset($orderStatusListClass[$rto_status])) ? $orderStatusListClass[$rto_status] : '';
-						//$rto_status_title = isset($odItem['rto_status_title']) ? $odItem['rto_status_title'] : "";
+						$rto_status_title = isset($odItem['rto_status_title']) ? $odItem['rto_status_title'] : "";
 						//$tooltip_html = "";
 
 						//$patientData = getPatientData($odItem['pid'], "fname, mname, lname, pubpid, billing_note, DATE_FORMAT(DOB,'%Y-%m-%d') as DOB_YMD");
@@ -823,7 +823,7 @@ function prepareDataTableData($row_item = array(), $columns = array()) {
 						//	$tooltip_html .= "<div><b>Summary</b>: ".$orderSummaryHtml."</div>";
 						//}
 
-						$fieldHtml[] = "<a href=\"#!\" onclick=\"handleGoToOrder('".$odItem['id']."','".$odItem['pid']."')\" class='$rto_class tooltip_text'><div data-toggle='PopOverOrder' data-orderpid='" . $odItem['pid'] . "' data-orderid='" . $odItem['id'] . "'  data-original-title='Order <i>Click or change focus to dismiss</i>' style='display:inline-block;'>" . $rto_action_title . " " . $rto_date . "</div></a>";
+						$fieldHtml[] = "<a href=\"#!\" onclick=\"handleGoToOrder('".$odItem['id']."','".$odItem['pid']."')\" class='$rto_class tooltip_text'><div data-toggle='PopOverOrder' data-orderpid='" . $odItem['pid'] . "' data-orderid='" . $odItem['id'] . "'  data-original-title='Order <i>Click or change focus to dismiss</i>' style='display:inline-block;'>" . $rto_action_title . " - " . $rto_status_title . " - " . $rto_date . "</div></a>";
 
 						//$fieldHtml[] = "<a href=\"#!\" onclick=\"handleGoToOrder('".$odItem['id']."','".$odItem['pid']."','".$patientPubpid."','".$patientName."','".$patientDOB."')\"><span data-toggle='tooltip' class='$rto_class tooltip_text' title=''>".$rto_action_title." ".$rto_date."<div class='hidden_content'style='display:none;'>".$tooltip_html."</div></span></a>";
 					}
