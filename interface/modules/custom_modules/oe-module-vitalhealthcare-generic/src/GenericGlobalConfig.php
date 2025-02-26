@@ -257,4 +257,29 @@ class GenericGlobalConfig
         ];
         return $settings;
     }
+
+    public function getCaseManagerOrdersGlobalSettingSectionConfiguration()
+    {
+        $settings = [
+            'cmo_order_status' => [
+                'title' => 'Order Status'
+                ,'description' => 'Order Status'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+            'cmo_approval_order_status' => [
+                'title' => 'Approval Order Status'
+                ,'description' => 'Approval Order Status'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ],
+            'cmo_denial_approval_status' => [
+                'title' => 'Denial Approval Status'
+                ,'description' => 'Denial Approval Status'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
+            ]
+        ];
+        return $settings;
+    }
 }

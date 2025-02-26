@@ -1620,6 +1620,143 @@ class GenericRestController
         return RestControllerHelper::responseHandler($serviceResult, null, 200);
     }
 
+    public function getAllPatientOrders(HttpRestRequest $request) {
+        $searchParams = $request->getQueryParams();
+        $processingResult = new ProcessingResult();
+
+        try {
+            // Check PatientId
+            if(!isset($searchParams['PatientId']) || empty($searchParams['PatientId'])) {
+                throw new \Exception("Emtpy PatientId");
+            }
+
+            if (empty($GLOBALS['cmo_order_status'])) {
+                throw new \Exception("Order status value not configured");
+            }
+
+            $patientId = $searchParams['PatientId'] ?? "";
+            $case = $searchParams['case'] ?? "";
+
+            $sql = "SELECT fr.*, lo.title as rto_action, lo1.title as rto_status, obu.fname as rto_ordered_by_fname, obu.mname as rto_ordered_by_mname, obu.lname  as rto_ordered_by_lname from form_rto fr left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status left join users obu on obu.username = fr.rto_ordered_by where fr.pid = ? and lo1.title = ?";
+            $binds = array($patientId, $GLOBALS['cmo_order_status']);
+
+            if (!empty($case)) {
+                $sql .= " and fr.rto_case = ? ";
+                $binds[] = $case;
+            }
+
+
+            $orderres = sqlStatement($sql, $binds);
+            $orderItems = array();
+            while ($frow = sqlFetchArray($orderres)) {
+                $orderItems[] = array(
+                    'order_id' => $frow['id'] ?? "",
+                    'date' => $frow['date'] ?? "",
+                    'pid' => $frow['pid'] ?? "",
+                    'rto_action' => $frow['rto_action'] ?? "",
+                    'rto_status' => $frow['rto_status'] ?? "",
+                    'rto_ordered_by' => $frow['rto_ordered_by_lname'].', '.$frow['rto_ordered_by_fname'].' '.$frow['rto_ordered_by_mname'],
+                    'rto_case' => $frow['rto_case'] ?? "",
+                    'rto_stat' => $frow['rto_stat'] ?? "",
+                );
+            }
+
+            $processingResult->setData($orderItems);
+
+        } catch (\Throwable $e) {
+            // Add Internal error
+            $processingResult->addInternalError($e->getMessage());
+        }
+
+        $responseBody = RestControllerHelper::handleProcessingResult($processingResult, 200, true);
+        return $responseBody;
+    }
+
+    public function updatePatientOrder(HttpRestRequest $request) {
+        $bodyJSONParams = $request->getRequestBodyJSON();
+        $processingResult = new ProcessingResult();
+        $searchParams = $request->getQueryParams();
+
+        try {
+
+            if (!empty($searchParams['action'] ?? "")) {
+
+                $orderId = $bodyJSONParams['order_id'] ?? "";
+                $userEmail = $bodyJSONParams['user_email'] ?? "";
+                $commentVal = $bodyJSONParams['comment'] ?? "";
+
+                if(empty($orderId)) {
+                    throw new \Exception("Required order id");
+                }
+
+                if(empty($userEmail)) {
+                    throw new \Exception("Required user email");
+                }
+
+                if(empty($GLOBALS['cmo_approval_order_status']) || empty($GLOBALS['cmo_denial_approval_status'])) {
+                    throw new \Exception("Order status value not configured");
+                }
+
+
+                if ($searchParams['action'] == "approved") {
+
+                    // Get status value
+                    $statusValue = sqlQuery("SELECT lo.option_id  from list_options lo where lo.list_id = 'RTO_Status' and lo.title = ?", array($GLOBALS['cmo_approval_order_status']));
+
+                    if (empty($statusValue) || empty($statusValue['option_id'] ?? "")) {
+                        throw new \Exception("Not valid status for update");
+                    }
+
+                    // Update order status
+                    sqlStatementNoLog("UPDATE `form_rto` fr SET `rto_status` = ? WHERE `id` = ? ", array($statusValue['option_id'] ?? "", $orderId));
+
+                    // Log status change history
+                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment) VALUES (?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal));
+
+                    // Set message status
+                    $processingResult->setData(array("Approved"));
+
+                } else if ($searchParams['action'] == "rejected") {
+                    // Get status value
+                    $statusValue = sqlQuery("SELECT lo.option_id  from list_options lo where lo.list_id = 'RTO_Status' and lo.title = ?", array($GLOBALS['cmo_denial_approval_status']));
+
+                    if (empty($statusValue) || empty($statusValue['option_id'] ?? "")) {
+                        throw new \Exception("Not valid status for update");
+                    }
+
+                    // Update order status
+                    sqlStatementNoLog("UPDATE `form_rto` fr SET `rto_status` = ? WHERE `id` = ? ", array($statusValue['option_id'] ?? "", $orderId));
+
+                    // Log status change history
+                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment) VALUES (?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal));
+
+                    // Set message status
+                    $processingResult->setData(array("Rejected"));
+                }
+            }
+            
+        } catch (\Throwable $e) {
+            return $this->accessDeniedError($e->getMessage());
+            exit();
+        }
+
+        $responseBody = RestControllerHelper::handleProcessingResult($processingResult, 200);
+        return $responseBody;
+    }
+
+    private function accessDeniedError($error = "Unauthorized", $status = 401) {
+        $errorData = unserialize($error);
+        if (!is_array($errorData)) {
+            $errorData = $error;
+        }
+
+        return RestControllerHelper::responseHandler(array(
+            "error" => "access_denied",
+            "error_description" => $errorData,
+            "message" => $errorData
+        ), null, $status);
+    }
+
     public function generateLeaderData($searchParams) {
         global $ad_client_id;
 

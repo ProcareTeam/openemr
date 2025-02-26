@@ -431,5 +431,24 @@ class Bootstrap
                 )
             );
         }
+
+        $cmo_manager_section = xlt("Case Manager Orders");
+        $service->createSection($cmo_manager_section, 'Case Manager Orders');
+        $cmo_manager_settings = $this->globalsConfig->getCaseManagerOrdersGlobalSettingSectionConfiguration();
+
+        foreach ($cmo_manager_settings as $key => $config) {
+            $value = $GLOBALS[$key] ?? $config['default'];
+            $service->appendToSection(
+                $cmo_manager_section,
+                $key,
+                new GlobalSetting(
+                    xlt($config['title']),
+                    $config['type'],
+                    $value,
+                    xlt($config['description']),
+                    true
+                )
+            );
+        }
     }
 }

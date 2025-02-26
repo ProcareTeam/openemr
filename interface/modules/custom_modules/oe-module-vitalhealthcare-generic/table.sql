@@ -353,3 +353,16 @@ CREATE TABLE `vh_uber_health_trips_log` (
 );
 #EndIf
 
+#IfNotTable vh_portal_order_request_history
+CREATE TABLE `vh_portal_order_request_history` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(21) unsigned NOT NULL,
+  `user` varchar(255) NOT NULL,
+  `order_status` varchar(255) NOT NULL,
+  `request` varchar(255) NOT NULL,
+  `comment` text NULL,
+  `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+   PRIMARY KEY (`id`)
+);
+#EndIf
+
