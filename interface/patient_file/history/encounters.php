@@ -65,6 +65,8 @@ $create_packet = 0;
 
 $filter_document_ids = [];
 $filter_encounter_ids = [];
+// @VH: Show order items [26022025]
+$filter_order_ids = [];
 $packets_items = [];
 $edit_title = "";
 //$packet_id =0;
@@ -81,6 +83,7 @@ if(isset($_POST['action_mode'])) {
             $packet_title = $_POST["packet_title"];
             $document_ids = $_POST["document_ids"];
             $form_encounter_ids = $_POST["form_encounter_ids"];
+            $form_order_ids = $_POST["form_order_ids"];
 
             $packetId = sqlInsert("INSERT into `vh_visit_history_packet` (`packet_title`, `pid`) values (?, ?)", array($packet_title, $pid));
 
@@ -146,6 +149,14 @@ if(isset($_POST['action_mode'])) {
                         sqlInsert("INSERT into `vh_visit_history_packet_items` (`packet_id`, `type`, `item_id`) values (?, ?, ?)", array($_POST['packet_id'], 'document', $docItem));
                     }
                 }
+
+                // @VH: Show order items [26022025]
+                if(!empty($form_order_ids)) {
+                    foreach ($form_order_ids as $orderItem) {
+                        // Save document items into visit history packet items
+                        sqlInsert("INSERT into `vh_visit_history_packet_items` (`packet_id`, `type`, `item_id`) values (?, ?, ?)", array($_POST['packet_id'], 'order', $orderItem));
+                    }
+                }
             }
 
             $reqResponce['packet_id'] = $_POST['packet_id'];
@@ -200,6 +211,9 @@ if(isset($_POST['action_mode'])) {
                 } else if(str_contains($key, 'encounter_squ_no_')) {
                     $id = str_replace("encounter_squ_no_", "",$key);
                     sqlStatement("UPDATE `vh_visit_history_packet_items` SET seq = ? WHERE item_id = ? and packet_id = ?", array($val, $id, $_POST['packet_id']));
+                } else if(str_contains($key, 'order_squ_no_')) {
+                    $id = str_replace("order_squ_no_", "",$key);
+                    sqlStatement("UPDATE `vh_visit_history_packet_items` SET seq = ? WHERE item_id = ? and packet_id = ?", array($val, $id, $_POST['packet_id']));
                 }     
             }
 
@@ -244,6 +258,9 @@ if(isset($_POST["packet_id"]) ) {
                 } else if(isset($packetItemsRow['type']) && $packetItemsRow['type'] == "document") {
                     $filter_document_ids[] = $packetItemsRow['item_id'];
                     $packets_items['doc_' . $packetItemsRow['item_id']] = $packetItemsRow;
+                } else if(isset($packetItemsRow['type']) && $packetItemsRow['type'] == "order") {
+                    $filter_order_ids[] = $packetItemsRow['item_id'];
+                    $packets_items['ord_' . $packetItemsRow['item_id']] = $packetItemsRow;
                 }
 
                 if(isset($packetItemsRow['seq']) && $packetItemsRow['seq'] > 0) {
@@ -937,8 +954,10 @@ window.onload = function() {
                 $lsQuery = "vvhpi.seq, ";
                 $lQuery = " LEFT JOIN vh_visit_history_packet_items vvhpi ON vvhpi.`type` = 'document' AND vvhpi.item_id = d.id AND vvhpi.packet_id = " . $selected_packet . " ";
                 $l1Query = " LEFT JOIN vh_visit_history_packet_items vvhpi ON vvhpi.`type` = 'encounter' AND vvhpi.item_id = fe.id AND vvhpi.packet_id = " . $selected_packet . " ";
+                $l2Query = " LEFT JOIN vh_visit_history_packet_items vvhpi ON vvhpi.`type` = 'order' AND vvhpi.item_id = fr.id AND vvhpi.packet_id = " . $selected_packet . " ";
 
                 $lOrderBy = "ORDER BY vvhpi.seq ASC ";
+                $lOrderBy1 = "ORDER BY fe.seq ASC ";
             }
             // END
 
@@ -1129,16 +1148,40 @@ window.onload = function() {
                 $from .= " )";
             }
                 
-            $query = "SELECT " . $lsQuery . " fe.*, f.user, u.fname, u.mname, u.lname " . $from . " ";
+            // @VH: modified query to show orders with forms
+            $order_sql = "";
+            $order_from = "";
+            if ($attendant_type == 'pid' && !$billing_view) {
+                $order_from = "FROM form_rto fr left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status ";
+                if(!empty($l2Query)) {
+                    $order_from .= $l2Query;
+                }
 
-            if(!empty($lOrderBy)) {
-                $query .= $lOrderBy;
+                $order_from .= " where pid = " . $pid;
+
+                if($selected_packet != "All" && $edit_packet== 0)
+                {
+                    if(count($filter_order_ids)> 0)
+                        $order_from .= " AND fr.id in (" . implode(",", $filter_order_ids) . ") ";
+                    else
+                        $order_from .= " AND fr.id in (0) ";
+                }
+
+                $order_sql = " union all SELECT " . $lsQuery . " fr.id, fr.`date`, null, null, null, fr.pid, fr.encounter, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, fr.`user`, null, null, null, 'order' as item_type, lo.title as rto_action, lo1.title as rto_status " . $order_from;
+            }
+
+            $query = "SELECT fe.* FROM (SELECT " . $lsQuery . " fe.*, f.user, u.fname, u.mname, u.lname, 'encounter' as item_type, null as rto_action, null as rto_status " . $from . $order_sql ." ) fe ";
+
+            if(!empty($lOrderBy1)) {
+                $query .= $lOrderBy1;
             } else {
                 $query .= " ORDER BY fe.date " . $sortdirection . ", fe.id " . $sortdirection;
             }
             // END
 
-            $countQuery = "SELECT COUNT(*) as c " . $from;
+            // @VH - Commented count query and modified query to show orders with forms
+            //$countQuery = "SELECT COUNT(*) as c " . $from;
+            $countQuery = "SELECT COUNT(*) as c FROM ( select fe.id " . $from . (!empty($order_from) ? " union all select fr.id " . $order_from : "" ) ." ) c";
 
             $countRes = sqlStatement($countQuery, $sqlBindArray);
             $count = sqlFetchArray($countRes);
@@ -1177,6 +1220,7 @@ window.onload = function() {
             $vhcount = 0;
 
             while ($result4 = sqlFetchArray($res4)) {
+            if ($result4['item_type'] == "encounter") {
                     // @VH: Visit history encounter item [V100061]
                     $visit_history_encounter_item = array();
 
@@ -1932,6 +1976,79 @@ window.onload = function() {
                 if(!empty($visit_history_encounter_item)) {
                     $visit_history_items[] = $visit_history_encounter_item;
                 }
+
+            } else if ($result4['item_type'] == "order") {
+                // For Order item
+                // OEMR - Enh Clinical view
+                if (!$billing_view) {
+                    if($enh_clinical_view === 1) {
+                        echo "<tr class=''>\n";
+                        echo "<td>\n";
+                        if($edit_packet == 1 && in_array($result4['id'], $filter_order_ids))
+                        {
+                            if(in_array($result4['id'], $filter_order_ids))
+                            {
+                                echo "<input type='checkbox' checked class='packet_checkbox' style='display:none;' name='form_order_ids[]' value='" . $result4['id'] . "'>";
+                            }
+                        } else {
+                            echo "<input type='checkbox' class='packet_checkbox' style='display:none;' name='form_order_ids[]' value='" . $result4['id'] . "'>";
+                        }
+
+                        // OEMR - Sel Item checkbox
+                        if(isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") {
+                            if($edit_packet !== 1 && $create_packet !== 1) {
+                                echo "<input type='checkbox' class='sel_checkbox' data-type='order' value='" . $result4['id'] . "'>";
+                            }
+                        }
+
+                        // OEMR - Packet Item Seq
+                        if($edit_packet !== 1 && isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") {
+                            $temp_sequace_no = isset($packets_items['ord_' . $result4['id']]['seq']) && !empty($packets_items['ord_' . $result4['id']]['seq']) ? $packets_items['ord_' . $result4['id']]['seq'] : $sequace_no;
+                            echo " <input type='textbox' name='order_squ_no_" . $result4["id"] ."' id='order_squ_no_" . $result4["id"] ."' value='" . $temp_sequace_no . "'  class='vh_sequance_no form-control' style='max-width:50px;'>";
+                        }
+                        
+                        echo "</td>\n";
+
+                        $sequace_no = $sequace_no + 10;
+                    } else {
+                        echo "<tr class='text'>\n";
+                    }
+
+                    $raw_order_date = date("Y-m-d", strtotime($result4["date"]));
+                    $raworderdata = $result4['id'] . "~" . oeFormatShortDate($raw_order_date);
+
+                    // show date
+                    echo "<td class='encrow' id='" . attr($raworderdata) . "'>" . text(oeFormatShortDate($raw_order_date)) . "</td>\n";
+
+                    if($enh_clinical_view !== 1) {
+                        echo "<td></td>";
+                    }
+
+                    $formDir = attr("rto");
+                    $formEnc = attr($result4['encounter']);
+                    $formId = attr($result4['id']);
+                    $formPid = attr($result4['pid']);
+
+                    // show order details
+                    echo "<td colspan='3' class='text orderrow' id='" . attr($result4['id']) . "'>";
+                    echo "<div ";
+
+                    if (hasFormPermission($formDir)) {
+                        echo "data-toggle='PopOverReport' data-placement='top' data-formpid='$formPid' data-formdir='$formDir' data-formenc='$formEnc' data-formid='$formId' ";
+                    }
+
+                    echo "data-original-title='" . text(xl_form_title("Order")) . " <i>" . xla("Click or change focus to dismiss") . "</i>'>";
+
+                    echo "<span>" . text(xl('Order id')) . ": " . text($result4['id']) . "</span></br>";
+                    echo "<span>" . text(xl('Order type')) . ": " . text($result4['rto_action']) . "</span></br>";
+                    echo "<span>" . text(xl('Order status')) . ": " . text($result4['rto_status']) . "</span></br>";
+                    echo "</div></td>\n";
+                    echo "<td colspan='5'>&nbsp;</td>\n";
+
+                    echo "</tr>";
+                }
+            }
+
             } // end while
 
             // Dump remaining document lines if count not exceeded.
