@@ -979,7 +979,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 	}
 
 	$result = sqlStatement(generateCaseQuery(array(
-		"select" => "fc.id as case_id, (select min(ope.pc_eventDate) from openemr_postcalendar_events ope where ope.pc_case = fc.id and ope.pc_apptstatus not in ('-','+','?','x','%') and ope.pc_pid = fc.pid) as first_visit_date, fc.injury_date,  CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), IF(LENGTH(pd.nickname33),CONCAT(' (', pd.nickname33, ')'),NULL), ' (', pd.pubpid ,')') as patient_name, fc.ins_data_id1, fc.ins_data_id2, fc.ins_data_id3, fc.pid, fc.comments, fc.bc_notes, fc.vh_rehabprogress, fc.vh_rehabplan ",
+		"select" => "fc.id as case_id, (select min(ope.pc_eventDate) from openemr_postcalendar_events ope where ope.pc_case = fc.id and ope.pc_apptstatus not in ('-','+','?','x','%') and ope.pc_pid = fc.pid) as first_visit_date, fc.injury_date,  CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), IF(LENGTH(pd.nickname33),CONCAT(' (', pd.nickname33, ')'),''), ' (', pd.pubpid ,')') as patient_name, fc.ins_data_id1, fc.ins_data_id2, fc.ins_data_id3, fc.pid, fc.comments, fc.bc_notes, fc.vh_rehabprogress, fc.vh_rehabplan ",
 		"where" => $searchQuery,
 		"order" => $columnName,
 		"order_type" => $columnSortOrder,
