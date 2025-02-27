@@ -55,7 +55,9 @@ $ORDERHASH = array(
   'pubpid'  => 'lower(pubpid), rto_target_date',
   'due'     => 'rto_target_date',
   'create'  => 'rto_date',
-  'ordered' => 'lower(rto_ordered_by), rto_target_date'
+  'ordered' => 'lower(rto_ordered_by), rto_target_date',
+  'notes_created_at' => "(SELECT `date` as created_datetime from form_value_logs where pid = rto.pid and field_id = 'rto_notes' and form_name = 'form_rto' and form_id = rto.id  order by id asc limit 1)",
+  'notes_updated_at' => "(SELECT `date` as updated_datetime from form_value_logs where pid = rto.pid  and field_id = 'rto_notes' and form_name = 'form_rto' and form_id = rto.id order by id desc limit 1)"
 );
 
 $bgcolor = '';
@@ -398,13 +400,17 @@ if($form_csvexport) {
     <?php if ($form_orderby == "user") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Responsible User'); ?></a></th>
     <th width="120"><a href="nojs.php" onclick="return dosort('create')"
     <?php if ($form_orderby == "create") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Create Date'); ?></a></th>
-    <th width="120"><a href="nojs.php" onclick="return dosort('due')"
-    <?php if ($form_orderby == "due") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Due Date'); ?></a></th>
+    <!-- <th width="120"><a href="nojs.php" onclick="return dosort('due')"
+    <?php //if ($form_orderby == "due") //echo " style=\"color:#00cc00\"" ?>><?php //echo xl('Due Date'); ?></a></th> -->
     <th width="120">
-      <?php echo xl('Notes Created At'); ?>
+      <a href="nojs.php" onclick="return dosort('notes_created_at')" >
+      <?php echo xl('Notes Created'); ?>
+      </a>
     </th>
     <th width="120">
-      <?php echo xl('Notes Updated At'); ?>
+      <a href="nojs.php" onclick="return dosort('notes_updated_at')" >
+      <?php echo xl('Notes Updated'); ?>
+      </a>
     </th>
     <th><a href="nojs.php" onclick="return dosort('patient')"
     <?php if ($form_orderby == "patient") echo " style=\"color:#00cc00\"" ?>><?php echo xl('Patient'); ?></a></th>
@@ -518,8 +524,8 @@ if ($res) {
     <td><?php echo $username; ?>&nbsp;</td>
     <td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
     <?php echo oeFormatShortDate(substr($row['rto_date'], 0, 10)) ?>&nbsp;</a></td>
-    <td><a href="javascript:void(0);" onclick="<?php echo $clickFun; ?>">
-    <?php echo oeFormatShortDate(substr($row['rto_target_date'], 0, 10)) ?>&nbsp;</a></td>
+    <!-- <td><a href="javascript:void(0);" onclick="<?php //echo $clickFun; ?>">
+    <?php //echo oeFormatShortDate(substr($row['rto_target_date'], 0, 10)) ?>&nbsp;</a></td> -->
     <td><?php echo $notes_created_at; ?></td>
     <td><?php echo $notes_updated_at; ?></td>
     <td><a href="javascript:goParentPid('<?php echo $row['pid']; ?>');" class="<?php echo $row['rto_stat'] === "1" ? "redText" : ""; ?>"><span data-toggle="tooltip" class="tooltip_text" title=""><?php echo $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname']; ?>&nbsp;<div class="hidden_content" style="display:none;">Stat</div></span></a></td>
