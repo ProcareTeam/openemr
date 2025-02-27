@@ -153,7 +153,13 @@ class BillingCodeType
                     if ($currdescstring !== '') {
                         $currdescstring .= '; ';
                     }
-                    $currdescstring .= getCodeDescription($codestring, $codetype);
+                    
+                    // @VH: [27012025]
+                    if (isOption($frow['edit_options'], 'BCPF') !== false) {
+                        $currdescstring .= $codestring . " [" . getCodeDescription($codestring, $codetype) . "]";
+                    } else {
+                        $currdescstring .= getCodeDescription($codestring, $codetype);
+                    }
                 }
             }
 

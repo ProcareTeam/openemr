@@ -844,13 +844,29 @@ if (
                 sd = frcd ? frcd.value : s;
             }
             //
+            // @VH: Get patient filter - [27012025]
+            let patient_filter_id = null;
+            if (frc) {
+                patient_filter_id = frc.getAttribute('data-patientfilter');
+            } 
+            if (frcd && patient_filter_id === null) {
+                patient_filter_id = frcd.getAttribute('data-patientfilter');
+            }
+            // End
+
             if (code) {
                 if (s.length > 0) {
                     s += ';';
                     sd += ';';
                 }
                 s += codetype + ':' + code;
-                sd += codedesc;
+
+                // @VH: wrap to show code description - [27012025]
+                if (patient_filter_id !== null && patient_filter_id != "") {
+                    sd += codetype + ':' + code + " [" + codedesc + "]";
+                } else {
+                    sd += codedesc;
+                }
             } else {
                 s = '';
                 sd = '';
@@ -869,6 +885,12 @@ if (
             let f = document.forms[0];
             let frc = f[current_sel_name];
             frc.value = "";
+
+            // @VH: delete code description - [27012025]
+            var matches = current_sel_name.match(/^(.*)__desc$/);
+            if (matches) {
+                f[matches[1]].value = "";
+            }
         }
 
         // This invokes the "dynamic" find-code popup.
