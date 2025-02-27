@@ -65,7 +65,7 @@ $create_packet = 0;
 
 $filter_document_ids = [];
 $filter_encounter_ids = [];
-// @VH: Show order items [26022025]
+// c Show order items [26022025]
 $filter_order_ids = [];
 $packets_items = [];
 $edit_title = "";
@@ -83,6 +83,7 @@ if(isset($_POST['action_mode'])) {
             $packet_title = $_POST["packet_title"];
             $document_ids = $_POST["document_ids"];
             $form_encounter_ids = $_POST["form_encounter_ids"];
+            // @VH: [26022025]
             $form_order_ids = $_POST["form_order_ids"];
 
             $packetId = sqlInsert("INSERT into `vh_visit_history_packet` (`packet_title`, `pid`) values (?, ?)", array($packet_title, $pid));
@@ -99,6 +100,14 @@ if(isset($_POST['action_mode'])) {
                     foreach ($document_ids as $docItem) {
                         // Save document items into visit history packet items
                         sqlInsert("INSERT into `vh_visit_history_packet_items` (`packet_id`, `type`, `item_id`) values (?, ?, ?)", array($packetId, 'document', $docItem));
+                    }
+                }
+
+                // @VH: Show order items [26022025]
+                if(!empty($form_order_ids)) {
+                    foreach ($form_order_ids as $orderItem) {
+                        // Save document items into visit history packet items
+                        sqlInsert("INSERT into `vh_visit_history_packet_items` (`packet_id`, `type`, `item_id`) values (?, ?, ?)", array($packetId, 'order', $orderItem));
                     }
                 }
             }
@@ -128,6 +137,8 @@ if(isset($_POST['action_mode'])) {
 
             $document_ids = $_POST["document_ids"];
             $form_encounter_ids = $_POST["form_encounter_ids"];
+            // @VH: [26022025]
+            $form_order_ids = $_POST["form_order_ids"];
 
             $packetS = sqlStatement("UPDATE `vh_visit_history_packet` SET packet_title = ? WHERE id = ? ", array($_POST["packet_title"], $_POST['packet_id']));
 
@@ -872,6 +883,13 @@ window.onload = function() {
         <table class="table table-hover jumbotron py-4 mt-3">
             <thead>
                 <tr class='text'>
+                    <?php if ($enh_clinical_view === 1) : ?>
+                    <th>
+                        <?php if($edit_packet !== 1 && isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") { ?>
+                            <button type="button" class="btn btn-primary btn-sm" id="updateSeqBtn"><i class="fa fa-sort" aria-hidden="true"></i> <?php echo xlt('Update'); ?></button>
+                        <?php } ?>
+                    </th>
+                    <?php endif; ?>    
                     <th scope="col">
                         <?php echo xlt('Date'); ?>
                         
@@ -1148,16 +1166,16 @@ window.onload = function() {
                 $from .= " )";
             }
                 
-            // @VH: modified query to show orders with forms
+            // @VH: modified query to show orders with forms [26022025]
             $order_sql = "";
             $order_from = "";
             if ($attendant_type == 'pid' && !$billing_view) {
-                $order_from = "FROM form_rto fr left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status ";
+                $order_from = "FROM form_rto fr left join form_encounter fe2 on fe2.encounter = fr.encounter left join users u2 on u2.id = fe2.provider_id left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status ";
                 if(!empty($l2Query)) {
                     $order_from .= $l2Query;
                 }
 
-                $order_from .= " where pid = " . $pid;
+                $order_from .= " where fr.pid = " . $pid;
 
                 if($selected_packet != "All" && $edit_packet== 0)
                 {
@@ -1167,7 +1185,39 @@ window.onload = function() {
                         $order_from .= " AND fr.id in (0) ";
                 }
 
-                $order_sql = " union all SELECT " . $lsQuery . " fr.id, fr.`date`, null, null, null, fr.pid, fr.encounter, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, fr.`user`, null, null, null, 'order' as item_type, lo.title as rto_action, lo1.title as rto_status " . $order_from;
+                // Filter encounter based on case
+                if (isset($_REQUEST['case']) && !empty($_REQUEST['case'])) {
+                    $order_from .= " AND ( fr.rto_case = ? OR fr.rto_case = '' ) ";
+                    $sqlBindArray[] = $_REQUEST['case'];
+                }
+
+                // OEMR - Document search by name
+                if (isset($searchText) && !empty($searchText)) {
+                    
+                    $ow1 = array();
+                    $ow2 = array();
+                    $ow3 = array();
+                    $ow4 = array();
+
+                    foreach (explode(" ", $searchText) as $sValue) {
+                        if(!empty($sValue)) {
+                            $ow1[] = "lo.title like '%" . $sValue . "%'";
+                            $ow2[] = "lo1.title like '%" . $sValue . "%'";
+                            $ow3[] = "opc.pc_catname like '%" . $sValue . "%'";
+                            $ow4[] = "CONCAT(u2.lname, ', ', u2.fname, ' ', u2.mname) like '%" . $sValue . "%'";
+                        }
+                    }
+
+                    if(!empty($ow1)) $ow1 = " (" . implode(" OR ",  $ow1) . ") ";
+                    if(!empty($ow2)) $ow2 = " (" . implode(" OR ",  $ow2) . ") ";
+                    if(!empty($ow3)) $ow3 = " (" . implode(" OR ",  $ow3) . ") ";
+                    if(!empty($ow4)) $ow4 = " (" . implode(" OR ",  $ow4) . ") "; 
+
+
+                    $order_from .= " AND ( exists (SELECT opc.pc_catname from openemr_postcalendar_categories opc where opc.pc_catid = fe2.pc_catid and " . $ow3 . " ) OR " . $ow4 . " OR " . $ow1 ." OR " . $ow2 ." ) ";
+                }
+
+                $order_sql = " union all SELECT " . $lsQuery . " fr.id, fr.`date`, fe2.reason, fe2.facility, fe2.facility_id, fr.pid, fr.encounter, fe2.onset_date, fe2.sensitivity, fe2.billing_note, fe2.pc_catid, fe2.last_level_billed, fe2.last_level_closed, fe2.last_stmt_date, fe2.stmt_count, fe2.provider_id, fe2.supervisor_id, fe2.invoice_refno, fe2.referral_source, fe2.billing_facility, fe2.external_id, fe2.pos_code, fe2.parent_encounter_id, fe2.uuid, fe2.class_code, fe2.shift, fe2.voucher_number, fe2.discharge_disposition, fe2.encounter_type_code, fe2.encounter_type_description, fe2.referring_provider_id, fe2.date_end, fe2.in_collection, fe2.last_update, fe2.ordering_provider_id, fe2.vh_first_esign_datetime, fr.`user`, u2.fname, u2.mname, u2.lname, 'order' as item_type, lo.title as rto_action, lo1.title as rto_status " . $order_from;
             }
 
             $query = "SELECT fe.* FROM (SELECT " . $lsQuery . " fe.*, f.user, u.fname, u.mname, u.lname, 'encounter' as item_type, null as rto_action, null as rto_status " . $from . $order_sql ." ) fe ";
@@ -1220,7 +1270,6 @@ window.onload = function() {
             $vhcount = 0;
 
             while ($result4 = sqlFetchArray($res4)) {
-            if ($result4['item_type'] == "encounter") {
                     // @VH: Visit history encounter item [V100061]
                     $visit_history_encounter_item = array();
 
@@ -1353,6 +1402,50 @@ window.onload = function() {
                     // @VH: Enh Clinical view [V100061]
                     if($enh_clinical_view === 1)
                     {
+                        // @VH: Wrap into condition [26022025]
+                        if ($result4['item_type'] == "order") {
+                        echo "<tr class=''>\n";
+
+                        echo "<td>\n";
+                        if($edit_packet == 1 && in_array($result4['id'], $filter_order_ids))
+                        {
+                            if(in_array($result4['id'], $filter_order_ids))
+                            {
+                                echo "<input type='checkbox' checked class='packet_checkbox' style='display:none;' name='form_order_ids[]' value='" . $result4['id'] . "'>";
+                            }
+                        } else {
+                            echo "<input type='checkbox' class='packet_checkbox' style='display:none;' name='form_order_ids[]' value='" . $result4['id'] . "'>";
+                        }
+
+                        // @VH: Sel order item checkbox
+                        if(isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") {
+                            if($edit_packet !== 1 && $create_packet !== 1) {
+                                echo "<input type='checkbox' class='sel_checkbox' data-type='order' value='" . $result4['id'] . "'>";
+                            }
+                        }
+
+                        // @VH: Packet order item seq
+                        if($edit_packet !== 1 && isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") {
+                            $temp_sequace_no = isset($packets_items['ord_' . $result4['id']]['seq']) && !empty($packets_items['ord_' . $result4['id']]['seq']) ? $packets_items['ord_' . $result4['id']]['seq'] : $sequace_no;
+                            echo " <input type='textbox' name='order_squ_no_" . $result4["id"] ."' id='order_squ_no_" . $result4["id"] ."' value='" . $temp_sequace_no . "'  class='vh_sequance_no form-control' style='max-width:50px;'>";
+                        }
+
+                        echo "</td>\n";
+
+                        $raw_order_date = date("Y-m-d", strtotime($result4["date"]));
+                        $raworderdata = $result4['id'] . "~" . oeFormatShortDate($raw_order_date);
+
+                        // show order date
+                        echo "<td class='encrow' id='" . attr($raworderdata) . "'>" . text(oeFormatShortDate($raw_order_date)) . "</td>\n";
+
+                        // Assign date
+                        if (isset($get_items_only) && $get_items_only === true) {
+                            $visit_history_encounter_item['type'] = "order";
+                            $visit_history_encounter_item['date'] = text(oeFormatShortDate($raw_order_date));
+                        }
+
+                        } else {
+                        // Encounter Item
                         echo "<tr class=''>\n";
 
                         echo "<td>\n";
@@ -1389,6 +1482,8 @@ window.onload = function() {
                             $visit_history_encounter_item['date'] = text(oeFormatShortDate($raw_encounter_date));
                         }
 
+                        }
+
                         $sequace_no = $sequace_no + 10;
                     } else{
                     echo "<tr class='encrow text' id='" . attr($rawdata) . "'>\n";
@@ -1406,6 +1501,45 @@ window.onload = function() {
 
                 // @VH: Start of enh billing view [V100061]
                 if($enh_clinical_view === 1) {
+                    // @VH: Wrap into condition [26022025]
+                    if ($result4['item_type'] == "order") {
+
+                    $formDir = attr("rto");
+                    $formEnc = attr($result4['encounter']);
+                    $formId = attr($result4['id']);
+                    $formPid = attr($result4['pid']);
+
+                    // show order details
+                    echo "<td class='text orderrow' id='" . attr($result4['id']) . "'>";
+                    echo "<div ";
+
+                    if (hasFormPermission($formDir)) {
+                        echo "data-toggle='PopOverReport' data-placement='top' data-formpid='$formPid' data-formdir='$formDir' data-formenc='$formEnc' data-formid='$formId' ";
+                    }
+
+                    echo "data-original-title='" . text(xl_form_title("Order")) . " <i>" . xla("Click or change focus to dismiss") . "</i>'>";
+
+                    echo "<span>" . text(xl('Order id')) . ": " . text($result4['id']) . "</span></br>";
+                    echo "<span>" . text(xl('Order type')) . ": " . text($result4['rto_action']) . "</span></br>";
+                    echo "<span>" . text(xl('Order status')) . ": " . text($result4['rto_status']) . "</span></br>";
+                    echo "</div>";
+
+                    echo "<input type='checkbox' class='ord_". $result4['id'] ."' name='orders[]' value='" . $result4['id'] . "' style='display:none;' >";
+
+                    echo "</td>\n";
+
+                    // Assign reason
+                    if (isset($get_items_only) && $get_items_only === true) {
+                        $visit_history_encounter_item['encounter_id'] = text($result4['encounter']);
+                        $visit_history_encounter_item['reason'] = text(strip_tags(preg_replace("/\r\n|\r|\n/", "", $reason_string)));
+
+                        $visit_history_encounter_item['order_id'] = text($formId);
+                        $visit_history_encounter_item['order_type'] = text($result4['rto_action']);
+                        $visit_history_encounter_item['order_status'] = text($result4['rto_status']);
+                        //$visit_history_doc_param = array();
+                    }
+
+                    } else {
                     // show encounter reason/title
                     echo "<td class='encrow text' id='" . attr($rawdata) . "'>" . $reason_string;
 
@@ -1509,6 +1643,8 @@ window.onload = function() {
 
                     echo "</div>";
                     echo "</td>\n";
+
+                    }
 
                     // // Assign doc param form
                     // if (isset($get_items_only) && $get_items_only === true) {
@@ -1977,78 +2113,6 @@ window.onload = function() {
                     $visit_history_items[] = $visit_history_encounter_item;
                 }
 
-            } else if ($result4['item_type'] == "order") {
-                // For Order item
-                // OEMR - Enh Clinical view
-                if (!$billing_view) {
-                    if($enh_clinical_view === 1) {
-                        echo "<tr class=''>\n";
-                        echo "<td>\n";
-                        if($edit_packet == 1 && in_array($result4['id'], $filter_order_ids))
-                        {
-                            if(in_array($result4['id'], $filter_order_ids))
-                            {
-                                echo "<input type='checkbox' checked class='packet_checkbox' style='display:none;' name='form_order_ids[]' value='" . $result4['id'] . "'>";
-                            }
-                        } else {
-                            echo "<input type='checkbox' class='packet_checkbox' style='display:none;' name='form_order_ids[]' value='" . $result4['id'] . "'>";
-                        }
-
-                        // OEMR - Sel Item checkbox
-                        if(isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") {
-                            if($edit_packet !== 1 && $create_packet !== 1) {
-                                echo "<input type='checkbox' class='sel_checkbox' data-type='order' value='" . $result4['id'] . "'>";
-                            }
-                        }
-
-                        // OEMR - Packet Item Seq
-                        if($edit_packet !== 1 && isset($_POST['packet_id']) && !empty($_POST['packet_id']) && $_POST['packet_id'] != "All") {
-                            $temp_sequace_no = isset($packets_items['ord_' . $result4['id']]['seq']) && !empty($packets_items['ord_' . $result4['id']]['seq']) ? $packets_items['ord_' . $result4['id']]['seq'] : $sequace_no;
-                            echo " <input type='textbox' name='order_squ_no_" . $result4["id"] ."' id='order_squ_no_" . $result4["id"] ."' value='" . $temp_sequace_no . "'  class='vh_sequance_no form-control' style='max-width:50px;'>";
-                        }
-                        
-                        echo "</td>\n";
-
-                        $sequace_no = $sequace_no + 10;
-                    } else {
-                        echo "<tr class='text'>\n";
-                    }
-
-                    $raw_order_date = date("Y-m-d", strtotime($result4["date"]));
-                    $raworderdata = $result4['id'] . "~" . oeFormatShortDate($raw_order_date);
-
-                    // show date
-                    echo "<td class='encrow' id='" . attr($raworderdata) . "'>" . text(oeFormatShortDate($raw_order_date)) . "</td>\n";
-
-                    if($enh_clinical_view !== 1) {
-                        echo "<td></td>";
-                    }
-
-                    $formDir = attr("rto");
-                    $formEnc = attr($result4['encounter']);
-                    $formId = attr($result4['id']);
-                    $formPid = attr($result4['pid']);
-
-                    // show order details
-                    echo "<td colspan='3' class='text orderrow' id='" . attr($result4['id']) . "'>";
-                    echo "<div ";
-
-                    if (hasFormPermission($formDir)) {
-                        echo "data-toggle='PopOverReport' data-placement='top' data-formpid='$formPid' data-formdir='$formDir' data-formenc='$formEnc' data-formid='$formId' ";
-                    }
-
-                    echo "data-original-title='" . text(xl_form_title("Order")) . " <i>" . xla("Click or change focus to dismiss") . "</i>'>";
-
-                    echo "<span>" . text(xl('Order id')) . ": " . text($result4['id']) . "</span></br>";
-                    echo "<span>" . text(xl('Order type')) . ": " . text($result4['rto_action']) . "</span></br>";
-                    echo "<span>" . text(xl('Order status')) . ": " . text($result4['rto_status']) . "</span></br>";
-                    echo "</div></td>\n";
-                    echo "<td colspan='5'>&nbsp;</td>\n";
-
-                    echo "</tr>";
-                }
-            }
-
             } // end while
 
             // Dump remaining document lines if count not exceeded.
@@ -2202,6 +2266,11 @@ $(function () {
                         //selItems["documents"] = $(this).val();
                         selItems['doc_' + enciValue] = $(this).val();
                     });
+                } else if(seltype == "order") {
+                    // @VH: [26022025]
+                    $('.ord_' + enciValue).each(function( orderIndex ) {
+                        selItems['rto_' + enciValue] = $(this).val();
+                    });
                 }
 
                 sortedData[sortValue] = {
@@ -2231,6 +2300,13 @@ $(function () {
 
                             //     paramData['documents'].push(sivalue);
                             // }
+                            paramData[sikey] = sivalue;
+                        });
+                    }
+                } else if(ddItem['type'] == "order") {
+                    // @VH: [26022025]
+                    if(ddItem.hasOwnProperty('items')) {
+                        $.each(ddItem['items'], function(sikey, sivalue) {
                             paramData[sikey] = sivalue;
                         });
                     }
