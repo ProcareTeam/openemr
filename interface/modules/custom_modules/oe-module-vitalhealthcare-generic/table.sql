@@ -380,3 +380,7 @@ CREATE TABLE `vh_portal_order_request_history` (
 ALTER TABLE `vh_portal_order_request_history` ADD COLUMN `source` varchar(255) DEFAULT NULL AFTER `user`;
 #EndIf
 
+ALTER TABLE form_ortho_exam MODIFY COLUMN palp_cerv varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL;
+ALTER TABLE form_ortho_exam MODIFY COLUMN palp_thor varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL;
+ALTER TABLE form_ortho_exam MODIFY COLUMN palp_lum varchar(255) CHARACTER SET latin1 COLLATE latin1_swedish_ci NULL;
+
