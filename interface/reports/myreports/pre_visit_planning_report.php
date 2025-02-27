@@ -947,7 +947,7 @@ function getDataTableData($data = array(), $columns = array(), $filterVal = arra
 	}
 
 	$result = sqlStatement(generateSqlQuery(array(
-		"select" => "ope.pc_eid, cast(concat(ope.pc_eventDate, ' ', ope.pc_startTime) as datetime) as appt_datetime, CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), ' (', pd.pubpid ,')') as patient_name, pd.pid, pd.alert_info, ope.pc_catid, ope.pc_aid, concat(u.lname, ', ', u.fname) as provider_name, ope.pc_case as case_id, ope.pc_hometext ",
+		"select" => "ope.pc_eid, cast(concat(ope.pc_eventDate, ' ', ope.pc_startTime) as datetime) as appt_datetime, CONCAT(CONCAT_WS(' ', IF(LENGTH(pd.fname),pd.fname,NULL), IF(LENGTH(pd.lname),pd.lname,NULL)), IF(LENGTH(pd.nickname33),CONCAT(' (', pd.nickname33, ')'),''), ' (', pd.pubpid ,')') as patient_name, pd.pid, pd.alert_info, ope.pc_catid, ope.pc_aid, concat(u.lname, ', ', u.fname) as provider_name, ope.pc_case as case_id, ope.pc_hometext ",
 		"where" => $searchQuery,
 		"order" => $columnName,
 		"order_type" => $columnSortOrder,
