@@ -35,8 +35,7 @@ class UberController
 	const UPCOMING_STATUS_LIST = array();
 	const IN_PROGRESS_STATUS_LIST = array(self::IN_PROGRESS_LABEL);
 	const COMPLETED_STATUS_LIST = array(self::COMPLETED_LABEL);
-	const CANCELLED_STATUS_LIST = array(self::NO_DRIVERS_AVAILABLE_LABEL, self::DRIVER_CANCELED_LABEL, self::RIDER_CANCELED_LABEL, self::FAILED_LABEL, self::OFFERED_LABEL, EXPIRED_LABEL);
-	const GOOGLE_MAP_KEY = 'AIzaSyAkva4wBBRFzCbShT5_auGTo9CQ9MxRHek';
+	const CANCELLED_STATUS_LIST = array(self::NO_DRIVERS_AVAILABLE_LABEL, self::DRIVER_CANCELED_LABEL, self::RIDER_CANCELED_LABEL, self::FAILED_LABEL, self::OFFERED_LABEL, self::EXPIRED_LABEL);
 
 
 	const STATUS_DESCRIPTION = array(
@@ -905,7 +904,7 @@ class UberController
 		try {
 
 			// Create a URL for the API request
-			$geocodeUrl = 'https://maps.googleapis.com/maps/api/geocode/json?address=' . urlencode($address) . '&key=' . UberController::GOOGLE_MAP_KEY;
+			$geocodeUrl = 'https://maps.googleapis.com/maps/api/geocode/json?address=' . urlencode($address) . '&key=' . UberController::getGoogleMapAccessKey();
 
 			// Initialize cURL session
 			$ch = curl_init();
@@ -974,7 +973,7 @@ class UberController
 			}
 
 			// Create a URL for the API request
-			$geocodeUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json?origins=' . urlencode($origins) . '&destinations=' . urlencode($destinations) . '&key=' . UberController::GOOGLE_MAP_KEY;
+			$geocodeUrl = 'https://maps.googleapis.com/maps/api/distancematrix/json?origins=' . urlencode($origins) . '&destinations=' . urlencode($destinations) . '&key=' . UberController::getGoogleMapAccessKey();
 
 			// Initialize cURL session
 			$ch = curl_init();
@@ -1029,5 +1028,10 @@ class UberController
 		}
 
 		return false;
+	}
+
+	public static function getGoogleMapAccessKey() {
+		$cryptoGen = new CryptoGen();
+        return $cryptoGen->decryptStandard($GLOBALS['ub_google_map_access_key']);
 	}
 }

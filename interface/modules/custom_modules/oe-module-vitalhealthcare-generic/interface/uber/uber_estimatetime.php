@@ -1379,7 +1379,7 @@ if (empty($trip_request_id)) {
 
 	<title><?php echo xlt('Uber'); ?></title>
 
-	<script src="https://maps.googleapis.com/maps/api/js?key=<?php echo UberController::GOOGLE_MAP_KEY; ?>&libraries=places&v=beta" async defer></script>
+	<script src="https://maps.googleapis.com/maps/api/js?key=<?php echo UberController::getGoogleMapAccessKey(); ?>&libraries=places&v=beta" async defer></script>
 
 	<script type="text/javascript">
 		let map, directionsService, directionsRenderer, startAutocomplete, endAutocomplete, startMarker, endMarker, uberView, middlepath, estimateOverlay;

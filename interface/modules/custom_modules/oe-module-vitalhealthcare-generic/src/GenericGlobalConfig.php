@@ -253,6 +253,12 @@ class GenericGlobalConfig
                 ,'description' => 'Uber Health Client Secret'
                 ,'type' => GlobalSetting::DATA_TYPE_ENCRYPTED
                 ,'default' => ''
+            ],
+            'ub_google_map_access_key' => [
+                'title' => 'Uber Google Map Access Key'
+                ,'description' => 'Uber Google Map Access Key'
+                ,'type' => GlobalSetting::DATA_TYPE_ENCRYPTED
+                ,'default' => ''
             ]
         ];
         return $settings;
