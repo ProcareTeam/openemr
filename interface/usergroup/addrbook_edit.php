@@ -854,10 +854,7 @@ if ($type) { // note this only happens when its new
 <div class="form-row my-1">
     <div class="col-6">
         <label for="form_chiropractic_care" class="font-weight-bold col-form-label col-form-label-sm"><?php echo xlt('Chiropractic care'); ?>:</label>
-        <select name="form_chiropractic_care" id="form_chiropractic_care" class="form-control form-control-sm" title="">
-            <option value="yes" <?php echo $pistorage_preference_sql_row['chiropractic_care'] && $pistorage_preference_sql_row['chiropractic_care'] == "yes" ? "selected" : ""; ?> ><?php echo xlt('Yes'); ?></option>
-            <option value="no" <?php echo $pistorage_preference_sql_row['chiropractic_care'] && $pistorage_preference_sql_row['chiropractic_care'] == "no" ? "selected" : ""; ?>><?php echo xlt('No'); ?></option>
-        </select>
+        <input type="text" id="form_chiropractic_care" name="form_chiropractic_care" class="form-control" value="<?php echo $pistorage_preference_sql_row['chiropractic_care']; ?>">
     </div>
 
     <div class="col-6">

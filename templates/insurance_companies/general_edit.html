@@ -183,9 +183,7 @@
     <div class="form-row my-sm-2">
         <label for="form_chiropractic_care" class="col-form-label col-sm-2">{xlt t='Chiropractic care'}</label>
         <div class="col-sm-8">
-            <select id="form_chiropractic_care" name="form_chiropractic_care" class="form-control">
-                {html_options options=$chiropractic_care_list selected=$form_chiropractic_care}
-            </select>
+            <input type="text" id="form_chiropractic_care" name="form_chiropractic_care" class="form-control" aria-describedby="nameHelpBox" value="{$form_chiropractic_care|attr}" onKeyDown="PreventIt(event)">
         </div>
     </div>
 
