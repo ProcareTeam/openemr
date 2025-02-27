@@ -466,6 +466,7 @@ if(!empty($page_action)) {
 			<div class="form-row">
 				<div class="col">
 					<button type="submit" id="filter_submit" class="btn btn-secondary"><?php echo xlt('Submit'); ?></button>
+					<button type="button" id="printbtn" class="btn btn-secondary ml-1"><i class="fa fa-print"></i> <?php echo xlt('Print'); ?></button>
 				</div>
 			</div>
 		</form>
@@ -725,6 +726,108 @@ if(!empty($page_action)) {
 			        	dTable.page(currentPageInfo.page - 1).draw( 'page' );
 			    	}
 		    	}
+		    });
+
+		    $('#printbtn').click(function() {
+                // Get the table data in HTML format
+                var tableHTML = dTable.table().node().outerHTML;
+
+                // Open a new window for the print view
+                var printWindow = window.open('', '_blank', 'width=800,height=600');
+                printWindow.document.write('<html><head><title><?php echo xlt('CM Action/Items'); ?></title>');
+
+                // Add custom styles for the print view
+                printWindow.document.write(`
+                    <style>
+                    	@media print {
+	                    	@page {
+		                        margin-left: <?php echo ($GLOBALS['pdf_left_margin'] * 96) / 25.4; ?>px;
+		                        margin-right: <?php echo ($GLOBALS['pdf_right_margin'] * 96) / 25.4; ?>px;
+		                        margin-top: <?php echo (($GLOBALS['pdf_top_margin'] * 96) / 25.4) * 1.5; ?>px;
+		                        margin-bottom: <?php echo (($GLOBALS['pdf_bottom_margin'] * 96) / 25.4) * 1.5; ?>px;
+		                    }
+
+	                    	.no-print {
+				                display: none !important;
+				            }
+        				}
+
+                        body {
+                            font-family: Arial, sans-serif;
+                            font-size: 12pt;
+                            color: #333;
+                            background-color: #fff;
+                            margin: 10px; /* Remove outer margins */
+                        	padding: 0; /* Remove padding */
+                        }
+
+                        a {
+			                color: #333; /* Remove color and set to black */
+			                text-decoration: none; /* Remove underline */
+			            }
+
+                        table {
+                            width: 100% !important;
+                            border-collapse: collapse;
+                            font-size: 13px;
+                        }
+
+                        table th, table td {
+                            padding: 5px;
+                            text-align: left;
+                            border: 1px solid #000;
+                            vertical-align: top !important;
+                        }
+
+                        table thead th {
+                            background-color: #f0f0f0;
+                            font-weight: bold;
+                        }
+
+                        table .no-padding {
+                        	padding: 0px !important;
+                        }
+
+                        td.row-details-tr {
+                        	padding: 5px !important;
+                        }
+
+                        table.row_details_table, table.row_details_table tr td, table.row_details_table tr th {
+                        	border: 0px !important;
+                        	padding: 2px !important;
+                        }
+
+                        .dt-control-all {
+                        	display: none !important;
+                        }
+
+                        table.row_details_table input[type="checkbox"] {
+                        	display: none !important;
+                        }
+                    </style>
+                `);
+
+                // Add the table content to the print window
+                printWindow.document.write('</head><body>');
+                printWindow.document.write(tableHTML); // Insert the table HTML here
+                printWindow.document.write('</body></html>');
+
+                // Close the document and print the page
+                printWindow.document.close();
+                printWindow.print();
+
+                // Monitor when the print window is closed
+				printWindow.onafterprint = function() {
+				    printWindow.close(); // Close the print window after printing
+				};
+
+				// Monitor if the print window is closed (indicating print dialog is done or canceled)
+				let printWindowCheckInterval = setInterval(function() {
+				    if (!printWindow.closed) {
+				    	clearInterval(printWindowCheckInterval);
+				    	printWindow.close();
+				    }
+				}, 1000);  // Check every second
 		    });
 
 			return dTable;
