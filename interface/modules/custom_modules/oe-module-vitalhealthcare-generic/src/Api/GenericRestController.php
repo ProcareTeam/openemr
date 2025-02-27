@@ -1655,8 +1655,11 @@ class GenericRestController
             $patientId = $searchParams['PatientId'] ?? "";
             $case = $searchParams['case'] ?? "";
 
-            $sql = "SELECT fr.*, lo.title as rto_action, lo1.title as rto_status, obu.fname as rto_ordered_by_fname, obu.mname as rto_ordered_by_mname, obu.lname  as rto_ordered_by_lname from form_rto fr left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status left join users obu on obu.username = fr.rto_ordered_by where fr.pid = ? and lo1.title = ?";
-            $binds = array($patientId, $GLOBALS['cmo_order_status']);
+            // Exploding and trimming in one line
+            $trimmedStatusArray = array_map('trim', explode(",", $GLOBALS['cmo_order_status']));
+
+            $sql = "SELECT fr.*, lo.title as rto_action, lo1.title as rto_status, obu.fname as rto_ordered_by_fname, obu.mname as rto_ordered_by_mname, obu.lname  as rto_ordered_by_lname from form_rto fr left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status left join users obu on obu.username = fr.rto_ordered_by where fr.pid = ? and lo1.title IN ('". implode("','", $trimmedStatusArray) ."') ";
+            $binds = array($patientId);
 
             if (!empty($case)) {
                 $sql .= " and fr.rto_case = ? ";
