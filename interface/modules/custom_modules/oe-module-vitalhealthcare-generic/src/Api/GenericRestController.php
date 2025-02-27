@@ -1736,6 +1736,12 @@ class GenericRestController
                     throw new \Exception("Order status value not configured");
                 }
 
+                // Get status value
+                $rto_data = sqlQuery("SELECT fr.* from form_rto fr where fr.id = ? ", array($orderId));
+
+                if (empty($rto_data)) {
+                    throw new \Exception("No order record found");
+                }
 
                 if ($searchParams['action'] == "approved") {
 
@@ -1771,6 +1777,27 @@ class GenericRestController
 
                     // Set message status
                     $processingResult->setData(array("Rejected"));
+                }
+
+                // Log status value change
+                if (!empty($orderId) && isset($statusValue) && !empty($statusValue)) {
+                    $oldV = isset($rto_data['rto_status']) ? $rto_data['rto_status'] : '';
+                    $newV = isset($statusValue) && isset($statusValue['option_id']) ? $statusValue['option_id'] : '';
+
+                    $isNeedToLog = ($newV !== $oldV) ? true : false;
+
+                    if($isNeedToLog === true) {
+                        $sql = "INSERT INTO `form_value_logs` ( field_id, form_name, new_value, old_value, pid, form_id, username ) VALUES (?, ?, ?, ?, ?, ?, ?) ";
+                        sqlInsert($sql, array(
+                            "rto_status",
+                            "form_rto",
+                            $newV,
+                            $oldV,
+                            $rto_data['pid'] ?? 0,
+                            $orderId,
+                            0
+                        ));
+                    }
                 }
             }
             
