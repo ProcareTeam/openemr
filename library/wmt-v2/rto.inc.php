@@ -274,6 +274,39 @@ foreach($rto_data as $rto) {
 		</td>
 	</tr>
 	<!-- END -->
+	<!-- @VH: Document reference [07022025] -->
+	<tr>
+		<td colspan="4">
+			<div class="doccontainer" data-cnt="<?php echo $cnt; ?>">
+				<button type="button" class="btn btn-primary mt-2 css_button_small" id="select_document<?php echo $cnt; ?>" onClick="attachClassObject[<?php echo $cnt; ?>].handleDocument('<?php echo $pid; ?>')"><?php xl('Select Documents','e'); ?></button>
+				<div id="docItemsContainer<?php echo $cnt; ?>" class="file-items-container mt-3 mb-3" role="alert"></div>
+				<div id="docItemsInputContainer<?php echo $cnt; ?>"></div>
+			</div>
+			<?php
+				$default_order_items = array();
+				if (!empty($rto['rto_doc_id'] ?? array())) {
+					foreach ($rto['rto_doc_id'] as $dockey => $docid) {
+						if (!isset($default_order_items['documents'])) {
+							$default_order_items = array('documents' => array());
+						}
+
+						// Set document items
+						$default_order_items['documents'][] = array("doc_id" => $docid);
+					}
+				}
+			?>
+			<script type="text/javascript">
+				$(document).ready(function() {
+					// Set items
+					attachClassObject[<?php echo $cnt; ?>].setItemsList(<?php echo json_encode(\OpenEMR\OemrAd\Attachment::prepareMessageAttachment($default_order_items)); ?>, false);
+
+					// Prepare document items
+					prepareDocumentItems('<?php echo $cnt; ?>');
+				});
+			</script>
+		</td>
+	</tr>
+	<!-- END -->
 	<tr height="20">
 		<td class='wmtLabel2' valign="top">&nbsp;<?php xl('Encounter','e'); ?>:</td>
 		<td colspan="3">
@@ -304,7 +337,7 @@ foreach($rto_data as $rto) {
 		<td colspan="2">
 			<div class="statInputContainer">
 				<span><?php echo xlt('Stat') ?>:</span>
-				<input type="checkbox" name='rto_stat_<?php echo $cnt; ?>' id='rto_stat_<?php echo $cnt; ?>' value="1" <?php echo $rtoStatReadyOnly ? 'onclick="return false;"' : '' ?> <?php echo $rto['rto_stat'] === "1" ? "checked" : "" ?>>
+				<input type="checkbox" name='rto_stat_<?php echo $cnt; ?>' id='rto_stat_<?php echo $cnt; ?>' value="1" <?php echo $rtoStatReadyOnly ? 'onclick="return false;"' : '' ?> <?php echo $rto['rto_stat'] == "1" ? "checked" : "" ?>>
 			</div>
 		</td>
 	</tr>

@@ -170,6 +170,15 @@ CREATE TABLE `vh_openemr_calendar_order_link` (
 );
 #EndIf
 
+#IfNotTable vh_openemr_document_order_link
+CREATE TABLE `vh_openemr_document_order_link` (
+  `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint(21) unsigned NOT NULL,
+  `doc_id` bigint(21) unsigned NOT NULL,
+   PRIMARY KEY (`id`)
+);
+#EndIf
+
 #IfMissingColumn vh_external_api_configurations api_token
 ALTER TABLE `vh_external_api_configurations` ADD COLUMN `api_token` varchar(255) AFTER `api_url`;
 #EndIf

@@ -371,6 +371,12 @@ $dt = array();
 $flds = sqlListFields('form_rto');
 foreach($flds as $key => $fld) { $dt[$fld]=''; }
 foreach($_POST as $key => $val) {
+	// @VH: [07022025]
+	if(strpos($key, '_doc_id') !== false) {
+		$dt[$key] = $val;
+		continue; 
+	}
+
 	$val = trim($val);
 	$dt[$key] = $val;
 	if(strpos($key, '_date') !== false) $dt[$key] = DateToYYYYMMDD($val);
@@ -450,6 +456,9 @@ if($mode == 'new') {
 	// @VH - Save Appt reference [31012025]
 	SaveApptReference($dt['rto_id_'.$cnt], $dt['rto_appt_'.$cnt], $pid);
 
+	// Save document reference [07022025]
+	SaveDocReference($dt['rto_id_'.$cnt], $dt['rto_doc_id_'.$cnt] ?? array());
+
 	// @VH - Change
 	rtoBeforeSave($pid);
 
@@ -517,15 +526,24 @@ if($newordermode === true) {
 	}
 }
 
-// @VH - Get order reference [31012025]
+// @VH - Get order reference [31012025][07022025]
 foreach ($rto_data as $rkey => $rItem) {
 	$rto_data[$rkey]['rto_appt'] = "";
+	$rto_data[$rkey]['rto_doc_id'] = array();
 
 	if (!empty($rItem['id'])) {
 		$apptReference = sqlQuery("SELECT * FROM `vh_openemr_calendar_order_link` WHERE order_id = ?", array($rItem['id']));
 
 		if (!empty($apptReference)) {
 			$rto_data[$rkey]['rto_appt'] = $apptReference['pc_eid'] ?? "";
+		}
+
+		// Set document link [07022025]
+		$docres = sqlStatement("SELECT * FROM `vh_openemr_document_order_link` WHERE order_id = ?", array($rItem['id']));
+		while($docrow = sqlFetchArray($docres)) {
+			if (!empty($docrow['doc_id'])) {
+				$rto_data[$rkey]['rto_doc_id'][] = $docrow['doc_id'];
+			}
 		}
 	}
 }
@@ -555,6 +573,9 @@ if($newordermode == false) {
 		<link rel="stylesheet" href="<?php echo $GLOBALS['webroot'].'/library/wmt-v2/wmt.default.css'; ?>" type="text/css">
 
 		<?php Header::setupHeader(['opener', 'common', 'jquery-ui', 'jquery-ui-base', 'datetime-picker', 'oemr_ad']); ?>
+
+		<!-- @VH: [07022025] -->
+		<script type="text/javascript" src="<?php echo $GLOBALS['webroot']; ?>/interface/main/attachment/js/attachment.js"></script>
 
 		<?php include('rto1.js.php'); ?>
 		<?php include('rto.js.php'); ?>
@@ -773,7 +794,59 @@ if($newordermode == false) {
 			.uiTooltipContent {
 				max-width: 500px;
 			}
+
+			.file-items-container .list-group-item {
+				padding: 0.25rem !important;
+				font-size: 14px;
+			}
 		</style>
+
+		<!-- @VH: [07022025] -->
+		<script type="text/javascript">
+			var attachClassObject = [];
+
+			$(document).ready(function(){
+				$('.doccontainer').each(function() {
+					let datacnt = $(this).data('cnt');
+					if (datacnt != "") {
+						let docItemsContainer = document.getElementById("docItemsContainer" + datacnt);
+
+						attachClassObject[datacnt] = $(docItemsContainer).attachment({
+							empty_title: "No items"
+						});
+
+						docItemsContainer.addEventListener("change", function() {
+							// Prepare document items
+							prepareDocumentItems(datacnt);
+
+							// Check validation
+							validateFormChange('<?php echo $rto_base64 ?>');
+						});
+					}
+				});
+			});
+
+
+			function prepareDocumentItems(cnt = 0) {
+				let docInputContainer = document.getElementById("docItemsInputContainer" + cnt);
+				let documentItems = attachClassObject[cnt].getItemsDataList('documents');
+
+				// Set input container
+				docInputContainer.innerHTML = "";
+
+				documentItems.forEach(function(docItem, docIndex){
+					if (docItem.hasOwnProperty('doc_id') && docItem['doc_id'] != "") {
+						let docinput = document.createElement("input");
+						docinput.type = "hidden";
+						docinput.name = "rto_doc_id_" + cnt + "[]";
+						docinput.value = docItem['doc_id'];
+
+						// Set doc input container
+						docInputContainer.appendChild(docinput);
+					}
+				});
+			}
+		</script>
 	</head>
 
 	<body onLoad="<?php echo $load; ?>">
@@ -1022,6 +1095,8 @@ function validateRtoItemChange(item = [], formData = [], cnt = 0) {
 	};
 	var dateFields = ['rto_date', 'rto_target_date', 'rto_stop_date'];
 	var checkboxFields = ['rto_stat'];
+	// @VH: [07022025]
+	var documentFieldMappingList = {'rto_doc_id' : 'rto_doc_id'};
 
 	$.each(fieldMappingList, function(field, mappingField) {
 
@@ -1052,6 +1127,37 @@ function validateRtoItemChange(item = [], formData = [], cnt = 0) {
 	    	if(rtoField != formField) {
 	    		itemChangeStatus = false;
 	    	}
+		}
+	});
+
+	// @VH: [07022025]
+	$.each(documentFieldMappingList, function(field, mappingField) {
+		if(item.hasOwnProperty(field)) {
+			let rtoField = item[field] ? item[field] : [];
+			let documentFieldData = $('[name="'+ field +'_' + cnt +'[]"]');
+			let formDocId = [];
+			if (documentFieldData && documentFieldData != undefined) {
+				documentFieldData.each(function(index, element) {
+					formDocId.push(parseInt($(element).val()));
+				});
+			}
+			
+			const set1 = new Set(rtoField);
+    		const set2 = new Set(formDocId);
+
+			// Check for missing elements in arr2 (i.e., present in arr1 but not in arr2)
+		    for (let item of set1) {
+		        if (!set2.has(item)) {
+		            itemChangeStatus = false;
+		        }
+		    }
+
+		    // Check for missing elements in arr1 (i.e., present in arr2 but not in arr1)
+		    for (let item of set2) {
+		        if (!set1.has(item)) {
+		            itemChangeStatus = false;
+		        }
+		    }
 		}
 	});
 

@@ -16,6 +16,7 @@ include_once("{$GLOBALS['srcdir']}/wmt-v2/wmt.msg.inc");
 include_once("$srcdir/OemrAD/oemrad.globals.php");
 
 use OpenEMR\Core\Header;
+use OpenEMR\OemrAd\Attachment;
 
 $pid = isset($_REQUEST['pid']) ? $_REQUEST['pid'] : "";
 $frmdir = isset($_REQUEST['frmdir']) ? $_REQUEST['frmdir'] : "";
@@ -40,6 +41,12 @@ $dt = array();
 $flds = sqlListFields('form_rto');
 foreach($flds as $key => $fld) { $dt[$fld]=''; }
 foreach($_POST as $key => $val) {
+	// @VH: [07022025]
+	if(strpos($key, '_doc_id') !== false) {
+		$dt[$key] = $val;
+		continue; 
+	}
+
 	$val = trim($val);
 	$dt[$key] = $val;
 	if(strpos($key, '_date') !== false) $dt[$key] = DateToYYYYMMDD($val);
@@ -138,8 +145,11 @@ if($mode == 'new') {
 			$dt['rto_ordered_by'],false,$dt['rto_repeat'],
 			$dt['rto_stop_date'], $dt['rto_case'], $dt['rto_stat'], $dt['rto_encounter']);
 
-		// @VH - Save Appt reference [31012025]
+		// @VH: Save Appt reference [31012025]
 		SaveApptReference($rto_id, $dt['rto_appt'], $pid);
+
+		// @VH: Save document reference
+		SaveDocReference($rto_id, $_REQUEST['rto_doc_id'] ?? array());
 
 		// @VH - Change
 		rtoBeforeSave($pid);
@@ -214,6 +224,8 @@ if(!empty($encounter_id)) {
 	<?php Header::setupHeader(['common','esign','dygraphs', 'opener', 'dialog', 'datetime-picker', 'jquery', 'jquery-ui-base', 'oemr_ad']);  ?>
 
 	<script type="text/javascript" src="<?php echo $GLOBALS['webroot']; ?>/library/wmt/wmtcalendar.js.php"></script>
+
+	<script type="text/javascript" src="<?php echo $GLOBALS['webroot']; ?>/interface/main/attachment/js/attachment.js"></script>
 
 	<style type="text/css">
 		.hideContent {
@@ -472,6 +484,64 @@ if(!empty($encounter_id)) {
 		});
 		<?php } ?>
 	</script>
+
+	<!-- @VH: [07022025] -->
+	<script type="text/javascript">
+		var attachClassObject = null;
+		$(document).ready(function(){
+			var docItemsContainer = document.getElementById("docItemsContainer");
+
+			attachClassObject = $(docItemsContainer).attachment({
+				empty_title: "No items"
+			});
+
+			<?php
+				$default_order_items = array();
+
+				if (!empty($_REQUEST['rto_doc_id'] ?? array())) {
+					foreach ($_REQUEST['rto_doc_id'] as $dockey => $docid) {
+						if (!isset($default_order_items['documents'])) {
+							$default_order_items = array('documents' => array());
+						}
+
+						// Set document items
+						$default_order_items['documents'][] = array("doc_id" => $docid);
+					}
+				}
+			?>
+
+			// Set items
+			attachClassObject.setItemsList(<?php echo json_encode(Attachment::prepareMessageAttachment($default_order_items)); ?>, false);
+
+			// Prepare document items
+			prepareDocumentItems();
+
+			docItemsContainer.addEventListener("change", function() {
+				// Prepare document items
+				prepareDocumentItems();
+			});
+		});
+
+		function prepareDocumentItems() {
+			let docInputContainer = document.getElementById("docItemsInputContainer");
+			let documentItems = attachClassObject.getItemsDataList('documents');
+
+			// Set input container
+			docInputContainer.innerHTML = "";
+
+			documentItems.forEach(function(docItem, docIndex){
+				if (docItem.hasOwnProperty('doc_id') && docItem['doc_id'] != "") {
+					let docinput = document.createElement("input");
+					docinput.type = "hidden";
+					docinput.name = "rto_doc_id[]";
+					docinput.value = docItem['doc_id'];
+
+					// Set doc input container
+					docInputContainer.appendChild(docinput);
+				}
+			});
+		}
+	</script>
 </head>
 <body>
 	<form method='post' action="<?php echo $save_url ?>" name='form_rto' class="form_rto"> 
@@ -557,6 +627,14 @@ if(!empty($encounter_id)) {
 						</select>
 					</td>
 					<td colspan="2">
+					</td>
+				</tr>
+				<!-- @VH: [07022025] -->
+				<tr>
+					<td colspan="5">
+						<button type="button" class="btn btn-primary mt-2 css_button_small" id="select_document" onClick="attachClassObject.handleDocument('<?php echo $pid; ?>')"><?php xl('Select Documents','e'); ?></button>
+						<div id="docItemsContainer" class="file-items-container mt-3 mb-3" role="alert"></div>
+						<div id="docItemsInputContainer"></div>
 					</td>
 				</tr>
 				<tr>

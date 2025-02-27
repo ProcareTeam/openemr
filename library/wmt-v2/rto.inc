@@ -192,6 +192,21 @@ function SaveApptReference($order_id, $eid = '', $pid = '') {
   }
 }
 
+// @VH: Save document Reference [07022025]
+function SaveDocReference($order_id, $docIds = array()) {
+	if (empty($order_id)) {
+		return false;
+	}
+
+	// Delete document order details
+  sqlStatement("DELETE FROM `vh_openemr_document_order_link` WHERE order_id=?", array($order_id));
+
+  foreach ($docIds as $docId) {
+  	// Insert document order link
+  	sqlInsert("INSERT INTO `vh_openemr_document_order_link` ( order_id, doc_id ) VALUES (?, ?) ", array($order_id, $docId));
+  }
+}
+
 function calculateRTOOffsetDate($num='', $frame='', $dt='') {
 	if($dt == '') $dt = date('Y-m-d');
 	if(!$num || !$frame) return $dt;
@@ -250,6 +265,9 @@ function DeleteRTO($thisPid, $item)
 
 	// @VH: Delete appt reference [31012025]
 	sqlStatement("DELETE FROM `vh_openemr_calendar_order_link` WHERE order_id=?", array($item));
+
+	// @VH: Delete doc reference [07022025]
+	sqlStatement("DELETE FROM `vh_openemr_document_order_link` WHERE order_id=?", array($item));
 
 	return $test;
 }
