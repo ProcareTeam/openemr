@@ -283,6 +283,12 @@ $base_form_qtr = 'pid='.$pid.'&pop='.$popmode;
 	  	dlgopen(url, 'view_logs', 900, 500, '', title);
 	}
 
+	function open_view_request_notes(rto_id) {
+		var url = '<?php echo $GLOBALS['webroot']."/interface/forms/rto1/lbf_view_request_logs.php" ?>'+'?rto_id='+rto_id;
+	  	let title = "View notes";
+	  	dlgopen(url, 'view_request_notes', 900, 500, '', title);
+	}
+
 	// used to display the patient demographic and encounter screens
     function goToMessage(id) {
     	top.RTop.location = "<?php echo $GLOBALS['webroot']; ?>/interface/main/messages/messages.php?task=edit&noteid="+id;
