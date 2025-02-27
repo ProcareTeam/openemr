@@ -912,6 +912,11 @@ class GenericRestController
                                 $itemData["pdf_data"]['doc_' . $bItem->id] = $bItem->id;
                                 $formCount++;
                             }
+                        } else if ($bItem->type == "order") {
+                            if (!empty($bItem->id)) {
+                                $itemData["pdf_data"]['rto_' . $bItem->id] = $bItem->id;
+                                $formCount++;
+                            }
                         }
                     }
                 }
