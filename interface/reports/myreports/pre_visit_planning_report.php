@@ -876,7 +876,8 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 			} else if($cItem['name'] == "action_item") {
 				$fieldHtml = array();
 
-				$actionItemsRes = sqlStatement("SELECT * FROM `vh_action_items_details` vaid WHERE vaid.case_id = ?", array($row_item['case_id']));
+				// @VH: Show action items
+				$actionItemsRes = sqlStatement("SELECT * FROM `vh_action_items_details` vaid WHERE vaid.case_id = ? and status = 'pending'", array($row_item['case_id']));
 				$actionItems = array();
 				while($row = sqlFetchArray($actionItemsRes)) {
 					$fieldHtml[] = $row['action_item'] ?? "";
