@@ -115,6 +115,9 @@ class ApiController
         $genericApiController = new GenericRestController();
         $event->addToRouteMap('POST /api/patientorder', [$genericApiController, 'updatePatientOrder']);
 
+        $genericApiController = new GenericRestController();
+        $event->addToRouteMap('GET /api/portalconfig', [$genericApiController, 'getPortalConfig']);
+
         /**
          * Events must ALWAYS be returned
          */
@@ -274,6 +277,16 @@ class ApiController
             if (\RestConfig::areSystemScopesEnabled()) {
                 $scopes[] = 'system/patientorder.read';
                 $scopes[] = 'system/patientorder.write';
+            }
+            // End
+
+            // portalconfig
+            $scopes[] = 'user/portalconfig.read';
+            $scopes[] = 'patient/portalconfig.read';
+            
+            // only add system scopes if they are actually enabled
+            if (\RestConfig::areSystemScopesEnabled()) {
+                $scopes[] = 'system/portalconfig.read';
             }
             // End
 

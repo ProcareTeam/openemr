@@ -1672,6 +1672,32 @@ class GenericRestController
         return $responseBody;
     }
 
+    public function getPortalConfig(HttpRestRequest $request) {
+        $searchParams = $request->getQueryParams();
+        $processingResult = new ProcessingResult();
+
+        try {
+            // Check PatientId
+            if(!isset($searchParams['user_email']) || empty($searchParams['user_email'])) {
+                throw new \Exception("Empty user email");
+            }
+
+            // Get addressbook config
+            $portalConfigs = sqlQuery("SELECT u.email, vap.order_access, vap.portal_access from users u left join vh_attorney_portal_config vap on vap.abook_id = u.id  where u.email = ?;", array($searchParams['user_email']));
+
+            if (!empty($portalConfigs)) {
+                $processingResult->setData($portalConfigs);
+            }
+
+        } catch (\Throwable $e) {
+            // Add Internal error
+            $processingResult->addInternalError($e->getMessage());
+        }
+
+        $responseBody = RestControllerHelper::handleProcessingResult($processingResult, 200, true);
+        return $responseBody;
+    }
+
     public function updatePatientOrder(HttpRestRequest $request) {
         $bodyJSONParams = $request->getRequestBodyJSON();
         $processingResult = new ProcessingResult();

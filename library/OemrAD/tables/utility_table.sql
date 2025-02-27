@@ -143,6 +143,10 @@ CREATE TABLE `vh_attorney_portal_config` (
 );
 #EndIf
 
+#IfMissingColumn vh_attorney_portal_config order_access
+ALTER TABLE `vh_attorney_portal_config` ADD COLUMN `order_access` tinyint(1) NOT NULL DEFAULT '0' AFTER `portal_access`;
+#EndIf
+
 #IfNotTable vh_external_api_configurations
 CREATE TABLE `vh_external_api_configurations` (
   `api_config_id` bigint(20) NOT NULL,

@@ -21,6 +21,10 @@ if (isset($_POST['submit'])) {
 	$incPatients = $_REQUEST['include_patients'] ?? array();
 	$incPayers = $_REQUEST['include_payers'] ?? array();
 
+	// @VH - Order access field.
+	$assignStatus = false;
+	$portalConfigStatus = false;
+
 	if (!empty($userId)) {
 		// Delete existing records 
 		sqlQuery("DELETE FROM vh_assign_patients WHERE user_id = ? ", array($userId));
@@ -29,6 +33,7 @@ if (isset($_POST['submit'])) {
 			foreach ($incPatients as $incPatientId) {
 				// Insert assigned patient
 				sqlQuery("INSERT INTO vh_assign_patients (`user_id`, `type`, `action`, `a_id`) VALUES (?, ?, ?, ?)", array($userId, 'patient', 'i', $incPatientId));
+				$assignStatus = true;
 			}
 		}
 
@@ -36,6 +41,7 @@ if (isset($_POST['submit'])) {
 			foreach ($incPayers as $incPayerId) {
 				// Insert assigned payer 
 				sqlQuery("INSERT INTO vh_assign_patients (`user_id`, `type`, `action`, `a_id`) VALUES (?, ?, ?, ?)", array($userId, 'payer', 'i', $incPayerId));
+				$assignStatus = true;
 			}
 		}
 
@@ -48,16 +54,26 @@ if (isset($_POST['submit'])) {
 
 		if (empty($abookData)) {
 			// Insert abook
-			sqlQuery("INSERT INTO vh_attorney_portal_config (`abook_id`, `portal_access`) VALUES (?, ?)", array($userId, isset($_POST['portal_access']) ? 1 : 0));
+			sqlQuery("INSERT INTO vh_attorney_portal_config (`abook_id`, `portal_access`, `order_access`) VALUES (?, ?, ?)", array($userId, isset($_POST['portal_access']) ? 1 : 0, isset($_POST['order_access']) ? 1 : 0));
 		} else {
 			// Update abook
-			sqlQuery("UPDATE `vh_attorney_portal_config` SET portal_access = ? WHERE abook_id = ?", array(isset($_POST['portal_access']) ? 1 : 0, $userId));
+			sqlQuery("UPDATE `vh_attorney_portal_config` SET portal_access = ?, order_access = ? WHERE abook_id = ?", array(isset($_POST['portal_access']) ? 1 : 0, isset($_POST['order_access']) ? 1 : 0, $userId));
 		}
+
+		$portalConfigStatus = true;
 
 		if (isset($_POST['portal_access']) && $_POST['portal_access'] == "1") {
 			// @VH - WordPress user update
     		WordpressWebservice::handleInSyncPrepare($userId, "UPDATE");
 		}
+	}
+
+	if ($assignStatus && $portalConfigStatus) {
+		?>
+		<script type="text/javascript">
+			alert('<?php echo xlt('Saved'); ?>');
+		</script>
+		<?php
 	}
 
 }
@@ -323,7 +339,16 @@ while ($assignrow = sqlFetchArray($assignedPatientsres)) {
 	    	</div>
 
 	    	<div class="form-group">
-	    		<button type="submit" name="submit" value="submit" class="btn btn-primary"><?php echo xlt('Submit'); ?></button>
+	    		<div class="form-check">
+				  <input class="form-check-input" type="checkbox" value="1" name="order_access" <?php echo !empty($abookData) && $abookData['order_access'] == "1" ? "checked" : "" ?>>
+				  <label class="form-check-label" for="flexCheckDefault">
+				    <?php echo xlt('Allow order access in portal'); ?>
+				  </label>
+				</div>
+	    	</div>
+
+	    	<div class="form-group">
+	    		<button type="submit" name="submit" value="submit" id="submitbtn" class="btn btn-primary"><?php echo xlt('Submit'); ?></button>
 	    	</div>
 
 		</form>
