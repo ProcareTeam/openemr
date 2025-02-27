@@ -1861,6 +1861,18 @@
                     "patients",
                     "cos"
             ]
+          },
+          {
+            "label": "Checkoutsheet Pain MGMT",
+            "menu_id": "adm1",
+            "target": "adm",
+            "url": "/interface/reports/jasper_report_checkoutsheetpainmgmt.php",
+            "children": [],
+            "requirement": 0,
+            "acl_req": [
+                    "patients",
+                    "cos"
+            ]
           }
         ],
         "requirement": 0
