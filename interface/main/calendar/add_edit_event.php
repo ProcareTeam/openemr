@@ -1668,6 +1668,14 @@ if ($groupid) {
             return false;
         }
 
+        // @VH: Selected facility does not have valid address
+        let selectedFacilityOption = $("select[name='facility'] option[value='" + form_facility_val + "']");
+        
+        if (selectedFacilityOption && selectedFacilityOption.data('ubfacilitylocation') != "1") {
+            alert("Selected facility not have valid address.");
+            return false;
+        }
+
         let appt_form_date = $('input[name="form_date"]').val();
         let appt_form_hour = $('input[name="form_hour"]').val();
         let appt_form_minute = $('input[name="form_minute"]').val();
@@ -2314,7 +2322,8 @@ $classpati = '';
         <select class="form-control" name="facility" id="facility">
             <?php
             $facils = getUserFacilities($_SESSION['authUserID']);
-            $qsql = sqlStatement("SELECT id, name FROM facility WHERE service_location != 0");
+            // @VH: Added uber facility location field
+            $qsql = sqlStatement("SELECT id, name, vh_uber_facility_location FROM facility WHERE service_location != 0");
             while ($facrow = sqlFetchArray($qsql)) {
                 if (!empty($_SESSION['authorizedUser']) || in_array($facrow, $facils)) {
                     $selected = ($facrow['id'] == $e2f) ? 'selected="selected"' : '';
@@ -2325,7 +2334,8 @@ $classpati = '';
                     }
                     // END
 
-                    echo "<option value='" . attr($facrow['id']) . "' $selected>" . text($facrow['name']) . "</option>";
+                    // @VH: added data-ubfacilitylocation attr
+                    echo "<option " . (!empty($facrow['vh_uber_facility_location'] ?? "") ? "data-ubfacilitylocation='1'" : "") . " value='" . attr($facrow['id']) . "' $selected>" . text($facrow['name']) . "</option>";
                 } else {
                     $selected = (!empty($e2f) && ($facrow['id'] == $e2f)) ? 'selected="selected"' : '';
 
@@ -2335,7 +2345,8 @@ $classpati = '';
                     }
                     // END
 
-                    echo "<option value='" . attr($facrow['id']) . "' $selected>" . text($facrow['name']) . "</option>";
+                    // @VH: added data-ubfacilitylocation attr
+                    echo "<option " . (!empty($facrow['vh_uber_facility_location'] ?? "") ? "data-ubfacilitylocation='1'" : "") . " value='" . attr($facrow['id']) . "' $selected>" . text($facrow['name']) . "</option>";
                 }
             }
             ?>
