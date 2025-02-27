@@ -30,6 +30,12 @@ class PortalRestController
 
     public function getAssignedPatients(HttpRestRequest $request)
     {
+    	global $cryptoGen;
+    	try {
+    		include_once($GLOBALS['OE_SITE_DIR'] . "/odbcconf.php");
+    	} catch (\Throwable $e) {
+    	}
+
         $searchParams = $request->getQueryParams();
         $processingResult = new ProcessingResult();
 
@@ -144,6 +150,33 @@ class PortalRestController
 	            	//$uuidList[] = $patientRow['uuid'];
 	            	//$pidList[] = $patientRow['pid'];
 	            	//$otherDetails[$patientRow['pid']] = $patientRow['active_case_count'];
+	            	$psql = "select c_Bpartner_id,value from c_Bpartner where value like '" . $patientRow['pubpid'] . "'";
+
+			        $patientId = "";
+			        $rs = pg_query($idempiere_connection, $psql) or die("Cannot execute query: $psql\n");
+			        while ($row = pg_fetch_row($rs)) {
+			            $patientId = $row[0]; //.' '.$row[1]; // $row[1] $row[2]\n";
+			        }
+
+			        $psql = "select x_mwcase_id,pc_oemrcaseno from x_mwcase where pc_oemrcaseno like '" . $patientRow['case_id'] . "'";
+			        $IDcaseId = 0;
+			        $rs = pg_query($idempiere_connection, $psql) or die("Cannot execute query: $psql\n");
+			        while ($row = pg_fetch_row($rs)) {
+			            $IDcaseId = $row[0];
+			        }
+
+			        $balance = 0;
+			        if($patientRow['pubpid'] !='' && $patientRow['case_id'] !='') {
+			        	$psql = "select vh_caseopenbalance($patientId,$IDcaseId)";
+			        	$rs = pg_query($idempiere_connection, $psql) or die("Cannot execute query: $psql\n");
+				        while ($row = pg_fetch_row($rs)) {
+				            $balance = $row[0]; //.' '.$row[1]."<br>"; // $row[1] $row[2]\n";
+				        }
+			        }
+
+			        // Case balance
+			        $patientRow['case_balance'] = number_format(($balance), 2, '.', ',');
+	            	
 	            	$resData["items"][] = $patientRow;
 	            }
 
