@@ -115,16 +115,19 @@ if(isset($_REQUEST['ajax'])) {
     $res = sqlStatement($query);
     
     while ($row = sqlFetchArray($res)) {
-		$apptTypeStr = $row['pc_catname'];
-		$apptStatusStr = $row['pc_apptstatus_name'];
-		$arow = array('DT_RowId' => $row['pc_eid'].'~'.$apptTypeStr.'~'.$apptStatusStr);
+		$apptTypeStr = isset($row["pc_catname"]) ? $row["pc_catname"] : '';
+		$apptStatusStr = isset($row["pc_apptstatus_name"]) ? $row["pc_apptstatus_name"] : '';
+		$apptEventDate = isset($row["pc_eventDate"]) ? oeFormatShortDate($row["pc_eventDate"]) : '';
+		$apptStartTime = isset($row["pc_startTime"]) ? oeFormatTime($row["pc_startTime"]) : '';
+		$apptProviderName = $row['provider_lname'] . ', ' . $row['provider_fname'] . ' ' . $row['provider_mname'];
+		$arow = array('DT_RowId' => $row['pc_eid'].'~'.$apptTypeStr.'~'.$apptStatusStr.'~'.$apptEventDate.'~'.$apptStartTime.'~'.$apptProviderName);
 
 	    //$arow[] = isset($row["pc_eid"]) ? oeFormatShortDate($row["pc_eid"]) : '';
-	    $arow[] = $row['provider_lname'] . ', ' . $row['provider_fname'] . ' ' . $row['provider_mname'];
-	    $arow[] = isset($row["pc_eventDate"]) ? oeFormatShortDate($row["pc_eventDate"]) : '';
-	    $arow[] = isset($row["pc_startTime"]) ? oeFormatTime($row["pc_startTime"]) : '';
-	    $arow[] = isset($row["pc_catname"]) ? $row["pc_catname"] : '';
-	    $arow[] = isset($row["pc_apptstatus_name"]) ? $row["pc_apptstatus_name"] : '';
+	    $arow[] = $apptProviderName;
+	    $arow[] = $apptEventDate;
+	    $arow[] = $apptStartTime;
+	    $arow[] = $apptTypeStr;
+	    $arow[] = $apptStatusStr;
 
 	    $out['aaData'][] = $arow;
 	}
@@ -154,11 +157,11 @@ if(isset($_REQUEST['ajax'])) {
     </style>
     <script language="JavaScript">
 
-	 function selappt(id, type, status) {
+	 function selappt(id, appt_info) {
 		if (opener.closed || ! opener.setAppt)
 		alert("<?php echo htmlspecialchars( xl('The destination form was closed; I cannot act on your selection.'), ENT_QUOTES); ?>");
 		else
-		opener.setAppt(id, type, status);
+		opener.setAppt(id, appt_info);
 		window.close();
 		return false;
 	 }
@@ -202,10 +205,18 @@ if(isset($_REQUEST['ajax'])) {
 
 		    $("#apptDataTable").on('click', 'tbody > tr', function() { SelectAppt(this); });
 
-		    var SelectAppt = function (eObj) {
+		    var SelectAppt = function(eObj) {
 			    objID = eObj.id;
-			    var parts = objID.split("~");
-			    return selappt(parts[0], parts[1], parts[2]);
+			    let parts = objID.split("~");
+			    let appt_info = {
+			    	"appt_type" : parts[1],
+			    	"appt_status" : parts[2],
+			    	"appt_date" : parts[3],
+			    	"appt_time" : parts[4],
+			    	"appt_provider" : parts[5]
+			    }
+
+			    return selappt(parts[0], appt_info);
 			}
 
 		});

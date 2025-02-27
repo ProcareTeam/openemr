@@ -2074,9 +2074,20 @@ EOF;
 		return $status;
 	}
 
-	public static function getCaseData($case_id) {
+	public static function getCaseData($case_id, $payerInfo = false) {
 		if(!empty($case_id)) {
-			$case_data = sqlQuery("SELECT * FROM form_cases WHERE id = ? ", array($case_id));
+			$selectStr = "fc.*";
+			$leftJoinStr = "";
+
+			if ($payerInfo === true) {
+				$selectStr .= ", ic.name as ins_name1, ic1.name as ins_name2, ic2.name as ins_name3";
+			}
+
+			if ($payerInfo === true) {
+				$leftJoinStr .= "left join insurance_data id on id.id = fc.ins_data_id1 left join insurance_companies ic on ic.id = id.provider left join insurance_data id1 on id1.id = fc.ins_data_id2 left join insurance_companies ic1 on ic1.id = id1.provider left join insurance_data id2 on id2.id = fc.ins_data_id3 left join insurance_companies ic2 on ic2.id = id2.provider";
+			}
+
+			$case_data = sqlQuery("SELECT " . $selectStr . " FROM form_cases fc ". $leftJoinStr ." WHERE fc.id = ? ", array($case_id));
 			return $case_data;
 		}
 
@@ -2208,11 +2219,22 @@ EOF;
 		}
 
 		if(isset($rto['rto_case']) && !empty($rto['rto_case'])) {
-			$caseData = self::getCaseData($rto['rto_case']);
+			$caseData = self::getCaseData($rto['rto_case'], true);
 			$caseTitle =  "";
-			if(isset($caseData) && isset($caseData['case_description']) && !empty($caseData['case_description'])) {
-				//$caseTitle .= " - ".$caseData['case_description'];
-				$caseTitle .= $caseData['case_description'];
+			if(isset($caseData)) {
+				if (!empty($caseData['case_description'] ?? "")) {
+					//$caseTitle .= " - ".$caseData['case_description'];
+					$caseTitle .= $caseData['case_description'] . " ";
+				}
+
+				$insNameList = array();
+				if (!empty($caseData['ins_name1'] ?? "")) $insNameList[] = $caseData['ins_name1'];
+				if (!empty($caseData['ins_name2'] ?? "")) $insNameList[] = $caseData['ins_name2'];
+				if (!empty($caseData['ins_name3'] ?? "")) $insNameList[] = $caseData['ins_name3'];
+
+				if (!empty($insNameList)) {
+					$caseTitle .= "[" . implode(", ", $insNameList) . "]";
+				}
 			}
 
 			?>
@@ -2446,7 +2468,7 @@ EOF;
 		}
 	}
 
-	public static function logFormFieldValues($data = array()) {
+	public function logFormFieldValues($data = array()) {
 		if(!empty($data)) {
 			extract($data);
 

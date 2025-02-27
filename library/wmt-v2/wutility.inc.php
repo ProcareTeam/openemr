@@ -172,6 +172,40 @@ function manageAction($pid, $rto_id, $id) {
 	sqlStatement("DELETE FROM lbf_data WHERE form_id = ? ", array($id));
 }
 
+// @VH: [26022025]
+function getApptReferenceInfo($appt_orderid = "") {
+	if (empty($appt_orderid)) {
+		return false;
+	}
+
+	$apptReference = sqlQuery("SELECT vocol.pid, vocol.pc_eid, vocol.order_id, ope.pc_eventDate, ope.pc_startTime, opc.pc_catname, u.fname, u.mname, u.lname  FROM `vh_openemr_calendar_order_link` vocol left join openemr_postcalendar_events ope on ope.pc_eid = vocol.pc_eid left join openemr_postcalendar_categories opc on opc.pc_catid = ope.pc_catid left join users u on u.id = ope.pc_aid WHERE order_id = ?", array($appt_orderid));
+
+	if (!empty($apptReference)) {
+		$apptReference['appt_date'] = oeFormatShortDate($apptReference['pc_eventDate']);
+		$apptReference['appt_time'] = oeFormatTime($apptReference['pc_startTime']);
+		$apptReference['appt_provider'] = $apptReference['lname'] . ', ' . $apptReference['fname'] . ' ' . $apptReference['mname'];
+	}
+
+	return $apptReference;
+}
+
+// @VH: [26022025]
+function getApptInfo($appt_eid = "") {
+	if (empty($appt_eid)) {
+		return false;
+	}
+
+	$apptReference = sqlQuery("SELECT ope.pc_eventDate, ope.pc_startTime, opc.pc_catname, u.fname, u.mname, u.lname  FROM openemr_postcalendar_events ope left join openemr_postcalendar_categories opc on opc.pc_catid = ope.pc_catid left join users u on u.id = ope.pc_aid WHERE ope.pc_eid = ?", array($appt_eid));
+
+	if (!empty($apptReference)) {
+		$apptReference['appt_date'] = oeFormatShortDate($apptReference['pc_eventDate']);
+		$apptReference['appt_time'] = oeFormatTime($apptReference['pc_startTime']);
+		$apptReference['appt_provider'] = $apptReference['lname'] . ', ' . $apptReference['fname'] . ' ' . $apptReference['mname'];
+	}
+
+	return $apptReference;
+}
+
 function rtoBeforeSave() {
 	global $dt, $cnt, $newordermode, $pid, $rto_data_bup;
 

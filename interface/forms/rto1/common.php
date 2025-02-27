@@ -532,10 +532,22 @@ foreach ($rto_data as $rkey => $rItem) {
 	$rto_data[$rkey]['rto_doc_id'] = array();
 
 	if (!empty($rItem['id'])) {
-		$apptReference = sqlQuery("SELECT * FROM `vh_openemr_calendar_order_link` WHERE order_id = ?", array($rItem['id']));
+		// @VH: [26022025]
+		$apptReference = getApptReferenceInfo($rItem['id']);
 
 		if (!empty($apptReference)) {
 			$rto_data[$rkey]['rto_appt'] = $apptReference['pc_eid'] ?? "";
+
+			// @VH: [26022025]
+			$apptInfo = array();
+			if (!empty($apptReference['appt_date'] ?? "") && !empty($apptReference['appt_time'] ?? "")) $apptInfo[] = $apptReference['appt_date'] . " " . $apptReference['appt_time'];
+			if (!empty($apptReference['pc_catname'] ?? "")) $apptInfo[] = $apptReference['pc_catname'];
+			if (!empty($apptReference['appt_provider'] ?? "")) $apptInfo[] = $apptReference['appt_provider'];
+
+			$apptTitle = "";
+			if (!empty($apptInfo)) $apptTitle .= "[" . implode(" - ", $apptInfo) . "]";
+
+			$rto_data[$rkey]['rto_appt_description'] = $apptTitle;
 		}
 
 		// Set document link [07022025]
@@ -798,6 +810,12 @@ if($newordermode == false) {
 			.file-items-container .list-group-item {
 				padding: 0.25rem !important;
 				font-size: 14px;
+			}
+
+			.caseContainer, .apptContainer {
+				display: grid;
+			    grid-template-columns: auto 1fr;
+			    gap: 10px;
 			}
 		</style>
 
@@ -1141,7 +1159,7 @@ function validateRtoItemChange(item = [], formData = [], cnt = 0) {
 					formDocId.push(parseInt($(element).val()));
 				});
 			}
-			
+
 			const set1 = new Set(rtoField);
     		const set2 = new Set(formDocId);
 

@@ -37,6 +37,7 @@ if(isset($_GET['pid'])) $pid = strip_tags($_GET['pid']);
 if(isset($_GET['enc'])) $encounter = strip_tags($_GET['enc']);
 if(isset($_GET['popup'])) $pop_mode = strip_tags($_GET['popup']);
 if(isset($_GET['caller'])) $caller = strip_tags($_GET['caller']);
+if(isset($_GET['payer_info'])) $payer_info = strip_tags($_GET['payer_info']);
 $cancel_href = 'href="'.$GLOBALS['form_exit_url'].'"';
 if($pop_mode) {
 	$cancel_href = 'href="javascript: window.close()"';
@@ -66,9 +67,14 @@ $sql = 'SELECT form_cases.*, (SELECT COUNT(*) FROM case_appointment_link AS ca '
 	' LEFT JOIN openemr_postcalendar_events AS oe ON (ca.pc_eid = oe.pc_eid) ' .
 	' WHERE pid = ? AND oe.pc_case = form_cases.id) AS enc_count, '. 
 	' concat(c.name, "-", ins_data.subscriber_lname,",", ins_data.subscriber_fname) as payer '.
+	' , c.name as ins_name1, c2.name as ins_name2, c3.name as ins_name3 ' . 
 	' FROM form_cases'.
 	' LEFT JOIN insurance_data ins_data on ins_data.id = form_cases.ins_data_id1' .
 	' LEFT JOIN insurance_companies c on ins_data.provider = c.id' .
+	' LEFT JOIN insurance_data ins_data2 on ins_data2.id = form_cases.ins_data_id2' .
+	' LEFT JOIN insurance_companies c2 on ins_data2.provider = c2.id' .
+	' LEFT JOIN insurance_data ins_data3 on ins_data3.id = form_cases.ins_data_id3' .
+	' LEFT JOIN insurance_companies c3 on ins_data3.provider = c3.id' .
 	' WHERE form_cases.pid = ? AND ';
 if($type == 'active') $sql .= 'closed = 0 AND ';
 $sql .= 'activity > 0 ORDER BY form_cases.id DESC';
@@ -192,12 +198,24 @@ if($v_major > 4) $js_location = $GLOBALS['assets_static_relative'];
 					$bgcolor = '#FFFFFF';
 					if(count($cases) > 0) { 
 						foreach($cases as $case) {
+							$caseDescription = $case['case_description'] ?? "";
+							if ($payer_info == "1") {
+								$insNameList = array();
+								if (!empty($case['ins_name1'] ?? "")) $insNameList[] = $case['ins_name1'];
+								if (!empty($case['ins_name2'] ?? "")) $insNameList[] = $case['ins_name2'];
+								if (!empty($case['ins_name3'] ?? "")) $insNameList[] = $case['ins_name3'];
+								
+								if (!empty($insNameList)) {
+									$caseDescription .= " [" . implode(", ", $insNameList) . "]";
+								}
+							}
+							
 							$bgcolor = ($bgcolor == '#FFFFFF') ? '#E0E0E0' : '#FFFFFF';
 							$href = FORMS_DIR_JS . 'cases/view.php?id=' . $case['id'] . '&pid=' .
 								$case['pid'] . '&list_mode=' . $mode . '&list_popup=' . $pop_mode . 
 								'&popup=no';
 							if($caller) $href .= '&caller=' . $caller;
-							$choose_href = 'onclick="set_case(\'' . $case['id'] . '\', \'' . oeFormatShortDate($case['case_dt']) . '\',\'' . base64_encode($case['case_description']) .'\');"';
+							$choose_href = 'onclick="set_case(\'' . $case['id'] . '\', \'' . oeFormatShortDate($case['case_dt']) . '\',\'' . base64_encode($caseDescription) .'\');"';
 							$onClickRow = ($mode != 'choose') ? "window.location = '".$href."';" : "";
 					?>
 							<tr style="" onclick="<?php echo $onClickRow; ?>">

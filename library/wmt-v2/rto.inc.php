@@ -268,7 +268,7 @@ foreach($rto_data as $rto) {
 					<input name="rto_appt_<?php echo $cnt; ?>" id="rto_appt_<?php echo $cnt; ?>" type="text" value="<?php echo $rto['rto_appt']; ?>" class="wmtInput wmtFInput" onclick="sel_appt('<?php echo $pid; ?>', '<?php echo $cnt; ?>');" title="Click to select" />
 				</div>
 				<div class="apptDescription" style="font-size:13px;">			
-					<span id="<?php echo "appt_description_title_".$cnt; ?>" ><i><?php echo $caseTitle ?></i></span>
+					<span id="<?php echo "appt_description_title_".$cnt; ?>" ><i><?php echo $rto['rto_appt_description']; ?></i></span>
 				</div>
 			</div>
 		</td>

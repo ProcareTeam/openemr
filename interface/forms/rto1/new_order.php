@@ -271,10 +271,16 @@ if(!empty($encounter_id)) {
 			display: grid;
 		    grid-template-columns: auto 1fr;
 		    grid-column-gap: 5px;
-		    align-items: center;
+		    justify-items: start;
 		}
 		.statInputContainer input {
 			margin-top: 0px !important;
+		}
+
+		.caseContainer, .apptContainer {
+			display: grid;
+		    grid-template-columns: auto 1fr;
+		    gap: 10px;
 		}
 	</style>
 
@@ -589,23 +595,60 @@ if(!empty($encounter_id)) {
 				</tr>
 				<tr>
 					<td class='wmtLabel2'><?php xl('Case','e'); ?>:</td>
-					<td>
+					<td colspan="3">
+						<div class="caseContainer">
+						<?php
+						$caseTitle =  "";
+						if(isset($dt['rto_case']) && !empty($dt['rto_case'])) {
+							$caseData = \OpenEMR\OemrAd\Caselib::getCaseData($dt['rto_case'], true);
+							if(isset($caseData)) {
+								if (!empty($caseData['case_description'] ?? "")) {
+									//$caseTitle .= " - ".$caseData['case_description'];
+									$caseTitle .= $caseData['case_description'] . " ";
+								}
+
+								$insNameList = array();
+								if (!empty($caseData['ins_name1'] ?? "")) $insNameList[] = $caseData['ins_name1'];
+								if (!empty($caseData['ins_name2'] ?? "")) $insNameList[] = $caseData['ins_name2'];
+								if (!empty($caseData['ins_name3'] ?? "")) $insNameList[] = $caseData['ins_name3'];
+
+								if (!empty($insNameList)) {
+									$caseTitle .= "[" . implode(", ", $insNameList) . "]";
+								}
+							}
+						}
+						?>
 						<input name="rto_case" id="rto_case" type="text" value="<?php echo $dt['rto_case']; ?>" onclick="selcase(this, '<?php echo $pid; ?>')" class="wmtInput wmtFInput" title="Click to select or add a case for this appointment" />
-					</td>
-					<td colspan="2">
-						<div class="statInputContainer">
-							<span><?php echo xlt('Stat') ?>:</span>
-							<input type="checkbox" name='rto_stat' id='rto_stat' <?php echo $dt['rto_stat'] === "1" ? "checked" : "" ?> value="1">
+						<div class="caseDescription" style="font-size:13px;">			
+							<span id="<?php echo "case_description_title"; ?>" ><i><?php echo $caseTitle ?></i></span>
+						</div>
 						</div>
 					</td>
 				</tr>
 				<!-- @VH: appt field [31012025] -->
 				<tr>
 					<td class='wmtLabel2'><?php xl('Appointment','e'); ?>:</td>
-					<td>
+					<td colspan="3">
+						<div class="apptContainer">
+						<?php
+						$apptTitle = "";
+						if (!empty($dt['rto_appt'] ?? "")) {
+							$apptReference = getApptInfo($dt['rto_appt']);
+
+							if (!empty($apptReference)) {
+								$apptInfo = array();
+								if (!empty($apptReference['appt_date'] ?? "") && !empty($apptReference['appt_time'] ?? "")) $apptInfo[] = $apptReference['appt_date'] . " " . $apptReference['appt_time'];
+								if (!empty($apptReference['pc_catname'] ?? "")) $apptInfo[] = $apptReference['pc_catname'];
+								if (!empty($apptReference['appt_provider'] ?? "")) $apptInfo[] = $apptReference['appt_provider'];
+
+								if (!empty($apptInfo)) $apptTitle = "[" . implode(" - ", $apptInfo) . "]";
+							}
+						}
+						?>
 						<input name="rto_appt" id="rto_appt" type="text" value="<?php echo $dt['rto_appt']; ?>" onclick="selappt(this, '<?php echo $pid; ?>')" class="wmtInput wmtFInput" title="Click to select" />
-					</td>
-					<td colspan="2">
+						<div class="apptDescription" style="font-size:13px;">			
+							<span id="<?php echo "appt_description_title"; ?>" ><i><?php echo $apptTitle; ?></i></span>
+						</div>
 					</td>
 				</tr>
 				<tr>
@@ -627,6 +670,10 @@ if(!empty($encounter_id)) {
 						</select>
 					</td>
 					<td colspan="2">
+						<div class="statInputContainer">
+							<span><?php echo xlt('Stat') ?>:</span>
+							<input type="checkbox" name='rto_stat' id='rto_stat' <?php echo $dt['rto_stat'] === "1" ? "checked" : "" ?> value="1">
+						</div>
 					</td>
 				</tr>
 				<!-- @VH: [07022025] -->
