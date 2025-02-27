@@ -93,7 +93,7 @@ class eRxStore
     public function getPatientByPatientId($patientId)
     {
         return sqlQuery(
-            'SELECT pid, fname, mname, lname, street, city, state, postal_code, country_code, phone_home, DATE_FORMAT(DOB,\'%Y%m%d\') AS date_of_birth, sex
+            'SELECT pid, fname, mname, lname, street, city, state, postal_code, country_code, phone_home, phone_cell, DATE_FORMAT(DOB,\'%Y%m%d\') AS date_of_birth, sex
 			FROM patient_data
 			WHERE pid = ?;',
             array($patientId)

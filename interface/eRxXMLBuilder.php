@@ -612,8 +612,14 @@ class eRxXMLBuilder
     public function getPatientContact($patient)
     {
         $element = $this->getDocument()->createElement('PatientContact');
-        if ($patient['phone_home']) {
-            $element->appendChild($this->createElementText('homeTelephone', preg_replace('/-/', '', $patient['phone_home'])));
+        // @VH: Commented original code
+        // if ($patient['phone_home']) {
+        //     $element->appendChild($this->createElementText('homeTelephone', preg_replace('/-/', '', $patient['phone_home'])));
+        // }
+
+        // @VH: To pass primary number value instead of 'phone_home';
+        if ($patient['phone_cell']) {
+            $element->appendChild($this->createElementText('homeTelephone', preg_replace('/-/', '', $patient['phone_cell'])));
         }
 
         return $element;
