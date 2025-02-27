@@ -1699,9 +1699,9 @@ if ($groupid) {
         dlgopen(href, 'ubertrippopup', 'modal-lg', '800', '', '<?php echo xlt('Uber'); ?>');
     }
 
-    function uberDetailsViewPopupWindow(request_ids = "") {
-        if (request_ids != "") {
-            dlgopen('<?php echo $GLOBALS['webroot']; ?>/interface/modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/trips_manager.php?view_mode=1&trip_request_id=' + request_ids, 'linkedTripWindow', 'modal-md', '500', false, 'Trip Details', {
+    function uberDetailsViewPopupWindow(eid = "") {
+        if (eid != "") {
+            dlgopen('<?php echo $GLOBALS['webroot']; ?>/interface/modules/custom_modules/oe-module-vitalhealthcare-generic/interface/uber/trips_manager.php?view_mode=1&eid=' + eid, 'linkedTripWindow', 'modal-md', '500', false, 'Trip Details', {
                 onClosed: ''
             });
         }
@@ -2823,7 +2823,7 @@ if (empty($_GET['prov'])) { ?>
             <?php
         } else {
             ?>
-            <button type="button" class="btn btn-primary btn-sm" title='Uber view trips details' onclick="uberDetailsViewPopupWindow('<?php echo implode(",", $utRequestIds) ?>')"><?php echo xlt('Ride Scheduled'); ?></button>
+            <button type="button" class="btn btn-primary btn-sm" title='Uber view trips details' onclick="uberDetailsViewPopupWindow('<?php echo $eid; ?>')"><?php echo xlt('Ride Scheduled'); ?></button>
             <?php
         }
     }
