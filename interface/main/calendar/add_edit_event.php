@@ -1594,6 +1594,12 @@ if ($groupid) {
     // @VH: Select order [31012025]
     function sel_order() {
         let pid = document.forms[0].form_pid.value;
+
+        if (pid == "") {
+            alert("Please select patient");
+            return false;
+        }
+
         let url = "../../main/attachment/msg_select_order.php?pid="+pid+'&single_selection=1';
         let dialogObj = "";
 
@@ -1685,6 +1691,78 @@ if ($groupid) {
             });
         }
     }
+
+    // @VH: Order preview tooltip [26022025]
+    $(document).ready(function(){
+        $('#theform').popover({
+            sanitize: false,
+            title: function () {
+                return this.innerHTML;
+            },
+            content: function () {
+                let formpid = document.forms[0].form_pid.value;
+                let formorderid = document.forms[0].form_order.value;
+                
+                if (formorderid == "" || formpid == "") {
+                    return "<div><i>No order details found</i></div>";
+                }
+                
+                let url = "<?php echo $GLOBALS['webroot']; ?>/interface/reports/myreports/case_manager_report.php?action=fetch_order_summary&order_id=" + encodeURIComponent(formorderid) +
+                    "&order_pid=" + encodeURIComponent(formpid);
+                let fetchedReport;
+                $.ajax({
+                    url: url,
+                    method: "GET",
+                    async: false,
+                    beforeSend: top.restoreSession,
+                    success: function (report) {
+                        fetchedReport = report;
+                    }
+                });
+                return fetchedReport;
+            },
+            selector: '[data-toggle="PopOverOrder"]',
+            boundary: "window",
+            animation: false,
+            placement: "auto",
+            trigger: "hover focus",
+            html: true,
+            delay: {"show": 300, "hide": 30000},
+            template: '<div class="container"><div class="popover" style="max-width:fit-content;max-height:fit-content;" role="tooltip"><div class="arrow"></div><h3 class="popover-header bg-dark text-light"></h3><div class="popover-body bg-light text-dark"></div></div></div>'
+        });
+
+        $('[data-toggle="PopOverOrder"]').on('show.bs.popover', function () {
+            let elements = $('[aria-describedby^="popover"]');
+            let thisOne = this.dataset.orderid;
+            for (i = 0; i < elements.length; ++i) {
+                if (thisOne === elements[i].dataset.orderid) {
+                    continue;
+                }
+                $(elements[i]).popover('hide');
+            }
+        });
+
+        $('[data-toggle="PopOverOrder"]').on('shown.bs.popover', function () {
+
+            // set event listeners
+            $('.popover').click(function (e) {
+                $('[data-toggle="PopOverOrder"]').popover('hide');
+            }).mouseleave(function (e) {
+                timeoutObj = setTimeout(function () {
+                    $('[data-toggle="PopOverOrder"]').popover('hide');
+                }, 100);
+            });
+        });
+
+        $('[data-toggle="PopOverOrder"]').on('mouseleave', function () {
+            var _this = this;
+            setTimeout(function () {
+                if (!$('.popover:hover').length) {
+                  $(_this).popover('hide');
+                }
+            }, 100);
+        });
+    });
 
 </script>
 <!-- End -->
@@ -1779,9 +1857,10 @@ function setpatient(pid, lname, fname, dob = '', alert_info = '', p_data = {}) {
     dobstyle = (dob == '' || dob.substr(5, 10) == '00-00') ? '' : 'none';
     document.getElementById('dob_row').style.display = dobstyle;
 
-    // @VH: Set value. [V100020]
+    // @VH: Set value. [V100020] [26022025]
     document.getElementById('patinfobox').textContent = '';
     document.forms[0].form_case.value = '';
+    document.forms[0].form_order.value = '';
 
     // @VH: Get Total Cancelled, Future and Rehab Progress info of patient appointment and show  info at bottom of appt window [V100021]
     if(pid && pid != "") {
@@ -2471,10 +2550,10 @@ if ($_GET['prov']!=true && $_GET['group']!=true) {
 ?>
     <div class="form-row mx-2">
         <div class="col-sm form-group">
-             <label for="case">
+             <label for="form_order">
                 <?php echo xlt('Order'); ?>:
              </label>
-             <input class='form-control' type='text' name='form_order' id="form_order" style='cursor:pointer;' placeholder='<?php echo xla('Click to select'); ?>' value='<?php echo is_null($order_id) ? '' : attr($order_id); ?>' onclick='sel_order()' title='<?php echo xla('Click to select order'); ?>' required />
+             <input class='form-control' type='text' name='form_order' id="form_order" title="Order details" data-toggle="PopOverOrder" style='cursor:pointer;' placeholder='<?php echo xla('Click to select'); ?>' value='<?php echo is_null($order_id) ? '' : attr($order_id); ?>' onclick='sel_order()' title='<?php echo xla('Click to select order'); ?>' required />
              <span id="order_desc"><i><?php echo $order_desc; ?></i></span>
         </div>
     </div>

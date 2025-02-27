@@ -261,7 +261,7 @@ foreach($rto_data as $rto) {
 	</tr>
 	<!-- @VH: Appointment reference [31012025] -->
 	<tr height="20">
-		<td class='wmtLabel2' valign="top">&nbsp;<?php xl('Appointment reference','e'); ?>:</td>
+		<td class='wmtLabel2' valign="top">&nbsp;<?php xl('Appointment','e'); ?>:</td>
 		<td colspan="3">
 			<div class="apptContainer">
 				<div>

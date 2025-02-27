@@ -531,7 +531,7 @@ if(!empty($encounter_id)) {
 				</tr>
 				<!-- @VH: appt field [31012025] -->
 				<tr>
-					<td class='wmtLabel2'><?php xl('Appointment reference','e'); ?>:</td>
+					<td class='wmtLabel2'><?php xl('Appointment','e'); ?>:</td>
 					<td>
 						<input name="rto_appt" id="rto_appt" type="text" value="<?php echo $dt['rto_appt']; ?>" onclick="selappt(this, '<?php echo $pid; ?>')" class="wmtInput wmtFInput" title="Click to select" />
 					</td>
