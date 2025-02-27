@@ -877,10 +877,12 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 				$fieldHtml = array();
 
 				// @VH: Show action items
-				$actionItemsRes = sqlStatement("SELECT * FROM `vh_action_items_details` vaid WHERE vaid.case_id = ? and status = 'pending'", array($row_item['case_id']));
+				$actionItemsRes = sqlStatement("SELECT vaid.*, u.fname, u.mname, u.lname FROM `vh_action_items_details` vaid left join users u on u.username = vaid.owner WHERE vaid.case_id = ? and status = 'pending'", array($row_item['case_id']));
 				$actionItems = array();
 				while($row = sqlFetchArray($actionItemsRes)) {
-					$fieldHtml[] = $row['action_item'] ?? "";
+					$action_item_title = $row['action_item'] ?? "";
+					$action_item_title .= " (" . $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname'] . ")";
+					$fieldHtml[] = $action_item_title;
 				}
 
 				if(!empty($fieldHtml)) {
