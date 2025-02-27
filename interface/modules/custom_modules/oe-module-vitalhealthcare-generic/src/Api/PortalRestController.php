@@ -97,7 +97,7 @@ class PortalRestController
 	            $whereSql = "( " . implode(" or ", $whereSql) . " )";
 
 	            if(!empty($searchParam)) {
-	            	$whereSql .= " AND ( (pd.fname LIKE '" . $searchParam . "%') OR (pd.lname LIKE '" . $searchParam . "%') OR (pd.pubpid LIKE '" . $searchParam . "%' ) OR (pd.pubpid LIKE '" . $searchParam . "%' ) OR (fc.id LIKE '" . $searchParam . "%' ) OR (pd.DOB LIKE '%%" . $searchParam . "%%' ) OR (fc.injury_date LIKE '%%" . $searchParam . "%%' ) OR (fc.case_dt LIKE '%%" . $searchParam . "%%' ) OR (CASE WHEN fc.closed = 0 THEN 'Active' ELSE 'Inactive' END LIKE '" . $searchParam . "%' ) )";
+	            	$whereSql .= " AND ( (pd.fname LIKE '" . $searchParam . "%') OR (pd.lname LIKE '" . $searchParam . "%') OR (CONCAT(CONCAT_WS('', IF(LENGTH(pd.lname),pd.lname,NULL), IF(LENGTH(pd.fname), CONCAT(', ',pd.fname),NULL))) LIKE '" . $searchParam . "%') OR (pd.pubpid LIKE '" . $searchParam . "%' ) OR (pd.pubpid LIKE '" . $searchParam . "%' ) OR (fc.id LIKE '" . $searchParam . "%' ) OR (pd.DOB LIKE '%%" . $searchParam . "%%' ) OR (fc.injury_date LIKE '%%" . $searchParam . "%%' ) OR (fc.case_dt LIKE '%%" . $searchParam . "%%' ) OR (CASE WHEN fc.closed = 0 THEN 'Active' ELSE 'Inactive' END LIKE '" . $searchParam . "%' ) )";
 	            }
 
 	            $orderBySql = "";

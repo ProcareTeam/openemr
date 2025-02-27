@@ -26,6 +26,7 @@ use RestConfig;
 use Date_Calc;
 use Mpdf\Mpdf;
 use OpenEMR\Common\Crypto\CryptoGen;
+use OpenEMR\Services\AppointmentService;
 
 //=================================================================
 //  define constants used to make the code more readable
@@ -1617,6 +1618,18 @@ class GenericRestController
         $appointmentService = new AppointmentService();
 
         $serviceResult = $appointmentService->getAppointmentsForPatient($pid, $case);
+
+        $catres = sqlStatement("SELECT * from openemr_postcalendar_categories opc;", array());
+        $catItems = array();
+        while ($frow = sqlFetchArray($catres)) {
+            $catItems["pc_catid_" . $frow['pc_catid']] = $frow;
+        }
+
+        foreach ($serviceResult as $skey => $svalue) {
+            $pc_cat_item = $catItems["pc_catid_" . $svalue['pc_catid']] ?? array();
+            $serviceResult[$skey]['pc_catname'] = $pc_cat_item['pc_catname'] ?? "";
+        }
+
         return RestControllerHelper::responseHandler($serviceResult, null, 200);
     }
 
