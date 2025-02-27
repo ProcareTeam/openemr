@@ -48,6 +48,9 @@ $layout_id = empty($_GET['layout_id']) ? '' : $_GET['layout_id'];
 $limit = empty($_GET['limit']) ? 0 : (int)$_GET['limit'];
 
 $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
+
+// @VH: Selected mutiple code - [27012025]
+$bcpfval = !empty($_REQUEST['bcpf'] ?? "") && $what == "codes" ? true : false;
 ?>
 <!DOCTYPE html>
 <html>
@@ -55,6 +58,98 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
 <title><?php echo xlt('Code Finder'); ?></title>
 
 <?php Header::setupHeader(['opener', 'datatables', 'datatables-bs', 'datatables-colreorder']); ?>
+
+<!-- @VH: Get and set code list - [27012025] -->
+<?php if ($bcpfval === true) { ?>
+<script type="text/javascript">
+    // @VH: Get and set code list - [27012025]
+    function get_sel_code_list() {
+        let defaultcodelist = [];
+        if (window['codeitems'] != undefined) {
+            window['codeitems']().split(";").forEach(function(codeitem, index) {
+                if (codeitem != "") {
+                    defaultcodelist.push(codeitem);
+                }
+            });
+        }
+
+        return defaultcodelist;
+    }
+
+    // @VH: Generated selected code list - [27012025]
+    function generate_sel_item_element() {
+        let currcodelist = get_sel_code_list();
+
+        if (currcodelist.length > 0) {
+            let ulele = document.querySelector('.sel-item-container');
+            ulele.innerHTML = "";
+
+            currcodelist.forEach(function(value, index) {
+                let liele = document.createElement('li');
+                liele.innerHTML = '<a href="javascript:void(0);">'+ value +'</a>&nbsp;&nbsp;<a href="javascript:void(0);" onclick="del_selected_code(\''+ value +'\')"><i class="fa fa-times" aria-hidden="true"></i></a>';
+
+                ulele.appendChild(liele);
+            });
+
+            document.getElementById('sel-items-container').style.display = 'block';
+        } else {
+            document.getElementById('sel-items-container').style.display = 'none';
+        }
+    }
+
+    // @VH: Get selected code list - [27012025]
+    function get_new_item_list(nRow, oChosenIDs = {}) {
+        if (nRow.id != "") {
+            let currentcodelist = get_sel_code_list();
+            for (let trkey in oChosenIDs) {
+                let jobj = JSON.parse(this.id.substring(4));
+                let codestr = jobj['codetype'] +":"+ jobj['code'];
+                
+                if (!currentcodelist.includes(codestr)) {
+
+                }
+            }
+            //var jobj = JSON.parse(nRow.id.substring(4));
+            //console.log(nRow);
+            //console.log(get_sel_code_list());
+            console.log(oChosenIDs);
+        }
+        return oChosenIDs;
+    }
+
+    // @VH: Delete selected code list - [27012025]
+    function del_selected_code(code) {
+        if (code && opener.del_sel_related) {
+            opener.del_sel_related(code);
+
+            // Regenerate item list
+            generate_sel_item_element();
+        }
+    }
+
+    window.onload = function() {
+        // Regenerate item list
+        generate_sel_item_element();
+    }
+</script>
+
+<style type="text/css">
+    #sel-items-container {
+        font-size:10pt;
+        display: none;
+    }
+
+    .sel-item-container  {
+        padding-left: 15px;
+    }
+
+    .sel-item-container li i {
+        color: var(--danger);
+        font-size: 15px !important;
+    }
+</style>
+<?php } ?>
+<!-- END -->
 
 <script>
     var singleCodeSelection = <?php echo (isset($_GET['singleCodeSelection'])) ? js_escape($_GET['singleCodeSelection']) : 0 ?>;
@@ -139,6 +234,11 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
                 SelectItem(jobj);
                 <?php } ?>
             }
+
+            // @VH: Reprepare item list - [27012025]
+            <?php if ($bcpfval === true) { ?>
+                generate_sel_item_element();
+            <?php } ?>
 
         });
 
@@ -309,6 +409,13 @@ $singleCodeSelection = $_GET['singleCodeSelection'] ?? null;
         }
         echo "</div>\n";
         ?>
+
+        <?php if ($bcpfval === true) { ?>
+        <div id="sel-items-container" class="mt-2 mb-3">
+            <span><b><?php echo xlt('Selected codes'); ?></b></span>
+            <ul class="sel-item-container"></ul>
+        </div>
+        <?php } ?>
 
         <!-- Exception here: Do not use table-responsive as it breaks datatables
         note by sjp: table-responsive does not go in table but the container div!

@@ -133,9 +133,10 @@ class BillingCodeType
         global $pid;
         $patient_pid = ($frow['blank_form'] ?? null) ? 0 : $pid;
         // @VH: Patient Filter attribute - [27012025]
-        $element_attr_text = "";
+        $ele_attr = "";
         if ($this->isOption($edit_options, 'BCPF') !== false) {
-            $element_attr_text = " data-patientfilter='" . $patient_pid . "' ";
+            $ele_attr = " data-pid='" . $patient_pid . "' ";
+            $className .= ' BCPF';
         }
         // END
 
@@ -155,8 +156,8 @@ class BillingCodeType
                     }
                     
                     // @VH: [27012025]
-                    if (isOption($frow['edit_options'], 'BCPF') !== false) {
-                        $currdescstring .= $codestring . " [" . getCodeDescription($codestring, $codetype) . "]";
+                    if ($this->isOption($frow['edit_options'], 'BCPF') !== false) {
+                        $currdescstring .= $codestring . " [" . trim(getCodeDescription($codestring, $codetype)) . "]";
                     } else {
                         $currdescstring .= getCodeDescription($codestring, $codetype);
                     }
@@ -173,13 +174,26 @@ class BillingCodeType
                 " size='$fldlength'" .
                 " value='$currescaped'" .
                 " style='display:none'" .
-                " $lbfonchange readonly $disabled />";
+                " $lbfonchange readonly $disabled $ele_attr />";
+            
+            // @VH: Wrap into condition added new textarea field to show whole code list [27012025]
+            if ($this->isOption($frow['edit_options'], 'BCPF') !== false) {
+            echo "<textarea " . 
+            " name='form_$field_id_esc" . "__desc'" .
+            " size='$fldlength'" .
+            " title='$description'";
+            if (!$disabled) {
+                echo " onclick='sel_related(this," . attr_js($codetype) . ")'";
+            }
+
+            echo "class='form-control$smallform'";
+            echo " readonly $disabled >" . $currdescstring . "</textarea>";
+            } else {
             // Extra readonly input field for optional display of code description(s).
             $result[] = "<input type='text'" .
                 " name='form_$field_id_esc" . "__desc'" .
                 " size='$fldlength'" .
                 " title='$description'" .
-                $element_attr_text . 
                 " value='$currdescstring'";
             if (!$disabled) {
                 $result[] = " onclick='sel_related(this," . attr_js($codetype) . ")'";
@@ -187,6 +201,8 @@ class BillingCodeType
 
             $result[] = "class='form-control$smallform'";
             $result[] = " readonly $disabled />";
+            }
+            // END
             $result[] = "</div>";
         } else {
             $result[] = "<input type='text'" .
@@ -196,14 +212,13 @@ class BillingCodeType
                 " size='$fldlength'" .
                 " $string_maxlength" .
                 " title='$description'" .
-                $element_attr_text .  
                 " value='$currescaped'";
             if (!$disabled) {
                 $result[] = " onclick='sel_related(this," . attr_js($codetype) . ")'";
             }
 
             $result[] = "class='form-control$smallform'";
-            $result[] = " $lbfonchange readonly $disabled />";
+            $result[] = " $lbfonchange readonly $disabled $ele_attr />";
         }
         return implode("", $result);
     }

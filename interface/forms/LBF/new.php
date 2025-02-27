@@ -758,15 +758,6 @@ if (
                 sd = frcd ? frcd.value : s;
             }
             //
-            // @VH: Get patient filter - [27012025]
-            let patient_filter_id = null;
-            if (frc) {
-                patient_filter_id = frc.getAttribute('data-patientfilter');
-            } 
-            if (frcd && patient_filter_id === null) {
-                patient_filter_id = frcd.getAttribute('data-patientfilter');
-            }
-            // End
 
             if (code) {
                 if (s.length > 0) {
@@ -776,7 +767,7 @@ if (
                 s += codetype + ':' + code;
                 
                 // @VH: wrap to show code description - [27012025]
-                if (patient_filter_id !== null && patient_filter_id != "") {
+                if ((' ' + frc.className + ' ').indexOf(' BCPF ') > -1) {
                     sd += codetype + ':' + code + " [" + codedesc + "]";
                 } else {
                     sd += codedesc;
@@ -787,7 +778,35 @@ if (
             }
             frc.value = s;
             if (frcd) frcd.value = sd;
+
+            // @VH: InitBillingCodeElement - [27012025]
+            InitBillingCodeElement();
+
             return '';
+        }
+
+        // @VH: Delete selected billing code - [27012025]
+        function del_sel_related(codeval) {
+            if (!current_sel_name) {
+                return false;
+            }
+
+            let f = document.forms[0];
+            let frc = f[current_sel_name];
+
+            if (frc.value != "") {
+                let newfrc = frc.value.split(";").map(item => item.trim()).filter(item => !item.startsWith(codeval));
+                frc.value = newfrc.join("; ").trim();
+            }
+
+            var matches = current_sel_name.match(/^(.*)__desc$/);
+            if (matches) {
+                let newfrcd = f[matches[1]].value.split(";").map(item => item.trim()).filter(item => !item.startsWith(codeval));
+                f[matches[1]].value = newfrcd.join(";").trim();
+            }
+
+            // @VH: InitBillingCodeElement - [27012025]
+            InitBillingCodeElement();
         }
 
         // @VH: Delete billing code - [27012025]
@@ -805,7 +824,66 @@ if (
             if (matches) {
                 f[matches[1]].value = "";
             }
+
+            // @VH: InitBillingCodeElement - [27012025]
+            InitBillingCodeElement();
         }
+
+        // @VH: InitBillingCodeElement - [27012025]
+        function InitBillingCodeElement() {
+            let bcele = document.querySelectorAll('.BCPF');
+            bcele.forEach(function (elem, index) {
+                let current_sel_name = elem ? elem.name : '';
+                let frc = document.forms[0][current_sel_name];
+                if (current_sel_name) {
+                    frcd = document.forms[0][current_sel_name + '__desc'];
+                    if (frcd) frc = frcd; 
+                }
+
+                let bcpfelem = null;
+                if (!frc.parentElement.querySelector('.bcpf-container')) {
+                    let bcpfelem = document.createElement('div');
+                    bcpfelem.className = 'bcpf-container';
+
+                    let bcpfitemselem = document.createElement('div');
+                    bcpfitemselem.className = 'bcpf-items-container py-1';
+                    bcpfelem.appendChild(bcpfitemselem);
+
+                    let bcpfbtnelem = document.createElement('button');
+                    bcpfbtnelem.className = 'btn btn-primary btn-sm py-1 px-2 mt-1 mb-2';
+                    bcpfbtnelem.type = 'button';
+                    bcpfbtnelem.innerHTML = 'Add/Edit';
+                    bcpfbtnelem.style.fontSize = '12px';
+                    bcpfbtnelem.addEventListener("click", function(){
+                        frc.click();
+                    });
+                    bcpfelem.appendChild(bcpfbtnelem);
+
+                    frc.parentElement.appendChild(bcpfelem);
+                }
+
+                bcpfelem = frc.parentElement.querySelector('.bcpf-items-container');
+
+                if (bcpfelem) {
+                    bcpfelem.style.lineHeight ='20px';
+                    bcpfelem.innerHTML = "";
+
+                    let frci = frc.value.split(";").map(item => item.trim());
+                    frci.forEach(function (value, index) {
+                        let badgeelem = document.createElement('span');
+                        badgeelem.className = 'badge badge-secondary mr-1';
+                        badgeelem.innerHTML = value;
+                        bcpfelem.appendChild(badgeelem);
+                    });
+                }
+                frc.style.display = 'none';
+            });
+        }
+
+        // @VH: InitBillingCodeElement - [27012025]
+        $(document).ready(function() {
+            InitBillingCodeElement();
+        });
 
         // This invokes the "dynamic" find-code popup.
         function sel_related(elem, codetype) {
@@ -813,12 +891,31 @@ if (
             var url = '<?php echo $rootdir ?>/patient_file/encounter/find_code_dynamic.php';
 
             // @VH: Set patient for patient filter - [27012025]
-            let patient_filter_id = elem.getAttribute('data-patientfilter');
-            if (codetype && patient_filter_id != null) url += '&patient_id=' + patient_filter_id;
-            if (!codetype && patient_filter_id != null) url += '?patient_id=' + patient_filter_id;
+            let frc = document.forms[0][current_sel_name];
+            let matches = current_sel_name.match(/^(.*)__desc$/);
+            if (matches) frc = document.forms[0][matches[1]];
+
+            if ((' ' + frc.className + ' ').indexOf(' BCPF ') > -1) {
+                let pid_filter = frc.getAttribute('data-pid');
+                if (codetype && pid_filter != null) url += '&bcpf=1&patient_id=' + pid_filter;
+                if (!codetype && pid_filter != null) url += '?bcpf=1&patient_id=' + pid_filter;
+            }
+            // END
 
             if (codetype) url += '?codetype=' + encodeURIComponent(codetype);
-            dlgopen(url, '_blank', 800, 500);
+            let dobj = dlgopen(url, '_blank', 800, 500);
+
+            // @VH: Set code  - [27012025]
+            if ((' ' + frc.className + ' ').indexOf(' BCPF ') > -1) {
+                Promise.resolve(dobj).then(iobj => {
+                    if(iobj.modalwin) {
+                        $(iobj.modalwin).find('iframe')[0].contentWindow.codeitems = function() {
+                            return frc.value;
+                        };
+                    }
+                });
+            }
+            // END
         }
 
         // Compute the length of a string without leading and trailing spaces.
