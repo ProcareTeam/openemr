@@ -26,6 +26,9 @@ while($cnt <= $dt['tmp_rto_cnt']) {
 		$dt['rto_target_date_'.$cnt],$dt['rto_ordered_by_'.$cnt],false,
 		$dt['rto_repeat_'.$cnt],$dt['rto_stop_date_'.$cnt], $dt['rto_case_'.$cnt], $dt['rto_stat_'.$cnt], $dt['rto_encounter_'.$cnt]);
 	
+	// @VH - Save Appt reference [31012025]
+	SaveApptReference($dt['rto_id_'.$cnt], $dt['rto_appt_'.$cnt], $pid);
+
 	// @VH - Change
 	rtoBeforeSave($pid);
 
@@ -45,7 +48,10 @@ if($test) {
 		$neworderid = $test;
 	}
 
-	// Add Form Entry
+	// @VH - Save Appt reference [31012025]
+	SaveApptReference($test, $dt['rto_appt'], $pid);
+
+	// @Vh - Add Form Entry
 	addRTOFormEntry($pid, $dt['rto_encounter'], $test);
 
 	$text = CreateNoteText($dt['rto_num'],$dt['rto_frame'],$dt['rto_action'],
@@ -54,8 +60,8 @@ if($test) {
 	$title = 'New Orders';
 	$noteId = addPnote($pid,$text,$_SESSION['userauthorized'],'1',$title,$dt['rto_resp_user']);
 
-	/* OEMR - Changes */
+	// @VH - Changes
 	$relation_id = isset($noteId) && !empty($noteId) ? $noteId : NULL;
 	saveOrderLog("INTERNAL_NOTE", $test, $relation_id, NULL, $pid, 'Created', $_SESSION['authUserID']);
-	/* End */
+	// End 
 }

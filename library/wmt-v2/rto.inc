@@ -171,6 +171,27 @@ function AddRTO($thisPid,$num='',$frame='',$stat='',$note='',$resp='',$action=''
 	return $test;
 }
 
+// @VH: Save Appt Reference [31012025]
+function SaveApptReference($order_id, $eid = '', $pid = '') {
+	if (empty($order_id)) {
+		return false;
+	}
+
+	// Order reference data
+  $orderReference = sqlQuery("SELECT * FROM `vh_openemr_calendar_order_link` WHERE order_id = ?", array($order_id));
+
+  if (empty($orderReference)) {
+  		if (empty($eid)) {
+  			return false;
+  		}
+
+      // Save order reference values
+      sqlInsert("INSERT INTO `vh_openemr_calendar_order_link` ( pid, pc_eid, order_id ) VALUES (?, ?, ?) ", array($pid, $eid, $order_id));
+  } else {
+      sqlStatementNoLog("UPDATE `vh_openemr_calendar_order_link` SET `pid` = ?, `pc_eid` = ? WHERE `order_id` = ?", array($pid, $eid, $order_id));
+  }
+}
+
 function calculateRTOOffsetDate($num='', $frame='', $dt='') {
 	if($dt == '') $dt = date('Y-m-d');
 	if(!$num || !$frame) return $dt;
@@ -226,6 +247,10 @@ function DeleteRTO($thisPid, $item)
   	$sql = "DELETE FROM wmt_rto_links WHERE rto_id=? AND pid=?";
   	sqlStatement($sql, array($item, $thisPid));
 	}
+
+	// @VH: Delete appt reference [31012025]
+	sqlStatement("DELETE FROM `vh_openemr_calendar_order_link` WHERE order_id=?", array($item));
+
 	return $test;
 }
 

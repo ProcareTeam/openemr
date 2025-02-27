@@ -447,6 +447,9 @@ if($mode == 'new') {
 		$dt['rto_ordered_by_'.$cnt],false,$dt['rto_repeat_'.$cnt],
 		$dt['rto_stop_date_'.$cnt], $dt['rto_case_'.$cnt], $dt['rto_stat_'.$cnt], $dt['rto_encounter_'.$cnt]);
 
+	// @VH - Save Appt reference [31012025]
+	SaveApptReference($dt['rto_id_'.$cnt], $dt['rto_appt_'.$cnt], $pid);
+
 	// @VH - Change
 	rtoBeforeSave($pid);
 
@@ -511,6 +514,19 @@ if($newordermode === true) {
 		$rto_data = getRTObyId($pid, $id);
 	} else {
 		$rto_data = getAllRTO1($pid);
+	}
+}
+
+// @VH - Get order reference [31012025]
+foreach ($rto_data as $rkey => $rItem) {
+	$rto_data[$rkey]['rto_appt'] = "";
+
+	if (!empty($rItem['id'])) {
+		$apptReference = sqlQuery("SELECT * FROM `vh_openemr_calendar_order_link` WHERE order_id = ?", array($rItem['id']));
+
+		if (!empty($apptReference)) {
+			$rto_data[$rkey]['rto_appt'] = $apptReference['pc_eid'] ?? "";
+		}
 	}
 }
 
@@ -992,6 +1008,7 @@ function validateRtoItemChange(item = [], formData = [], cnt = 0) {
 		'rto_stop_date' : 'rto_stop_date'
 	};*/
 
+	// @VH: [31012025]
 	var fieldMappingList = {
 		'rto_action' : 'rto_action',
 		'rto_ordered_by' : 'rto_ordered_by',
@@ -1000,7 +1017,8 @@ function validateRtoItemChange(item = [], formData = [], cnt = 0) {
 		'rto_status' : 'rto_status',
 		'rto_resp_user' : 'rto_resp',
 		'rto_frame' : 'rto_frame',
-		'rto_stat' : 'rto_stat'
+		'rto_stat' : 'rto_stat',
+		'rto_appt' : 'rto_appt'
 	};
 	var dateFields = ['rto_date', 'rto_target_date', 'rto_stop_date'];
 	var checkboxFields = ['rto_stat'];

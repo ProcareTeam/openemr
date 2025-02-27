@@ -138,6 +138,9 @@ if($mode == 'new') {
 			$dt['rto_ordered_by'],false,$dt['rto_repeat'],
 			$dt['rto_stop_date'], $dt['rto_case'], $dt['rto_stat'], $dt['rto_encounter']);
 
+		// @VH - Save Appt reference [31012025]
+		SaveApptReference($rto_id, $dt['rto_appt'], $pid);
+
 		// @VH - Change
 		rtoBeforeSave($pid);
 
@@ -457,6 +460,12 @@ if(!empty($encounter_id)) {
 			sel_case(pid);
 		}
 
+		// @VH - Sel appt [31012025]
+		function selappt(ele, pid) {
+			if(ele.readOnly) return false;
+			sel_appt(pid);
+		}
+
 		<?php if($needToUpdate === true) { ?>
 		$(document).ready(function(){
 			ChangeRTOEncounter(document.getElementById('rto_encounter'));
@@ -518,6 +527,15 @@ if(!empty($encounter_id)) {
 							<span><?php echo xlt('Stat') ?>:</span>
 							<input type="checkbox" name='rto_stat' id='rto_stat' <?php echo $dt['rto_stat'] === "1" ? "checked" : "" ?> value="1">
 						</div>
+					</td>
+				</tr>
+				<!-- @VH: appt field [31012025] -->
+				<tr>
+					<td class='wmtLabel2'><?php xl('Appointment reference','e'); ?>:</td>
+					<td>
+						<input name="rto_appt" id="rto_appt" type="text" value="<?php echo $dt['rto_appt']; ?>" onclick="selappt(this, '<?php echo $pid; ?>')" class="wmtInput wmtFInput" title="Click to select" />
+					</td>
+					<td colspan="2">
 					</td>
 				</tr>
 				<tr>

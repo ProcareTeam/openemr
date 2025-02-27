@@ -24,6 +24,25 @@
 				document.getElementById('rto_case').value = case_id;
 			}
 		}
+	}	
+
+	// @VH: [31012025]
+	function sel_appt(pid, cnt = "", type = "") {
+		order_cnt = cnt;
+		order_case_type = type;
+	  	var href = "<?php echo $GLOBALS['webroot'].'/interface/main/attachment/find_appt_popup.php?pid='; ?>"+pid;
+	  	dlgopen(href, 'findAppt', 'modal-lg', '800', '', '<?php echo xlt('Appt List'); ?>');
+	}
+
+	// @VH: [31012025]
+	function setAppt(appt_id, appt_type, appt_status) {
+		if(order_cnt && order_cnt != "") {
+			var rto_appt = document.getElementById('rto_appt_'+order_cnt);
+			rto_appt.value = appt_id;
+			rto_appt.dispatchEvent(new Event('change'));
+		} else {
+			document.getElementById('rto_appt').value = appt_id;
+		}
 	}
 
 	async function checkCaseValidation(pid, r_action = false, c_id = false) {

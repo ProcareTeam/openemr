@@ -14,17 +14,29 @@ include_once($GLOBALS['srcdir']."/wmt-v2/rto.class.php");
 if(!isset($_REQUEST['pid'])) $_REQUEST['pid'] = '';
 $pid = strip_tags($_REQUEST['pid']);
 
+// @VH - Allow single selection
+$single_selection = isset($_REQUEST['single_selection']) && $_REQUEST['single_selection'] == "1" ? true : false;
+
 if($pid) {
 	?>
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Select Orders</title>
+	<title><?php echo xlt('Select Orders') ?></title>
 
 	<?php Header::setupHeader(['opener', 'dialog', 'jquery', 'jquery-ui', 'datatables', 'datatables-colreorder', 'datatables-bs', 'oemr_ad']);  ?>
 
 	<link rel="stylesheet" href="//gyrocode.github.io/jquery-datatables-checkboxes/1.2.12/css/dataTables.checkboxes.css">
 	<script type="text/javascript" src="//gyrocode.github.io/jquery-datatables-checkboxes/1.2.12/js/dataTables.checkboxes.min.js"></script>
+
+	<!-- @VH - Changes -->
+	<?php if ($single_selection === true) { ?>
+	<style type="text/css">
+		#document_results_wrapper table.dataTable th.dt-checkboxes-select-all input {
+			display: none;
+		}
+	</style>
+	<?php } ?>
 </head>
 <body>
 	<div class="table-responsive table-container datatable-container c-table-bordered o-overlay">
@@ -123,7 +135,12 @@ if($pid) {
 							'targets': 0,
 				            'checkboxes': {
 				               'selectRow': true,
-				               'selectCallback': function(nodes, selected){
+				               'selectCallback': function(nodes, selected) {
+				               		// @VH - Changes
+				               		<?php if ($single_selection === true) { ?>
+				               		selectedOrders = {};
+				               		<?php } ?>
+
 				               		$.each(nodes, function(nodeIndex, node) {
 			               				let rowData = table.row($(node).closest('tr')).data();
 			               				let row_data = rowData['row_data'];
@@ -150,6 +167,20 @@ if($pid) {
 				    details: false
 				}
 		    });
+
+		    // @VH - Changes
+		    <?php if ($single_selection === true) { ?>
+		    // Deselect all checkboxes when a new one is clicked
+		    $('#document_results tbody').on('click', 'input[type="checkbox"]', function() {
+		        var checkbox = $(this);
+		        var row = checkbox.closest('tr');
+		        
+		        // If checkbox is checked, uncheck others in the same table
+		        if (checkbox.prop('checked')) {
+		          table.$('input[type="checkbox"]').not(checkbox).prop('checked', false);
+		        }
+		    });
+		    <?php } ?>
 		});
 	</script>
 </body>

@@ -851,6 +851,19 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
 
         DOBandEncounter(isset($eid) ? $eid : null);
 
+        // @VH - Order reference save [31012025]
+        if (isset($_REQUEST['form_order']) && !empty($_POST['form_pid'] ?? "")) {
+            // Order reference data
+            $orderReference = sqlQuery("SELECT * FROM `vh_openemr_calendar_order_link` WHERE pc_eid = ?", array($eid));
+
+            if (empty($orderReference) && !empty($_REQUEST['form_order'])) {
+                // Save order reference values
+                sqlInsert("INSERT INTO `vh_openemr_calendar_order_link` ( pid, pc_eid, order_id ) VALUES (?, ?, ?) ", array($_POST['form_pid'], $eid, $_REQUEST['form_order']));
+            } else {
+                sqlStatementNoLog("UPDATE `vh_openemr_calendar_order_link` SET `pid` = ?, `order_id` = ? WHERE `pc_eid` = ?", array($_POST['form_pid'], $_REQUEST['form_order'], $eid));
+            }
+        }
+
         // @VH: - Create/Update Zoom meeting for appointment [V100023] 
         ZoomIntegration::handleZoomApptEvent($eid, $_POST['form_category'], array(
             'pc_title' => $_POST['form_title'],
@@ -862,6 +875,12 @@ if (!empty($_POST['form_action']) && ($_POST['form_action'] == "save")) {
 } elseif (!empty($_POST['form_action']) && ($_POST['form_action'] == "delete")) { //    DELETE EVENT(s)
     $appointmentService = new \OpenEMR\Services\AppointmentService();
     $appointmentService->deleteAppointment($eid, $_POST['recurr_affect'], $_POST['selected_date']);
+
+    // @VH - Delete order reference [31012025]
+    if (!empty($eid)) {
+        // Delete order reference
+        sqlStatement("DELETE FROM `vh_openemr_calendar_order_link` WHERE pc_eid=?", array($eid));
+    }
 
     // @VH: - Delete Zoom meeting for appointment [V100023]
     ZoomIntegration::handleZoomApptDeleteEvent($eid);
@@ -1570,6 +1589,50 @@ if ($groupid) {
         }
       var href = "../../forms/cases/case_list.php?mode=choose&popup=pop&pid=" + pid;
       dlgopen(href, 'findCase', 'modal-lg', '800', '', '<?php echo xlt('Case List'); ?>');
+    }
+
+    // @VH: Select order [31012025]
+    function sel_order() {
+        let pid = document.forms[0].form_pid.value;
+        let url = "../../main/attachment/msg_select_order.php?pid="+pid+'&single_selection=1';
+        let dialogObj = "";
+
+        dialogObj = dlgopen(url,'selectOrderPop', 'modal-mlg', '', '', 'Order', {
+            buttons: [
+                {text: 'Submit', close: false, click: () => { setOrder(dialogObj) }, style: 'primary documentsaveBtn btn-sm'},
+                {text: 'Close', close: true, style: 'secondary btn-sm'}
+            ],
+            sizeHeight: 'full',
+            onClosed: '',
+            type: 'iframe',
+            callBack: {call : '', args : pid}
+        });
+    }
+
+    // @VH: Set order [31012025]
+    function setOrder(dialogObj) {
+        dialogObj.then(result => {
+            if(result.modalwin) {
+                let type = 'orders';
+                let iframeContent = $(result.modalwin).find('iframe')[0].contentWindow;
+                let orderList = iframeContent.getSelectedOrderList();
+
+                if (orderList.length === 1) {
+                    let order_id = orderList[0]['data']['order_id'];
+                    let order_title = orderList[0]['text_title'];
+
+                    if (order_id != "") {
+                        document.getElementById('form_order').value = order_id;
+                        document.getElementById('order_desc').innerHTML = order_title;
+                    } else {
+                        document.getElementById('form_order').value = "";
+                        document.getElementById('order_desc').innerHTML = "";
+                    }
+                }
+
+                result.dlgContainer.modal('hide');
+            }
+        });
     }
 
     // @VH: Show patient alert info [V100020] 
@@ -2386,6 +2449,36 @@ if ($_GET['group'] === true && $have_group_global_enabled) { ?>
             </div>
         </div>
  <?php } ?>
+
+ <?php 
+// @VH: Order Field [31012025]
+if ($_GET['prov']!=true && $_GET['group']!=true) { 
+    $orderReference = sqlQuery("SELECT vocol.*, lo.title as rto_action, lo1.title as rto_status from vh_openemr_calendar_order_link vocol join form_rto fr on fr.id = vocol.order_id left join list_options lo on lo.list_id = 'RTO_Action' and lo.option_id = fr.rto_action left join list_options lo1 on lo1.list_id = 'RTO_Status' and lo1.option_id = fr.rto_status WHERE vocol.pc_eid = ?", array($eid));
+
+    $order_id = '';
+    $order_desc = '';
+
+    if (!empty($orderReference)) {
+        $order_id = $orderReference['order_id'] ?? "";
+        if (!empty($orderReference['rto_action'] ?? "")) {
+            $order_desc .= $orderReference['rto_action'];
+        }
+
+        if (!empty($orderReference['rto_status'] ?? "")) {
+            $order_desc .= " - " . $orderReference['rto_status'];
+        }
+    }
+?>
+    <div class="form-row mx-2">
+        <div class="col-sm form-group">
+             <label for="case">
+                <?php echo xlt('Order'); ?>:
+             </label>
+             <input class='form-control' type='text' name='form_order' id="form_order" style='cursor:pointer;' placeholder='<?php echo xla('Click to select'); ?>' value='<?php echo is_null($order_id) ? '' : attr($order_id); ?>' onclick='sel_order()' title='<?php echo xla('Click to select order'); ?>' required />
+             <span id="order_desc"><i><?php echo $order_desc; ?></i></span>
+        </div>
+    </div>
+<?php } ?>
 
 <?php
     //Check if repeat is using the new 'days every week' mechanism.
