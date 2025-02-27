@@ -278,6 +278,12 @@ class GenericGlobalConfig
                 ,'description' => 'Denial Approval Status'
                 ,'type' => GlobalSetting::DATA_TYPE_TEXT
                 ,'default' => ''
+            ],
+            'cmo_order_lbf_fields' => [
+                'title' => 'Order LBF Fields'
+                ,'description' => 'Order LBF Fields'
+                ,'type' => GlobalSetting::DATA_TYPE_TEXT
+                ,'default' => ''
             ]
         ];
         return $settings;

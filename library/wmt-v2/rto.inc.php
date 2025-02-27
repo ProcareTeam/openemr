@@ -186,13 +186,13 @@ foreach($rto_data as $rto) {
 				<?php } ?>
 
 				<?php 
-				$vporhData = sqlQuery("SELECT count(vporh.id) as total_count from vh_portal_order_request_history vporh WHERE  vporh.order_id = ?", array($rto['id']));
-				if(!empty($vporhData) && $vporhData['total_count'] > 0) { 
+				//$vporhData = sqlQuery("SELECT count(vporh.id) as total_count from vh_portal_order_request_history vporh WHERE  vporh.order_id = ?", array($rto['id']));
+				//if(!empty($vporhData) && $vporhData['total_count'] > 0) { 
 				?>
-					<div>
-						<button type="button" class="css_button_small lbfbtn lbfviewnotes" onClick="open_view_request_notes('<?php echo $rto['id']; ?>')"><?php echo xlt('View notes'); ?></button>
-					</div>
-				<?php } ?>
+					<!-- <div>
+						<button type="button" class="css_button_small lbfbtn lbfviewnotes" onClick="open_view_request_notes('<?php //echo $rto['id']; ?>')"><?php //echo xlt('View notes'); ?></button>
+					</div> -->
+				<?php //} ?>
 
 				<?php if(!$is_admin && $complete && 1 != 1) { ?>
 				<?php } else { ?>

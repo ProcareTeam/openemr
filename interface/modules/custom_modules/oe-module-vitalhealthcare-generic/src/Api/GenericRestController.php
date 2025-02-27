@@ -1765,7 +1765,7 @@ class GenericRestController
                     sqlStatementNoLog("UPDATE `form_rto` fr SET `rto_status` = ? WHERE `id` = ? ", array($statusValue['option_id'] ?? "", $orderId));
 
                     // Log status change history
-                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment, source) VALUES (?, ?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal, $sourceVal));
+                    $insertId = sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment, source) VALUES (?, ?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal, $sourceVal));
 
                     // Set message status
                     $processingResult->setData(array("Approved"));
@@ -1782,10 +1782,73 @@ class GenericRestController
                     sqlStatementNoLog("UPDATE `form_rto` fr SET `rto_status` = ? WHERE `id` = ? ", array($statusValue['option_id'] ?? "", $orderId));
 
                     // Log status change history
-                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment, source) VALUES (?, ?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal, $sourceVal));
+                    $insertId = sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment, source) VALUES (?, ?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal, $sourceVal));
 
                     // Set message status
                     $processingResult->setData(array("Rejected"));
+                }
+
+                if (!empty($insertId)) {
+                    $hd = sqlQuery("SELECT vporh.*, u.fname, u.lname from vh_portal_order_request_history vporh left join users u on u.email = vporh.`user` WHERE vporh.id = ? order by vporh.created_date", array($insertId));
+
+                    if (!empty($hd)) {
+                        // Exploding and trimming in one line
+                        $trimmedLBFFieldArray = array_map('trim', explode(",", $GLOBALS['cmo_order_lbf_fields']));
+
+                        $commentPrefix = "";
+                        if (!empty($hd['user'] ?? "") && !empty($hd['fname'] ?? "") && !empty($hd['lname'] ?? "")) {
+                            $commentPrefix .= $hd['fname'] . " " . $hd['lname'] . " (" . $hd['user'] . ")";
+                        }
+
+                        if (!empty($hd['created_date'] ?? "")) {
+                            $commentPrefix .= " - " . $hd['created_date'];
+                        }
+
+                        if (!empty($hd['source'] ?? "")) {
+                            $commentPrefix .= " - " . $hd['source'];
+                        }
+
+                        $commentPrefix = $commentPrefix . (!empty($hd['comment'] ?? "") ? " - " . $hd['comment'] : "");
+
+                        if (!empty($commentPrefix)) {
+                            $rtoresponce = sqlStatement("SELECT fol.rto_id, fol.form_id, fol.formdir, lo.field_id, ld.field_id as lbf_field_id, ld.field_value, lgp.grp_rto_action, fr.rto_notes from form_rto fr left join form_order_layout fol on fr.id = fol.rto_id join layout_group_properties lgp left join layout_options lo on lo.form_id = fol.formdir and lo.field_id in ('" . implode("','", $trimmedLBFFieldArray) . "') and lo.list_id = '' left join lbf_data ld on ld.form_id = fol.form_id and lo.field_id = ld.field_id where fr.id = ? and lgp.grp_rto_action = fr.rto_action", array($orderId));
+                            
+                            $lbfList = array();
+                            while ($rtorow = sqlFetchArray($rtoresponce)) {
+                                $lbfList[] = $rtorow;
+                            }
+
+                            if (empty($lbfList)) {
+                                $rtd = sqlQuery("SELECT rto_notes FROM form_rto fr WHERE fr.id = ?", array($orderId));
+
+                                if (!empty($rtd)) {
+                                    $current_field_value = $rtd['rto_notes'] ?? "";
+                                    $current_field_value .= "\n" . $commentPrefix;
+                                
+                                    // Update log
+                                    sqlStatement("UPDATE `form_rto` SET rto_notes = ? WHERE id = ?", array($current_field_value, $orderId));
+                                }
+                            } else if (!empty($lbfList)) {
+                                foreach ($lbfList as $lbfItem) {
+                                    if (!empty($lbfItem['form_id'] ?? "") && !empty($lbfItem['field_id'] ?? "")) {
+                                        if (empty($lbfItem['lbf_field_id'] ?? "")) {
+                                            $current_field_value = $lbfItem['field_value'] ?? "";
+                                            $current_field_value .= "\n" . $commentPrefix;
+
+                                            // Insert log
+                                            sqlInsert("INSERT INTO `lbf_data` (`form_id`, `field_id`, `field_value`) VALUES (?, ?, ?) ", array($lbfItem['form_id'], $lbfItem['field_id'], $current_field_value));
+                                        } else {
+                                            $current_field_value = $lbfItem['field_value'] ?? "";
+                                            $current_field_value .= "\n" . $commentPrefix;
+
+                                            // Update log
+                                            sqlStatement("UPDATE `lbf_data` SET field_value = ? WHERE form_id = ? AND field_id = ?", array($current_field_value, $lbfItem['form_id'], $lbfItem['field_id']));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Log status value change
