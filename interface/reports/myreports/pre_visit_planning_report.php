@@ -881,7 +881,12 @@ function prepareDataTableData($row_item = array(), $columns = array(), $rowDataS
 				$actionItems = array();
 				while($row = sqlFetchArray($actionItemsRes)) {
 					$action_item_title = $row['action_item'] ?? "";
-					$action_item_title .= " (" . $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname'] . ")";
+					if(substr($row['owner'],0,4) == 'GRP:') {
+						$grpData = sqlQuery("SELECT `option_id` AS username, `title` AS lname, `notes` AS fname FROM `list_options` WHERE `list_id` = 'Messaging_Groups' AND `option_id` = ?", array(substr($row['owner'],4)));
+						$action_item_title .="(" . $grpData['lname'] . ")";
+					} else {
+						$action_item_title .= " (" . $row['lname'] . ', ' . $row['fname'] . ' ' . $row['mname'] . ")";
+					}
 					$fieldHtml[] = $action_item_title;
 				}
 
