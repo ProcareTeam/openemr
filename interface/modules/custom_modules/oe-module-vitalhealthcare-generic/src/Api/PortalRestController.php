@@ -50,7 +50,11 @@ class PortalRestController
         $sortingOrder = isset($searchParams["sorting_order"]) && $searchParams["sorting_order"] != "" ? $searchParams["sorting_order"] : "";
 
         // Calculate the offset for the SQL query
+		$pageOffset = 0;
+
+        if ($limitParam != "all") {
 		$pageOffset = ($pageParam - 1) * $limitParam;
+		}
 
 
         try {
@@ -128,7 +132,11 @@ class PortalRestController
 
 	            //$orderBySql = " ORDER BY fc.case_dt DESC ";
 
-	            $patientSql .= " WHERE " . $whereSql . $orderBySql . " LIMIT " . $pageOffset . ", " . $limitParam;
+	            $patientSql .= " WHERE " . $whereSql . $orderBySql;
+
+	            if ($limitParam != "all") {
+	            	$patientSql .= " LIMIT " . $pageOffset . ", " . $limitParam;
+	            }
 
 	            // Patient Sql
 	            $patientTotalSql .= " WHERE " . $whereSql;
@@ -197,7 +205,7 @@ class PortalRestController
 
 	            //$processingResultResponce = RestControllerHelper::handleProcessingResult($processingResult, 200, true);
 
-	            if (!empty($resData)) {
+	            if (!empty($resData) && $limitParam != "all") {
 	            	// Set total count
 		            $totalRecords = sqlQuery($patientTotalSql);
 
