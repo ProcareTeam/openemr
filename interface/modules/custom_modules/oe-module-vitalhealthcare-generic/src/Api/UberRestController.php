@@ -67,7 +67,7 @@ class UberRestController
 				}
 				
 	            if (isset($_REQUEST['action'])) {
-		            if ($_REQUEST['action'] == "status_change") {
+		            if ($_REQUEST['action'] == "status_changed") {
 			            if ($event_type == "health.status_changed") {
 
 			            	// Create uber controller
@@ -75,6 +75,16 @@ class UberRestController
 
 							$ubController->saveTripDetails($resource_id);
 			            }
+		        	} else if ($_REQUEST['action'] == "driver_location") {
+		        		if ($event_type == "health.driver_location") {
+		        			$dataInfo = $decode['data'] ?? array();
+		        			$locationInfo = $dataInfo['location'] ?? array();
+
+		        			// Create uber controller
+							$ubController = new UberController();
+
+							$ubController->updateDriverLocationDetails($resource_id, $locationInfo);
+		        		}
 		        	}
 	        	}
 	        }
