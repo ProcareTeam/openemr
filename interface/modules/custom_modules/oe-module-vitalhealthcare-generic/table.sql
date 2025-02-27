@@ -321,6 +321,15 @@ CREATE TABLE `vh_uber_health_trips` (
   PRIMARY KEY (`id`)
 );
 #EndIf
+
+#IfMissingColumn vh_uber_health_trips driver_location_lat
+ALTER TABLE `vh_uber_health_trips` ADD COLUMN `driver_location_lat` DECIMAL(10, 6) DEFAULT NULL AFTER `trip_schedule_time`;
+#EndIf
+
+#IfMissingColumn vh_uber_health_trips driver_location_lng
+ALTER TABLE `vh_uber_health_trips` ADD COLUMN `driver_location_lng` DECIMAL(10, 6) DEFAULT NULL AFTER `driver_location_lat`;
+#EndIf
+
 #IfNotTable vh_addresses_geocode
 CREATE TABLE `vh_addresses_geocode` (
   `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
@@ -331,7 +340,7 @@ CREATE TABLE `vh_addresses_geocode` (
   PRIMARY KEY (`id`)
 );
 #EndIf
-#IfNotTable vh_uber_health_trips
+#IfNotTable vh_uber_health_token
 CREATE TABLE `vh_uber_health_token` (
   `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
   `client_id` varchar(255) DEFAULT NULL,
@@ -342,6 +351,7 @@ CREATE TABLE `vh_uber_health_token` (
   PRIMARY KEY (`id`)
 );
 #EndIf
+
 #IfNotTable vh_uber_health_trips_log
 CREATE TABLE `vh_uber_health_trips_log` (
   `id` bigint(21) unsigned NOT NULL AUTO_INCREMENT,
@@ -364,5 +374,9 @@ CREATE TABLE `vh_portal_order_request_history` (
   `created_date` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
    PRIMARY KEY (`id`)
 );
+#EndIf
+
+#IfMissingColumn vh_portal_order_request_history source
+ALTER TABLE `vh_portal_order_request_history` ADD COLUMN `source` varchar(255) DEFAULT NULL AFTER `user`;
 #EndIf
 

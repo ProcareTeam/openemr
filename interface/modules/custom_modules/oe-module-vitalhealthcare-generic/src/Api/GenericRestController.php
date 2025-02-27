@@ -1728,6 +1728,7 @@ class GenericRestController
                 $orderId = $bodyJSONParams['order_id'] ?? "";
                 $userEmail = $bodyJSONParams['user_email'] ?? "";
                 $commentVal = $bodyJSONParams['comment'] ?? "";
+                $sourceVal = $bodyJSONParams['source'] ?? "";
 
                 if(empty($orderId)) {
                     throw new \Exception("Required order id");
@@ -1761,7 +1762,7 @@ class GenericRestController
                     sqlStatementNoLog("UPDATE `form_rto` fr SET `rto_status` = ? WHERE `id` = ? ", array($statusValue['option_id'] ?? "", $orderId));
 
                     // Log status change history
-                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment) VALUES (?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal));
+                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment, source) VALUES (?, ?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal, $sourceVal));
 
                     // Set message status
                     $processingResult->setData(array("Approved"));
@@ -1778,7 +1779,7 @@ class GenericRestController
                     sqlStatementNoLog("UPDATE `form_rto` fr SET `rto_status` = ? WHERE `id` = ? ", array($statusValue['option_id'] ?? "", $orderId));
 
                     // Log status change history
-                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment) VALUES (?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal));
+                    sqlInsert("INSERT INTO `vh_portal_order_request_history` (order_id, user, order_status, request, comment, source) VALUES (?, ?, ?, ?, ?, ?)", array($orderId, $userEmail, $statusValue['option_id'] ?? "", $searchParams['action'], $commentVal, $sourceVal));
 
                     // Set message status
                     $processingResult->setData(array("Rejected"));
