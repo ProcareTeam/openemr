@@ -30,7 +30,20 @@
 	function sel_appt(pid, cnt = "", type = "") {
 		order_cnt = cnt;
 		order_case_type = type;
-	  	var href = "<?php echo $GLOBALS['webroot'].'/interface/main/attachment/find_appt_popup.php?pid='; ?>"+pid;
+	  	let rto_case = null;
+
+		if (order_cnt == "") {
+			rto_case = document.getElementById('rto_case');
+		} else if (order_cnt != "") {
+			rto_case = document.getElementById('rto_case_'+order_cnt);
+		}
+
+		if (!rto_case || rto_case.value == "") {
+			alert("Please select case");
+			return false;
+		}
+
+	  	var href = "<?php echo $GLOBALS['webroot'].'/interface/main/attachment/find_appt_popup.php?pid='; ?>" + pid + "&case_id=" + rto_case.value;
 	  	dlgopen(href, 'findAppt', 'modal-lg', '800', '', '<?php echo xlt('Appt List'); ?>');
 	}
 
