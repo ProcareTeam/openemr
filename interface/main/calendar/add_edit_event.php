@@ -1372,6 +1372,12 @@ if ($groupid) {
             $('[data-toggle-distance="tooltip"]').tooltip({
                 items: "[title]",
                 content: function () {
+                    let isLoaded = $('[data-toggle-distance="tooltip"]').data('loaded');
+                    if (!isLoaded || isLoaded == "0") {
+                        $('[data-toggle-distance="tooltip"]').data('loaded', "1");
+                        getGeocodedetails();
+                    }
+
                     // Get the title attribute
                     var title = $(this).attr('title');
                     // Remove the title attribute to prevent default tooltip
@@ -1392,7 +1398,7 @@ if ($groupid) {
             });
             
             // Get geocode details
-            getGeocodedetails();
+            //getGeocodedetails();
         });
     <?php } ?>
     // Get geocode details
@@ -1422,6 +1428,7 @@ if ($groupid) {
                 $('.facility_distance').attr("title", distanceInfo);
             },
             error: function(xhr, status, error) {
+                $('.facility_distance').data('loaded', "0");
                 // Try to parse the JSON response from the server
                 var errorResponse = JSON.parse(xhr.responseText);
                 $('.facility_distance').attr("title", "<div class='facility_distance_container'><span>"+ errorResponse.message +" </span></div>");
@@ -1670,7 +1677,7 @@ if ($groupid) {
 
         // @VH: Selected facility does not have valid address
         let selectedFacilityOption = $("select[name='facility'] option[value='" + form_facility_val + "']");
-        
+
         if (selectedFacilityOption && selectedFacilityOption.data('ubfacilitylocation') != "1") {
             alert("Selected facility not have valid address.");
             return false;
